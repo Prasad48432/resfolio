@@ -25,12 +25,41 @@ apps/web
 
 # Status
 
-This app is currently a scaffold only — a placeholder page and the shared
-tooling conventions (TypeScript, ESLint, Next.js App Router). No dashboard
-functionality has been built yet. Treat anything beyond `app/layout.tsx` and
-`app/page.tsx` as a green field: there is no existing pattern to preserve here,
-so use current Next.js best practices from `node_modules/next/dist/docs/` when
-adding real features.
+Phase 2 is built: auth (Better Auth via `@resfolio/auth`), the app shell
+(sidebar + top bar + `cmd+k` palette), and Settings → account with linked
+accounts. Feature routes (`/profile`, `/resumes`, `/portfolio`, `/domains`)
+are `ComingSoon` placeholders until their phases land. Use current Next.js
+best practices from `node_modules/next/dist/docs/` when adding features.
+
+## Established conventions (follow these)
+
+- **Route groups**: `(auth)` = minimal-chrome public screens (`/login`);
+  `(dashboard)` = everything behind `requireSession` (its layout verifies
+  the session server-side and renders `AppShell`).
+- **Route guarding is three layers deep** (doc 10): `proxy.ts` does an
+  _optimistic_ cookie-presence redirect (never trusted), the `(dashboard)`
+  layout verifies via `requireSession`, and every Server Action resolves
+  the session itself through the action helper.
+- **Server Actions** are built with `createAction` from `lib/actions.ts`:
+  resolve session → parse with Zod → call handler → typed `ActionResult<T>`
+  (`lib/action-result.ts`). Actions contain no logic; throw `ActionError`
+  for expected failures. Unexpected errors are logged + sent to Sentry and
+  the client sees a generic message.
+- **Env**: compose slices from `@resfolio/env` in `lib/env.ts`; the app
+  reads only observability vars directly — auth/database vars are
+  validated by their own packages. `.env.example` documents local setup.
+- **Test ids**: every interactive element gets a `data-testid` from the
+  `lib/testids.ts` registry (static keys or the exported helper functions).
+- **Nav**: `lib/navigation.ts` is the single IA source consumed by the
+  sidebar and the command palette — extend it there, never in components.
+- **Unit tests** (`vitest`): co-located `lib/**/*.test.ts`. **E2E**
+  (`playwright`): `e2e/` runs the real OAuth dance against a local mock
+  authorization server (`AUTH_E2E_MOCK_ISSUER`, localhost-only by
+  construction). Locally: start docker Postgres (host port 5433), build the
+  app, then `pnpm test:e2e`.
+- **Security headers/CSP** live in `next.config.ts`; update the CSP when
+  adding an external origin (images, connect). Nonce-based CSP is a
+  planned hardening (doc 10).
 
 ---
 
@@ -78,6 +107,11 @@ Shared packages
   `@source "../../../packages/ui/src";` so Tailwind scans the package's
   classes; keep it if you move the CSS file.
 - `@resfolio/env` — the only sanctioned reader of `process.env`
+- `@resfolio/auth` — Better Auth server instance + `requireSession`;
+  client components import `@resfolio/auth/client`; the proxy imports
+  `@resfolio/auth/cookies` (edge-safe, no DB)
+- `@resfolio/observability` — `createLogger(scope)` + Sentry helpers,
+  wired in `instrumentation.ts` / `instrumentation-client.ts`
 - `@resfolio/eslint-config`, `@resfolio/typescript-config`
 
 Styling rules: use semantic token utilities (`bg-surface`, `text-muted`,

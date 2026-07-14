@@ -13,3 +13,7 @@
  */
 export { createAppEnv } from "./create-app-env";
 export { sharedRuntime } from "./slices/shared";
+export { database } from "./slices/database";
+export { auth } from "./slices/auth";
+export { ratelimit } from "./slices/ratelimit";
+export { observability } from "./slices/observability";

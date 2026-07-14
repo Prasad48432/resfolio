@@ -1,0 +1,29 @@
+{
+  "name": "@resfolio/observability",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./sentry-client": "./src/sentry-client.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@resfolio/env": "workspace:*",
+    "@sentry/nextjs": "^10.65.0",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.0.0"
+  },
+  "devDependencies": {
+    "@resfolio/eslint-config": "workspace:*",
+    "@resfolio/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.0"
+  }
+}

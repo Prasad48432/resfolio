@@ -13,10 +13,13 @@ pnpm install
 pnpm dev          # web on :3000, dashboard on :3001
 ```
 
-Local infrastructure (Postgres + Redis, needed from Phase 2 on):
+Local infrastructure (Postgres on host port **5433** + Redis, needed from
+Phase 2 on) and the dashboard's env:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
+cp apps/dashboard/.env.example apps/dashboard/.env.local   # then fill it in
+pnpm --filter @resfolio/database db:migrate                # needs DATABASE_URL
 ```
 
 All checks, exactly as CI runs them:
@@ -36,6 +39,9 @@ pnpm turbo lint typecheck test build
 | `packages/design`                                      | The design system: Tailwind v4 `@theme` tokens, base styles (CSS-only)           |
 | `packages/ui`                                          | Shared UI primitives (shadcn/ui pattern; import from the package root)           |
 | `packages/env`                                         | Validated environment access — the only code allowed to read `process.env`       |
+| `packages/database`                                    | Drizzle client + schema + migrations over Postgres (the system of record)        |
+| `packages/auth`                                        | Better Auth: Google + GitHub social login, sessions, account linking             |
+| `packages/observability`                               | Pino logging (redacted) + Sentry wiring                                          |
 | `packages/eslint-config`, `packages/typescript-config` | Shared tooling presets                                                           |
 | `domains/`                                             | Business logic packages (planned, Phase 3+) — the reusable core                  |
 | `templates/`                                           | Resume & portfolio templates behind the Template SDK (planned, Phase 4+)         |

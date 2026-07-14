@@ -18,11 +18,12 @@ type EnvOptions = Parameters<typeof createEnv>[0];
  * });
  * ```
  */
-export function createAppEnv<T extends EnvOptions>(options: T) {
-  return createEnv({
+export const createAppEnv = ((options: EnvOptions) =>
+  createEnv({
     // Platform dashboards often store unset optional vars as "" — treat
     // them as absent so `.optional()` behaves as expected.
     emptyStringAsUndefined: true,
     ...options,
-  });
-}
+    // Cast preserves createEnv's generic signature — a plain wrapper
+    // function would collapse the inference and type every var undefined.
+  })) as typeof createEnv;

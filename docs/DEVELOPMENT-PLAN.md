@@ -51,6 +51,17 @@ single atomic PR, typecheck as the net).
 
 ## Phase 2 — Database, auth, and the dashboard shell
 
+**Status: complete (2026-07-14).** All deliverables landed. Remaining user
+actions (need account access): create the Google + GitHub OAuth apps and
+set the dashboard env vars in Vercel (`DATABASE_URL`, `BETTER_AUTH_*`,
+provider secrets; optionally `UPSTASH_*`, `SENTRY_DSN`/
+`NEXT_PUBLIC_SENTRY_DSN`), pick the managed Postgres host (doc 07 open
+question) and run migrations against it, then verify Google + GitHub
+sign-in on a real preview deploy (the one exit criterion that can't run
+locally — the e2e journey covers the flow with mocked OAuth). Sentry
+source-map upload in CI is deferred until a Sentry project +
+`SENTRY_AUTH_TOKEN` exist.
+
 **Goal:** a real authenticated product shell. Docs: [10](architecture/10-auth-and-security.md), [07](architecture/07-storage.md), [08](architecture/08-dashboard-ux.md).
 
 - `packages/database` (`@resfolio/database`): Drizzle client + migrations;

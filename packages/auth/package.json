@@ -1,0 +1,34 @@
+{
+  "name": "@resfolio/auth",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./cookies": "./src/cookies.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "db:generate-schema": "better-auth generate --config src/auth.ts --output ../database/src/schema/auth.ts --yes"
+  },
+  "dependencies": {
+    "@resfolio/database": "workspace:*",
+    "@resfolio/env": "workspace:*",
+    "@resfolio/observability": "workspace:*",
+    "@upstash/redis": "^1.38.0",
+    "better-auth": "^1.6.23",
+    "next": "16.2.0",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
+    "@resfolio/eslint-config": "workspace:*",
+    "@resfolio/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.2",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

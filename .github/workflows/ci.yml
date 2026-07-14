@@ -14,6 +14,16 @@ env:
   # Set TURBO_TOKEN as a repo secret and TURBO_TEAM as a repo variable.
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+  # Build-time stand-ins so @resfolio/env validation passes in CI. Server
+  # vars are read at runtime, never baked into the build; real values live
+  # in Vercel project settings.
+  DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+  BETTER_AUTH_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+  BETTER_AUTH_URL: http://localhost:3001
+  GOOGLE_CLIENT_ID: ci-google
+  GOOGLE_CLIENT_SECRET: ci-google-secret
+  GITHUB_CLIENT_ID: ci-github
+  GITHUB_CLIENT_SECRET: ci-github-secret
 
 jobs:
   verify:
@@ -39,3 +49,53 @@ jobs:
 
       - name: Lint, typecheck, test, build
         run: pnpm turbo lint typecheck test build
+
+  e2e:
+    name: E2E (mocked OAuth)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: resfolio
+          POSTGRES_PASSWORD: resfolio
+          POSTGRES_DB: resfolio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U resfolio"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://resfolio:resfolio@localhost:5432/resfolio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter dashboard exec playwright install --with-deps chromium
+
+      - name: Build dashboard
+        run: pnpm turbo build --filter=dashboard
+
+      - name: Run e2e journeys
+        run: pnpm --filter dashboard test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/dashboard/test-results/
+          retention-days: 7

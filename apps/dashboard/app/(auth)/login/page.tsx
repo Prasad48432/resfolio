@@ -1,0 +1,54 @@
+import { getSignInProviders } from "@resfolio/auth";
+import type { Metadata } from "next";
+
+import { TEST_IDS } from "@/lib/testids";
+
+import { LoginButtons } from "./login-buttons";
+
+export const metadata: Metadata = {
+  title: "Sign in — Resfolio",
+};
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const providers = getSignInProviders();
+
+  return (
+    <div
+      className="flex w-full max-w-sm flex-col items-center gap-8"
+      data-testid={TEST_IDS.loginPage}
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className="label-eyebrow">Resfolio</p>
+        <h1 className="font-display text-4xl text-foreground">
+          Sign in to your <em className="text-accent">Career OS</em>
+        </h1>
+        <p className="max-w-xs text-sm leading-relaxed text-muted">
+          One profile that powers your resume, portfolio, and personal site.
+        </p>
+      </div>
+
+      <div className="card-surface flex w-full flex-col gap-3 p-6">
+        <LoginButtons providers={providers} />
+        {error ? (
+          <p
+            className="text-center text-xs text-accent"
+            role="alert"
+            data-testid={TEST_IDS.loginError}
+          >
+            Sign-in didn&rsquo;t complete. Please try again.
+          </p>
+        ) : null}
+      </div>
+
+      <p className="max-w-xs text-center text-xs leading-relaxed text-muted">
+        No passwords — we only ask Google or GitHub who you are. New here?
+        Signing in creates your account.
+      </p>
+    </div>
+  );
+}

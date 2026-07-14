@@ -39,8 +39,10 @@ V1 supports exactly two providers — **Google** (covers Gmail users) and
   connected content source" ships later, it uses a **separate** integration
   OAuth flow with its own token storage — login scopes never fatten to serve
   data import.
-- Phase 2 fallback for the residual "neither provider" audience: **magic
-  links** via Resend (passwordless keeps the no-password property). Password
+- Planned fallback for the residual "neither provider" audience: **magic
+  links** via Resend (passwordless keeps the no-password property) — an
+  additive Better Auth plugin, shipped when demand shows rather than in the
+  Phase 2 build (the development plan never scheduled it there). Password
   auth is not planned.
 
 **Account linking**: enabled, keyed on verified email with both providers

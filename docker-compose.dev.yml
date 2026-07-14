@@ -10,7 +10,8 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      # Host 5433: leaves room for a natively installed Postgres on 5432.
+      - "5433:5432"
     environment:
       POSTGRES_USER: resfolio
       POSTGRES_PASSWORD: resfolio

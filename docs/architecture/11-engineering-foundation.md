@@ -160,8 +160,12 @@ conventions changed · no new `process.env`, `any`, or `dangerouslySetInnerHTML`
   `domains → apps`, public-API-only imports — eslint-plugin-boundaries?) —
   adopt once the domain packages exist; boundary linting is likely worth it
   early.
-- OAuth mocking approach for e2e (Better Auth test helpers vs. a fake
-  provider) — decide during auth implementation.
+- OAuth mocking approach for e2e — **decided (Phase 2)**: a tiny local
+  OAuth2 authorization server (`apps/dashboard/e2e/mock-oauth-server.ts`)
+  plus two `genericOAuth` mock providers registered by `@resfolio/auth`
+  only when `AUTH_E2E_MOCK_ISSUER` is set; the instance refuses to boot
+  unless that issuer is localhost. The e2e suite drives the real
+  redirect → consent → callback → session flow, including account linking.
 - Lighthouse CI on PRs from day one vs. post-launch — leaning post-launch
   with manual checks until pages stabilize.
 

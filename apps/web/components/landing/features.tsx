@@ -84,7 +84,7 @@ function Demo({ kind }: { kind: DemoKind }) {
             </span>
           </div>
           <div className="mt-2 text-muted">↳ propagates to</div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-foreground/75">
+          <div className="mt-2 grid grid-cols-3 gap-2 text-foreground/75 md:hidden">
             {["portfolio", "resume.pdf", "/api/me"].map((t) => (
               <span
                 key={t}
@@ -93,6 +93,124 @@ function Demo({ kind }: { kind: DemoKind }) {
                 {t}
               </span>
             ))}
+          </div>
+
+          <div className="hidden md:grid grid-cols-3 gap-2">
+            <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_10px_26px_rgba(38,32,25,0.10)]">
+              {/* Browser chrome */}
+              <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <span className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
+                </span>
+
+                <span className="ml-auto flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
+                  <span className="h-2 w-2 rounded-full bg-live" />
+                  alex.dev
+                </span>
+              </div>
+
+              {/* Hero */}
+              <div className="bg-linear-to-br from-accent/12 to-transparent px-5 py-5">
+                <div className="h-14 w-14 rounded-full border border-border bg-foreground/8" />
+                <div className="mt-4 h-3 w-36 rounded-full bg-foreground/10" />
+              </div>
+
+              {/* Work grid */}
+              <div className="flex flex-1 flex-col gap-4 px-5 pb-5">
+                <div className="h-2 w-24 rounded-full bg-foreground/8" />
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i}>
+                      <div className="aspect-4/3 rounded-xl border border-border bg-foreground/8" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-[0_10px_26px_rgba(38,32,25,0.10)]">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border px-2 py-0.5">
+                  <span className="h-2 w-2 rounded-full bg-live" />
+                  resume.pdf
+                </span>
+
+                <div className="h-3 w-16 rounded-full bg-foreground/10" />
+              </div>
+
+              {/* Name */}
+              <div className="mt-5 h-7 w-40 rounded-full bg-foreground/10" />
+
+              {/* Role */}
+              <div className="mt-2 h-4 w-28 rounded-full bg-foreground/8" />
+
+              <div className="mt-5 border-t border-border pt-4">
+                {/* Experience heading */}
+                <div className="h-3 w-24 rounded-full bg-foreground/10" />
+
+                <div className="mt-4 flex flex-col gap-5">
+                  {[1].map((i) => (
+                    <div key={i}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="h-4 w-32 rounded-full bg-foreground/10" />
+                        <div className="h-3 w-16 rounded-full bg-foreground/8" />
+                      </div>
+
+                      <div className="mt-2 h-3 w-24 rounded-full bg-foreground/8" />
+
+                      <div className="mt-3 h-2 w-4/5 rounded-full bg-foreground/8" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col justify-center overflow-hidden rounded-2xl border border-border bg-surface p-5 shadow-[0_6px_18px_rgba(38,32,25,0.06)]">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="font-mono text-xs uppercase tracking-wider text-muted">
+                  GET /api/me
+                </span>
+
+                <span className="rounded bg-live/12 px-1 py-0.5 font-mono text-xs font-semibold text-live">
+                  200
+                </span>
+              </div>
+
+              <div className="space-y-2 font-mono text-sm leading-6">
+                <div>
+                  <span className="text-foreground/50">{"{"}</span>
+                </div>
+
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-accent">{'"name"'}</span>
+                  <span>:</span>
+                  <div className="h-3 w-24 rounded-full bg-live/25" />
+                </div>
+
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-accent">{'"age"'}</span>
+                  <span>:</span>
+                  <div className="h-3 w-8 rounded-full bg-foreground/10" />
+                </div>
+
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-accent">{'"role"'}</span>
+                  <span>:</span>
+                  <div className="h-3 w-32 rounded-full bg-live/25" />
+                </div>
+
+                <div className="flex items-center gap-2 pl-4">
+                  <span className="text-accent">{'"synced"'}</span>
+                  <span>:</span>
+                  <div className="h-3 w-16 rounded-full bg-foreground/10" />
+                </div>
+
+                <div>
+                  <span className="text-foreground/50">{"}"}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -228,7 +346,7 @@ export default function Features() {
               whileInView="visible"
               viewport={viewport}
               variants={fadeUp}
-              transition={staggerTransition(i)}
+              transition={staggerTransition(i + 1)}
               data-testid={`feature-${it.title
                 .toLowerCase()
                 .replace(/[^a-z]+/g, "-")
