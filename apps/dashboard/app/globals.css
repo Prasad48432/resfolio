@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "@resfolio/design";
+
+/* Tailwind must scan workspace UI package sources for class detection. */
+@source "../../../packages/ui/src";
+
+/* Dashboard-specific styles only below this line — shared tokens, body
+   base, focus/selection, and .card-surface classes come from
+   @resfolio/design. */

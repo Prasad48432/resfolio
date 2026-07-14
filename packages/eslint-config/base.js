@@ -19,6 +19,19 @@ export const config = [
     },
     rules: {
       "turbo/no-undeclared-env-vars": "warn",
+      // Configuration is read through @resfolio/env (validated with Zod at
+      // boot) — never from process.env directly. See
+      // docs/architecture/11-engineering-foundation.md. @resfolio/env itself
+      // opts out of this rule in its own eslint config.
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "process",
+          property: "env",
+          message:
+            "Read configuration through @resfolio/env, not process.env.",
+        },
+      ],
     },
   },
   {

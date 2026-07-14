@@ -1,0 +1,99 @@
+{
+    "brand_name": "Resfolio",
+    "theme": "light",
+    "typography": {
+      "heading_font": "Instrument Serif, serif",
+      "body_font": "Manrope, sans-serif",
+      "rules": {
+        "h1": "text-5xl md:text-6xl lg:text-7xl font-normal tracking-tight leading-none",
+        "h2": "text-4xl md:text-5xl font-normal tracking-tight",
+        "h3": "text-2xl md:text-3xl font-normal",
+        "body": "text-base md:text-lg text-white/70 leading-relaxed font-light",
+        "labels": "text-xs uppercase tracking-[0.2em] text-white/50 font-semibold"
+      },
+      "instructions_to_main_agent": "Import Instrument Serif and Manrope via Google Fonts. Do NOT use Inter for headings. Keep headings normal weight (not bold) to let the serif shine elegantly. Use very tight tracking on the display serifs."
+    },
+    "colors": {
+      "background": "#F6F1E8",
+      "surface": "#FFFDF9",
+      "surface_warm": "#FBF3EA",
+      "border": "#E7DCCB",
+      "text_primary": "#262019",
+      "text_secondary": "#6F6455",
+      "text_muted": "#6F6455",
+      "accent": "#F0592B",
+      "accent_soft": "#FF6A3D",
+      "accent_foreground": "#FFFFFF",
+      "instructions_to_main_agent": "Warm-cream light theme. Base #F6F1E8, cards #FFFDF9 with soft shadows (not glows). Warm near-black ink #262019 for headings, #6F6455 for body. Burnt-orange accent #F0592B used sparingly (eyebrows, italic emphasis, primary CTAs, active states). Primary CTA is a rounded solid orange button with white text; secondary buttons are border + surface. Tokens live in app/globals.css @theme — consume them (bg-surface, text-foreground, text-muted, border-border, bg-accent), never hard-code hex or white/xx for foreground."
+    },
+    "layouts": {
+      "spacing": "Generous spacing. Use py-24 to py-32 for section padding. gap-8 to gap-16 between elements.",
+      "container": "max-w-7xl mx-auto px-6 lg:px-8",
+      "bento_grid": "Use asymmetrical bento layouts for the Feature Grid (e.g., 2 large cards, 2 small cards spanning different columns) instead of a boring 2x2 symmetrical grid.",
+      "hero": "Two columns on desktop: Left side for copy (left-aligned) and waitlist form. Right side for the live 'one source -> resume / portfolio / API' dashboard graphic. Top pill for positioning."
+    },
+    "visual_enhancers": {
+      "glassmorphism": "Sticky nav: an always-present border whose color fades from transparent to border on scroll (never toggled on/off), plus rgba(246,241,232,0.8) + backdrop-blur only once scrolled. scrollbar-gutter: stable on html prevents hairline flicker.",
+      "borders": "1px solid border-border on cards and sections to create crisp, warm edges.",
+      "glow": "No dark-theme glows. Use very subtle warm radial washes (accent at 4-10% alpha) behind CTAs; cards rely on soft drop shadows.",
+      "hero_graphic": "Render the hero visual as real DOM mini-components (a central profile wired to a live resume, a template-switching portfolio, and a JSON API), NOT an image. Keep it cheap: one shared setInterval, transform/opacity + SVG stroke-dashoffset only, no blur/backdrop-filter/SMIL, honor prefers-reduced-motion."
+    },
+    "motion": {
+      "scroll": "Use framer-motion for smooth staggered fade-up entrances for text and cards when scrolling into view.",
+      "hover": "Cards should slightly lift (-translate-y-1) on hover. Integration/brand marks transition from muted to full foreground on hover.",
+      "floating": "Avoid heavy per-frame animation on the hero. Cheap CSS transform/opacity loops only."
+    },
+    "accessibility": {
+      "contrast": "Ensure all text-to-background contrast ratios pass WCAG AA. Text over any gradients or images must have a shadow or dark overlay behind it.",
+      "focus": "All focusable elements (inputs, buttons) must have a visible focus ring focus:ring-2 focus:ring-white/50.",
+      "test_ids": "CRITICAL: Add meaningful `data-testid` attributes to all interactive elements, forms, accordions, and buttons (e.g., `data-testid='hero-waitlist-input'`)."
+    },
+    "media": {
+      "image_urls": {
+        "note": "The landing page uses NO stock/hero imagery. The hero visual and the portfolio preview are both rendered as real DOM mini-components (see visual_enhancers.hero_graphic and the Portfolio Preview component below)."
+      },
+      "icons": {
+        "instructions": "Use `lucide-react` for general UI icons (chevron, check, mail). For the integration brand marks (GitHub, Dribbble, Behance, Medium — NOT LinkedIn, which has no public-profile import), use `react-icons/fa` or `react-icons/si`.",
+        "installation_command": "pnpm add react-icons lucide-react framer-motion"
+      }
+    },
+    "components": [
+      {
+        "name": "Navigation",
+        "instructions": "Fixed top bar, z-50. Logo on left (Resfolio in Instrument Serif, dark ink). Centered links. Right side: rounded-full solid orange 'Join Waitlist' button with white text. Border/blur fade in on scroll (no flicker)."
+      },
+      {
+        "name": "Hero",
+        "instructions": "Cream bg. Top pill: 'One profile · resume, portfolio & public API'. H1: 'Your Career, Synced.' in Instrument Serif (dark ink, 'Synced.' italic in accent). Left-aligned copy + waitlist form (email input + orange button). Right side: the live one-source->outputs dashboard graphic (real DOM, see visual_enhancers.hero_graphic). Do NOT frame Resfolio's outputs as resume/portfolio/domain — 'domain' is delivery, not an output; the three outputs are resume, portfolio, and public API."
+      },
+      {
+        "name": "Integrations Row",
+        "instructions": "Bento cards of brand marks (GitHub, Dribbble, Behance, Medium) framed around importing your work. Muted marks, warm cards. 'Coming next' pills below (Substack, Figma, Notion, YouTube). No LinkedIn."
+      },
+      {
+        "name": "How It Works",
+        "instructions": "3 steps (Connect, Curate, Ship). Use large low-opacity numbers (01, 02, 03) in Instrument Serif behind the step text."
+      },
+      {
+        "name": "Feature Grid",
+        "instructions": "6 features, asymmetric bento. Warm cards with soft shadows (no glows). Each has a tiny live demo panel. Features: One source/every surface (large), Custom domain, One-click launch (curated open-source templates bound to your data), Resume export (ATS-ready), Curated templates (light+dark, animated/minimal), You own it."
+      },
+      {
+        "name": "Portfolio Preview",
+        "instructions": "Browser frame showing ONE profile object rendered through several template layouts (Editorial/Terminal/Minimal, light and dark) via tabs that auto-rotate — all real DOM, same data. Demonstrates 'one profile, every template'. No stock images."
+      },
+      {
+        "name": "Pricing",
+        "instructions": "3 tiers (Free, Pro, Studio). Highlight the 'Pro' or 'Studio' tier with a white border and 'Most Popular' badge."
+      },
+      {
+        "name": "FAQ",
+        "instructions": "Use an accordion component for 4-5 common questions."
+      },
+      {
+        "name": "Waitlist CTA",
+        "instructions": "Bottom of page. Massive centered text 'Ready to sync?'. Re-use the email capture form."
+      }
+    ],
+    "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": "Do not center align paragraphs or body text unless absolutely necessary for symmetry in small components; keep body text left-aligned for readability. Ensure dark theme is consistently applied with #050814 as the root background. Never use generic gradients. Instead, use layered transparency and subtle radial blurs for depth. Add `data-testid` to all forms and buttons. Write pure React/Tailwind code without generic Shadcn defaults breaking the aesthetic."
+  }

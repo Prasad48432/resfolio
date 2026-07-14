@@ -1,0 +1,244 @@
+# Resfolio Monorepo
+
+Resfolio is a Turborepo monorepo using pnpm workspaces.
+This repository contains the complete Resfolio platform.
+Resfolio is **not** a resume builder.
+Resfolio is a **Career OS** where users maintain one professional profile that powers resumes, portfolios, public websites, PDFs, and future career assets.
+
+---
+
+# Commands (from repository root)
+
+## Install
+
+```bash
+pnpm install
+```
+
+## Development
+
+```bash
+pnpm dev
+```
+
+## Build
+
+```bash
+pnpm build
+```
+
+## Lint
+
+```bash
+pnpm lint
+```
+
+## Typecheck
+
+```bash
+pnpm typecheck
+```
+
+## Tests
+
+```bash
+pnpm test
+```
+
+---
+
+# Package Manager
+
+Use **pnpm** for everything.
+Never use npm or yarn.
+Use workspace dependencies whenever possible.
+Example
+
+```json
+"@resfolio/ui": "workspace:*"
+```
+
+All workspace packages use the `@resfolio/*` scope. Current packages:
+
+- `@resfolio/ui` — shared UI primitives (shadcn/ui pattern; import from the
+  package root only)
+- `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens, base
+  styles, shared component classes (CSS-only package)
+- `@resfolio/env` — validated environment access; the **only** code allowed
+  to read `process.env` (ESLint-enforced everywhere else)
+- `@resfolio/eslint-config`, `@resfolio/typescript-config` — shared tooling
+
+---
+
+# Documentation
+
+`docs/` is the source of truth for architecture. Start at `docs/README.md`.
+
+- `docs/architecture/01`–`12` are Accepted decisions: profile engine, resume
+  and portfolio rendering, deployment, template SDK, API, storage, dashboard
+  UX, the unified rendering pipeline, auth & security, engineering
+  foundation, and integrations & sync.
+- `docs/DEVELOPMENT-PLAN.md` sequences implementation into phases; build in
+  phase order.
+- Implementation must follow these documents. If an implementation choice
+  contradicts one, update the document (or challenge it) in the same PR —
+  never let code and docs diverge silently.
+- Resolved Open Questions get their answers written into the document.
+
+---
+
+# Architecture
+
+The repository is organized into three layers (plus `templates/`, see
+`docs/architecture/03-portfolio-rendering.md`).
+
+## apps/
+
+User-facing applications.
+
+Examples
+
+- web — public marketing site (resfolio.me)
+- dashboard — authenticated dashboard (app.resfolio.me)
+- sites — multi-tenant portfolio renderer + print/preview routes (planned,
+  see docs 04 and 09)
+
+## packages/
+
+Reusable shared infrastructure.
+
+Examples
+
+- ui
+- database
+- auth
+- config
+- analytics
+
+Packages should remain framework-independent whenever practical.
+
+## domains/
+
+Business logic.
+
+Examples
+
+- profile
+- resume
+- portfolio
+- deployment
+- ai
+
+Business rules belong here.
+Never duplicate business logic across applications.
+
+---
+
+# Global Conventions
+
+- TypeScript strict mode
+- Named exports only
+- Prefer Server Components
+- Prefer composition over inheritance
+- Strong typing everywhere
+- Validate external input with Zod
+- Keep shared code inside packages
+- Keep business logic inside domains
+
+---
+
+# Imports
+
+Never import directly from another package's internal source files.
+Only import from the package's public API.
+
+Good
+
+```ts
+import { Button } from "@resfolio/ui";
+```
+
+Bad
+
+```ts
+import { Button } from "@resfolio/ui/src/components/button";
+```
+
+---
+
+# Git
+
+Use Conventional Commits.
+Examples
+
+```
+feat(profile):
+fix(resume):
+feat(portfolio):
+refactor(ui):
+docs:
+chore:
+```
+
+Run before committing
+
+```bash
+pnpm lint
+pnpm typecheck
+```
+
+---
+
+# Repository Principles
+
+The Profile is the source of truth.
+Never duplicate profile data.
+Templates describe presentation only.
+Every renderer consumes the same structured profile.
+Prefer reusable abstractions.
+Keep applications thin.
+Keep business logic inside domains.
+
+---
+
+# Do Not
+
+- Do not install application dependencies in the repository root.
+- Do not duplicate shared types.
+- Do not create circular dependencies.
+- Do not bypass package public APIs.
+- Do not use `any` without justification.
+- Do not duplicate business logic.
+- Do not tightly couple templates with data models.
+
+---
+
+# Goal
+
+Build a premium platform for professional identity.
+Every architectural decision should support:
+
+- One Profile
+- Many Outputs
+- Beautiful User Experience
+- Performance
+- Scalability
+- Maintainability
+
+# CLAUDE.md Files
+
+This repository intentionally uses multiple nested CLAUDE.md files.
+
+Each CLAUDE.md provides context for its directory and supplements the root CLAUDE.md.
+
+Examples
+
+- /CLAUDE.md
+- /apps/web/CLAUDE.md
+- /apps/dashboard/CLAUDE.md
+
+Always consult the nearest CLAUDE.md before making changes.
+
+If new architectural patterns, conventions, workflows, or important decisions are introduced, update the relevant CLAUDE.md as part of the implementation.
+
+Keep CLAUDE.md files concise, accurate, and synchronized with the current codebase.

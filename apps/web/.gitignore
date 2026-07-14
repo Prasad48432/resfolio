@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#reference_images
+/design-refs/landing-page/
+/design-refs/portfolio/

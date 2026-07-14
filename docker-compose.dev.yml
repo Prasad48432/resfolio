@@ -1,0 +1,40 @@
+# Local development infrastructure (docs/architecture/11-engineering-foundation.md).
+# Production uses managed Postgres and Upstash Redis; these containers are
+# wire-compatible stand-ins for development and CI service containers.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+
+name: resfolio-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: resfolio
+      POSTGRES_PASSWORD: resfolio
+      POSTGRES_DB: resfolio
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resfolio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:

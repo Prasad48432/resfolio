@@ -1,0 +1,142 @@
+/* ────────────────────────────────────────────────────────────────────────
+   @resfolio/design — the shared Resfolio design system.
+
+   Semantic Tailwind v4 tokens, base styles, and component classes consumed
+   by every app (`@import "@resfolio/design";` after `@import "tailwindcss";`).
+   Components use these tokens — never hard-coded hex values.
+
+   Fonts: apps must load Instrument Serif, Manrope, and JetBrains Mono via
+   next/font with the CSS variables --font-instrument-serif, --font-manrope,
+   and --font-jetbrains-mono (see apps/web/app/layout.tsx for the canonical
+   setup).
+
+   See docs/architecture/08-dashboard-ux.md (Design system) and
+   apps/web/CLAUDE.md (Theme & tokens).
+   ──────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Light theme (warm cream) ─────────────────────────────────────── */
+  --color-background: #f6f1e8; /* warm cream page base */
+  --color-surface: #fffdf9; /* cards / elevated panels */
+  --color-surface-warm: #fbf3ea; /* highlighted panels */
+  --color-foreground: #262019; /* warm near-black ink */
+  --color-muted: #6f6455; /* secondary warm-gray text */
+  --color-border: #e7dccb; /* warm hairline borders */
+  --color-accent: #f0592b; /* burnt-orange accent */
+  --color-accent-soft: #ff6a3d; /* brighter accent for fills */
+  --color-live: #2f9e44; /* success / live green */
+
+  --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
+    monospace;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fffdf9;
+}
+
+:where(button, a, input, [role="button"]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-accent);
+  border-radius: 10px;
+}
+
+@layer components {
+  .card-surface {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 1px 2px rgba(38, 32, 25, 0.04),
+      0 12px 32px rgba(38, 32, 25, 0.06);
+  }
+
+  .card-surface-warm {
+    background:
+      radial-gradient(140% 120% at 100% 0%, rgba(240, 89, 43, 0.08), transparent 55%),
+      var(--color-surface-warm);
+    border: 1px solid rgba(240, 89, 43, 0.28);
+    border-radius: 20px;
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.6) inset,
+      0 12px 40px rgba(240, 89, 43, 0.12),
+      0 8px 24px rgba(38, 32, 25, 0.05);
+  }
+
+  .label-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+}
+
+/* ── Shared entrance animations (CSS, not JS) ──────────────────────────
+   Above-the-fold content paints immediately and animates in without
+   waiting on hydration. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-fade-scale {
+  animation: fade-scale 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Soft "focus-in" — the motion benchmark for content that swaps in place
+   (live values, template changes). A small blur resolves on a natural
+   ease-out so updates feel like a gentle refocus, never a pop. */
+@keyframes focus-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.animate-focus-in {
+  animation: focus-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-scale,
+  .animate-focus-in {
+    animation: none !important;
+  }
+}

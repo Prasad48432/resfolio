@@ -1,0 +1,12 @@
+{
+  "name": "@resfolio/design",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "style": "./src/index.css",
+      "default": "./src/index.css"
+    }
+  },
+  "style": "./src/index.css"
+}
