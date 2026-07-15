@@ -77,7 +77,18 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   edge-safe cookie check (`@resfolio/auth/cookies`)
 - `@resfolio/observability` — `createLogger(scope)` (Pino, redacted) and
   Sentry init/capture helpers; everything no-ops without configuration
+- `@resfolio/fixtures` — the shared sample-data corpus (realistic Profiles
+  and their ProfileViews), validated through `@resfolio/profile`; feeds
+  unit, template, and e2e tests so sample data exists exactly once
 - `@resfolio/eslint-config`, `@resfolio/typescript-config` — shared tooling
+
+Business-logic packages live under `domains/`:
+
+- `@resfolio/profile` (`domains/profile`) — the profile engine: canonical
+  Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
+  pure edit helpers (framework-free, root export), and database-backed
+  draft/publish operations (the `@resfolio/profile/server` subpath, the only
+  code that touches the `profiles`/`profile_versions` tables)
 
 ---
 

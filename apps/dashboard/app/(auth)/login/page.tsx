@@ -1,5 +1,6 @@
-import { getSignInProviders } from "@resfolio/auth";
+import { getOptionalSession, getSignInProviders } from "@resfolio/auth";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { TEST_IDS } from "@/lib/testids";
 
@@ -14,6 +15,14 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  // Signed-in users skip the login screen. A *real* session check — the
+  // proxy deliberately never redirects away from /login on cookie presence
+  // alone (see proxy.ts: stale cookies must land here, not loop).
+  const session = await getOptionalSession();
+  if (session) {
+    redirect("/profile");
+  }
+
   const { error } = await searchParams;
   const providers = getSignInProviders();
 

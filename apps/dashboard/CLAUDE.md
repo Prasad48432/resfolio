@@ -25,11 +25,14 @@ apps/web
 
 # Status
 
-Phase 2 is built: auth (Better Auth via `@resfolio/auth`), the app shell
-(sidebar + top bar + `cmd+k` palette), and Settings → account with linked
-accounts. Feature routes (`/profile`, `/resumes`, `/portfolio`, `/domains`)
-are `ComingSoon` placeholders until their phases land. Use current Next.js
-best practices from `node_modules/next/dist/docs/` when adding features.
+Phase 3 is built on top of Phase 2. Phase 2: auth (Better Auth via
+`@resfolio/auth`), the app shell (sidebar + top bar + `cmd+k` palette),
+Settings → account with linked accounts. **Phase 3**: the **profile editor**
+at `/profile` — the product's default screen — a section-based form over
+`@resfolio/profile` with drag reorder, debounced autosave, a save indicator,
+and Publish. `/resumes`, `/portfolio`, `/domains` remain `ComingSoon`
+placeholders until their phases land. Use current Next.js best practices
+from `node_modules/next/dist/docs/` when adding features.
 
 ## Established conventions (follow these)
 
@@ -39,7 +42,13 @@ best practices from `node_modules/next/dist/docs/` when adding features.
 - **Route guarding is three layers deep** (doc 10): `proxy.ts` does an
   _optimistic_ cookie-presence redirect (never trusted), the `(dashboard)`
   layout verifies via `requireSession`, and every Server Action resolves
-  the session itself through the action helper.
+  the session itself through the action helper. The proxy is
+  **one-directional** — it only redirects _to_ `/login` on a missing
+  cookie, never _away_ from it on presence; the login page does the
+  signed-in-skips-login redirect via a real `getOptionalSession` check. This
+  is deliberate: a cookie can outlive its DB session (revocation, a dev DB
+  reset), and a presence-based `/login`→app redirect would loop against the
+  layout's session→`/login` redirect (regression-tested in `e2e/auth.spec`).
 - **Server Actions** are built with `createAction` from `lib/actions.ts`:
   resolve session → parse with Zod → call handler → typed `ActionResult<T>`
   (`lib/action-result.ts`). Actions contain no logic; throw `ActionError`
@@ -52,6 +61,19 @@ best practices from `node_modules/next/dist/docs/` when adding features.
   `lib/testids.ts` registry (static keys or the exported helper functions).
 - **Nav**: `lib/navigation.ts` is the single IA source consumed by the
   sidebar and the command palette — extend it there, never in components.
+- **Profile editor** (doc 08, form-first; preview pane arrives Phase 4):
+  the route reads/seeds the draft server-side via
+  `@resfolio/profile/server` (`getOrCreateProfile`) and hands it to the
+  `ProfileEditor` client island (`components/profile/`). One React Hook
+  Form holds the whole draft; **sections are data-driven** —
+  `lib/profile-form.ts` describes each section's fields, so adding or
+  reshaping a section is a descriptor change, not a new component. Autosave
+  lives in `use-profile-autosave.ts` (debounced, re-validates with the
+  domain schema before every write, carries `draftRev` for optimistic
+  concurrency, `mod+s` forces a save); Publish is a separate deliberate
+  action. Mutations go through `app/(dashboard)/profile/actions.ts` (thin
+  `createAction` adapters over the domain) — **never** query the DB or put
+  business logic in the app.
 - **Unit tests** (`vitest`): co-located `lib/**/*.test.ts`. **E2E**
   (`playwright`): `e2e/` runs the real OAuth dance against a local mock
   authorization server (`AUTH_E2E_MOCK_ISSUER`, localhost-only by

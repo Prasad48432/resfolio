@@ -124,7 +124,7 @@ function Demo({ kind }: { kind: DemoKind }) {
                 <div className="grid grid-cols-3 gap-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i}>
-                      <div className="aspect-4/3 rounded-xl border border-border bg-foreground/8" />
+                      <div className="h-4 rounded-xl border border-border bg-foreground/8" />
                     </div>
                   ))}
                 </div>
@@ -157,10 +157,7 @@ function Demo({ kind }: { kind: DemoKind }) {
                         <div className="h-4 w-32 rounded-full bg-foreground/10" />
                         <div className="h-3 w-16 rounded-full bg-foreground/8" />
                       </div>
-
                       <div className="mt-2 h-3 w-24 rounded-full bg-foreground/8" />
-
-                      <div className="mt-3 h-2 w-4/5 rounded-full bg-foreground/8" />
                     </div>
                   ))}
                 </div>
@@ -198,12 +195,6 @@ function Demo({ kind }: { kind: DemoKind }) {
                   <span className="text-accent">{'"role"'}</span>
                   <span>:</span>
                   <div className="h-3 w-32 rounded-full bg-live/25" />
-                </div>
-
-                <div className="flex items-center gap-2 pl-4">
-                  <span className="text-accent">{'"synced"'}</span>
-                  <span>:</span>
-                  <div className="h-3 w-16 rounded-full bg-foreground/10" />
                 </div>
 
                 <div>
@@ -364,7 +355,7 @@ export default function Features() {
               <h3 className="mt-6 font-display text-2xl leading-tight text-foreground md:text-3xl">
                 {it.title}
               </h3>
-              <p className="mt-2 max-w-md text-[14px] leading-relaxed text-muted">
+              <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">
                 {it.body}
               </p>
               <Demo kind={it.demo} />

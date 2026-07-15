@@ -8,6 +8,13 @@
       "when": 1784042413283,
       "tag": "0000_jittery_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784088226824,
+      "tag": "0001_wet_psynapse",
+      "breakpoints": true
     }
   ]
 }

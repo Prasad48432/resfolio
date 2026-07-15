@@ -173,12 +173,26 @@ storage schema evolve independently of every shipped template.
 
 ## Open Questions
 
-- Exact field lists per section item (finalize during editor implementation;
-  start from JSON Resume's vocabulary and extend).
-- Rich-text representation: constrained Markdown vs. minimal structured AST.
-  Leaning Markdown-subset for portability; decide before the editor ships.
+- ~~Exact field lists per section item~~ — **decided (Phase 3)**: the v1
+  field lists live in `domains/profile/src/schema/sections.ts` (started from
+  JSON Resume's vocabulary, extended with `projects`/`writing`/`custom` and
+  provenance fields). The section set and canonical order are in
+  `schema/profile.ts` (`SECTION_KEYS`).
+- ~~Rich-text representation~~ — **decided (Phase 3)**: a constrained
+  **Markdown subset** (bold, italic, `[label](url)` links), stored as a
+  string, validated by `richTextSchema` (no raw HTML; link schemes
+  restricted to http/https/mailto). Chosen over a structured AST for
+  portability (JSON Resume export, plain-text ATS extraction) and
+  diffability; our renderer converts it to React elements in the Template
+  SDK phase and re-checks schemes on output.
 - Whether cover letters are Documents with free-form blocks or a distinct
   concept (defer until the feature is scheduled).
+
+Optimistic-concurrency note (implemented Phase 3): the draft carries a
+monotonic `draftRev`; `saveDraft` only lands when the stored revision still
+matches the base revision the edit started from, otherwise it raises
+`StaleDraftError` and the editor asks the user to reload rather than
+clobbering a concurrent writer.
 
 ## Alternatives Considered
 

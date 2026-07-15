@@ -85,6 +85,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
     >
       <body>

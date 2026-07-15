@@ -1,0 +1,23 @@
+{
+  "name": "@resfolio/fixtures",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@resfolio/profile": "workspace:*"
+  },
+  "devDependencies": {
+    "@resfolio/eslint-config": "workspace:*",
+    "@resfolio/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

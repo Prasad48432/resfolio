@@ -20,6 +20,11 @@ export const TEST_IDS = {
   settingsAccountCard: "settings-account-card",
   settingsLinkedAccounts: "settings-linked-accounts",
   linkedAccountsError: "linked-accounts-error",
+  profileEditor: "profile-editor",
+  profileSaveIndicator: "profile-save-indicator",
+  profilePublishButton: "profile-publish-button",
+  profilePublishState: "profile-publish-state",
+  basicsName: "basics-name",
 } as const;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
@@ -32,3 +37,10 @@ export const linkProviderTestId = (providerId: string) =>
   `link-provider-${providerId}`;
 export const unlinkProviderTestId = (providerId: string) =>
   `unlink-provider-${providerId}`;
+
+export const profileSectionTestId = (key: string) => `profile-section-${key}`;
+export const profileAddItemTestId = (key: string) => `profile-add-${key}`;
+export const profileItemTestId = (key: string, index: number) =>
+  `profile-item-${key}-${index}`;
+export const profileRemoveItemTestId = (key: string, index: number) =>
+  `profile-remove-${key}-${index}`;

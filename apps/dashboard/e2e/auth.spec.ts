@@ -1,26 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { revokeAllSessions } from "./db";
+import { completeMockConsent, runId, signIn } from "./helpers";
 
 /**
  * The Phase 2 exit-criteria journeys (docs/DEVELOPMENT-PLAN.md): mocked
  * OAuth sign-in end-to-end, protected-route bouncing, account linking
  * converging on one account, and the last-provider guard.
  */
-
-const runId = Date.now().toString(36);
-
-async function completeMockConsent(page: Page, email: string, name: string) {
-  await page.waitForURL(/localhost:4780/);
-  await page.fill("#mock-email", email);
-  await page.fill("#mock-name", name);
-  await page.click("#mock-continue");
-}
-
-async function signIn(page: Page, providerId: string, email: string) {
-  await page.goto("/login");
-  await page.getByTestId(`login-provider-${providerId}`).click();
-  await completeMockConsent(page, email, "E2E User");
-  await page.waitForURL("**/profile");
-}
 
 test("unauthenticated users are bounced to the login screen", async ({
   page,
@@ -103,6 +90,26 @@ test("linking both providers yields one account with a last-provider guard", asy
     "Not connected",
   );
   await expect(page.getByTestId("unlink-provider-mock-google")).toBeDisabled();
+});
+
+test("a stale session cookie lands on the login screen, never a redirect loop", async ({
+  page,
+  context,
+}) => {
+  const email = `stale-${runId}@example.com`;
+  await signIn(page, "mock-google", email);
+
+  // Revoke server-side while the browser keeps its cookie, then expire the
+  // signed cookie cache (its ~5-minute window would otherwise still vouch
+  // for the session) so the next check hits the database.
+  await revokeAllSessions(email);
+  await context.clearCookies({ name: /session_data/ });
+
+  // Regression guard: with a presence-only /login → app redirect in the
+  // proxy this loops until ERR_TOO_MANY_REDIRECTS and locks the user out.
+  await page.goto("/profile");
+  await page.waitForURL("**/login");
+  await expect(page.getByTestId("login-page")).toBeVisible();
 });
 
 test("signing in with the second provider lands in the same account", async ({

@@ -15,7 +15,7 @@ export default function Hero() {
     <section
       id="top"
       data-testid={TEST_IDS.heroSection}
-      className="relative overflow-hidden pb-20 pt-32 md:pb-28 md:pt-40"
+      className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-40"
     >
       <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 lg:grid-cols-12 lg:px-8">
         <div className="lg:col-span-7">

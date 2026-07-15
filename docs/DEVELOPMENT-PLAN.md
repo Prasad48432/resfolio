@@ -91,6 +91,17 @@ never hand-edited).
 
 ## Phase 3 — Profile engine + profile editor (form-first)
 
+**Status: complete (2026-07-15).** All deliverables landed. The profile
+engine (`@resfolio/profile`) ships schema v1, the migration chain,
+`buildProfileView`, and pure edit helpers; storage (`profiles` +
+`profile_versions`) with draft/publish and `draftRev` optimistic
+concurrency; the section-based editor with drag reorder, debounced autosave,
+save indicator, and Publish; the `@resfolio/fixtures` corpus; 53 domain unit
+tests and a 4-journey profile e2e suite. The preview pane is deliberately
+deferred to Phase 4 (Template SDK). No new user/account actions required
+beyond the Phase 2 list; the profile migration runs via the same
+deploy/e2e migration step.
+
 **Goal:** users own a real Profile. The product's core domain exists and is
 the best-tested code in the repo. Docs: [01](architecture/01-profile-engine.md), [06](architecture/06-api-architecture.md).
 
