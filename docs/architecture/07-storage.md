@@ -29,9 +29,10 @@ users / sessions / accounts        Better Auth-managed
 profiles      id, userId, draft JSONB, publishedVersionId, updatedAt
 profile_versions  id, profileId, version (int), data JSONB, createdAt   -- immutable
 documents     id, profileId, kind ('resume'…), name, templateId,
-              templateMajor, config JSONB, updatedAt
+              templateMajor, config JSONB, view JSONB, updatedAt
 sites         id, profileId, slug (unique), templateId, templateMajor,
-              config JSONB, publishedVersionId, customDomain (unique, null),
+              config JSONB, view JSONB, publishedVersionId,
+              hasUnpublishedChanges, customDomain (unique, null),
               discoverable, updatedAt
 assets        id, ownerId, kind ('avatar'|'image'|'export'), r2Key,
               contentHash, bytes, createdAt
@@ -40,10 +41,23 @@ subscriptions Stripe mirror (customer, plan, status)
 
 Notes:
 
+- `documents` is `Profile × config`: `config` JSONB is the template
+  presentation config (opaque to the DB, re-validated by the template's own
+  Zod schema at render), `view` JSONB is the ViewDefinition (section
+  selection/order/deltas, `{}` = identity). Content is never copied here — the
+  Profile stays the source of truth.
 - `sites.slug` and `sites.customDomain` are unique indexes — the public
   routing hot path resolves against these.
 - `profile_versions` is append-only; publishes point `publishedVersionId` at
   a row. Retention: keep the last N per profile on free tier (prune job).
+- `sites` mirrors `documents` (`Profile × config`): `config` is the opaque
+  template config, `view` the ViewDefinition (`{}` = identity until per-site
+  tailoring ships). `publishedVersionId` **pins** which published profile
+  snapshot the public pages render; `hasUnpublishedChanges` (migration `0004`)
+  flags presentation edits (template/config/discoverable) made since the last
+  publish, so the dashboard can show "Publish changes" while a profile republish
+  is tracked separately by the pin. A cached public page can therefore never
+  show draft state (doc 04).
 - Referential integrity, ownership checks, and billing state are Postgres's
   job — never Redis's, never JSON-blob-implied.
 - Hosting: any managed Postgres (Neon/Supabase/RDS); Drizzle keeps us

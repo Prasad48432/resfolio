@@ -14,7 +14,9 @@
     "SENTRY_DSN",
     "NEXT_PUBLIC_SENTRY_DSN",
     "LOG_LEVEL",
-    "AUTH_E2E_MOCK_ISSUER"
+    "AUTH_E2E_MOCK_ISSUER",
+    "PRINT_TOKEN_SECRET",
+    "SITES_URL"
   ],
   "tasks": {
     "build": {

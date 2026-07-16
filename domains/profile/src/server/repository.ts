@@ -30,6 +30,10 @@ export interface ProfileDraft {
   /** The `version` number of the published snapshot, or null if never
    * published — for the editor's publish-state display. */
   publishedVersion: number | null;
+  /** Whether the draft differs from the published snapshot (always true when
+   * never published) — the editor disables Publish when there is nothing new
+   * to snapshot (doc 01). */
+  hasUnpublishedChanges: boolean;
   updatedAt: Date;
 }
 
@@ -45,22 +49,39 @@ export class StaleDraftError extends Error {
   }
 }
 
+/** The published snapshot's version number and its data, or null if the
+ * profile has never been published. */
+type PublishedRef = { version: number; data: unknown } | null;
+
+/** Whether the migrated draft diverges from the published snapshot. Never
+ * published counts as "has changes" so the first Publish is always enabled.
+ * Both sides are normalized through `migrateProfile` so the comparison is over
+ * canonical shapes (deterministic key order), not storage artifacts. */
+function computeUnpublishedChanges(draft: Profile, published: PublishedRef): boolean {
+  if (!published) {
+    return true;
+  }
+  return JSON.stringify(draft) !== JSON.stringify(migrateProfile(published.data));
+}
+
 function toDraft(
   row: typeof schema.profile.$inferSelect,
-  publishedVersion: number | null,
+  published: PublishedRef,
 ): ProfileDraft {
+  const data = migrateProfile(row.draft);
   return {
     profileId: row.id,
-    data: migrateProfile(row.draft),
+    data,
     draftRev: row.draftRev,
     publishedVersionId: row.publishedVersionId,
-    publishedVersion,
+    publishedVersion: published?.version ?? null,
+    hasUnpublishedChanges: computeUnpublishedChanges(data, published),
     updatedAt: row.updatedAt,
   };
 }
 
 type ProfileRowWithVersion = typeof schema.profile.$inferSelect & {
-  publishedVersion: { version: number } | null;
+  publishedVersion: PublishedRef;
 };
 
 async function findRow(
@@ -68,23 +89,23 @@ async function findRow(
 ): Promise<ProfileRowWithVersion | undefined> {
   return db.query.profile.findFirst({
     where: eq(schema.profile.userId, userId),
-    with: { publishedVersion: { columns: { version: true } } },
+    with: { publishedVersion: { columns: { version: true, data: true } } },
   });
 }
 
-/** The version number behind a `publishedVersionId` (PK lookup, only when
- * one is set — pre-publish profiles skip the query entirely). */
-async function resolvePublishedVersion(
+/** The published snapshot (version + data) behind a `publishedVersionId` (PK
+ * lookup, only when one is set — pre-publish profiles skip the query entirely). */
+async function resolvePublished(
   publishedVersionId: string | null,
-): Promise<number | null> {
+): Promise<PublishedRef> {
   if (!publishedVersionId) {
     return null;
   }
   const row = await db.query.profileVersion.findFirst({
     where: eq(schema.profileVersion.id, publishedVersionId),
-    columns: { version: true },
+    columns: { version: true, data: true },
   });
-  return row?.version ?? null;
+  return row ?? null;
 }
 
 /**
@@ -99,7 +120,7 @@ export async function getOrCreateProfile(
 ): Promise<ProfileDraft> {
   const existing = await findRow(userId);
   if (existing) {
-    return toDraft(existing, existing.publishedVersion?.version ?? null);
+    return toDraft(existing, existing.publishedVersion ?? null);
   }
 
   const seed = createSeedProfile(identity);
@@ -119,7 +140,7 @@ export async function getOrCreateProfile(
   if (!row) {
     throw new ProfileDataError("Failed to create profile.");
   }
-  return toDraft(row, row.publishedVersion?.version ?? null);
+  return toDraft(row, row.publishedVersion ?? null);
 }
 
 export async function getProfile(userId: string): Promise<ProfileDraft> {
@@ -127,7 +148,7 @@ export async function getProfile(userId: string): Promise<ProfileDraft> {
   if (!row) {
     throw new ProfileNotFoundError();
   }
-  return toDraft(row, row.publishedVersion?.version ?? null);
+  return toDraft(row, row.publishedVersion ?? null);
 }
 
 /**
@@ -156,7 +177,7 @@ export async function saveDraft(
 
   const row = updated[0];
   if (row) {
-    return toDraft(row, await resolvePublishedVersion(row.publishedVersionId));
+    return toDraft(row, await resolvePublished(row.publishedVersionId));
   }
 
   // No row updated: either the profile is gone or the revision moved on.
@@ -224,6 +245,22 @@ export async function getPublishedProfile(
   }
   const version = await db.query.profileVersion.findFirst({
     where: eq(schema.profileVersion.id, row.publishedVersionId),
+  });
+  return version ? migrateProfile(version.data) : null;
+}
+
+/**
+ * An immutable published Profile snapshot by version id, or null if it's gone
+ * (migrated to the current schema). Used by other domains that **pin** a
+ * specific version — e.g. a Site renders the exact `profile_versions` row it
+ * was published against, never whatever the profile's draft or latest publish
+ * happens to be (doc 04). Not user-scoped: the caller already owns the pin.
+ */
+export async function getProfileVersionById(
+  versionId: string,
+): Promise<Profile | null> {
+  const version = await db.query.profileVersion.findFirst({
+    where: eq(schema.profileVersion.id, versionId),
   });
   return version ? migrateProfile(version.data) : null;
 }

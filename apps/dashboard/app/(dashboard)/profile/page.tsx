@@ -21,6 +21,7 @@ export default async function ProfilePage() {
       initialDraft={draft.data}
       initialRev={draft.draftRev}
       publishedVersion={draft.publishedVersion}
+      initialHasUnpublishedChanges={draft.hasUnpublishedChanges}
     />
   );
 }

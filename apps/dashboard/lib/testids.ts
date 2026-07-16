@@ -25,6 +25,32 @@ export const TEST_IDS = {
   profilePublishButton: "profile-publish-button",
   profilePublishState: "profile-publish-state",
   basicsName: "basics-name",
+  resumesList: "resumes-list",
+  resumesEmpty: "resumes-empty",
+  resumeCreateButton: "resume-create-button",
+  resumeEditor: "resume-editor",
+  resumeSaveIndicator: "resume-save-indicator",
+  resumePreview: "resume-preview",
+  resumePreviewMeta: "resume-preview-meta",
+  resumeNameInput: "resume-name-input",
+  resumePageSize: "resume-page-size",
+  resumeMargin: "resume-margin",
+  resumeAccent: "resume-accent",
+  resumeShowIcons: "resume-show-icons",
+  resumeDeleteButton: "resume-delete-button",
+  resumePrintLink: "resume-print-link",
+  portfolioClaim: "portfolio-claim",
+  portfolioSlugInput: "portfolio-slug-input",
+  portfolioSlugStatus: "portfolio-slug-status",
+  portfolioTemplatePick: "portfolio-template-pick",
+  portfolioCreateButton: "portfolio-create-button",
+  portfolioEditor: "portfolio-editor",
+  portfolioSaveIndicator: "portfolio-save-indicator",
+  portfolioPublishButton: "portfolio-publish-button",
+  portfolioPublishState: "portfolio-publish-state",
+  portfolioPublicUrl: "portfolio-public-url",
+  portfolioDiscoverable: "portfolio-discoverable",
+  portfolioPreviewFrame: "portfolio-preview-frame",
 } as const;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
@@ -37,6 +63,13 @@ export const linkProviderTestId = (providerId: string) =>
   `link-provider-${providerId}`;
 export const unlinkProviderTestId = (providerId: string) =>
   `unlink-provider-${providerId}`;
+
+export const resumeItemTestId = (id: string) => `resume-item-${id}`;
+
+export const portfolioTemplateTestId = (id: string) =>
+  `portfolio-template-${id}`;
+export const portfolioConfigFieldTestId = (key: string) =>
+  `portfolio-config-${key}`;
 
 export const profileSectionTestId = (key: string) => `profile-section-${key}`;
 export const profileAddItemTestId = (key: string) => `profile-add-${key}`;

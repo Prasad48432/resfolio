@@ -337,7 +337,7 @@ export default function Features() {
               whileInView="visible"
               viewport={viewport}
               variants={fadeUp}
-              transition={staggerTransition(i + 1)}
+              transition={staggerTransition(i)}
               data-testid={`feature-${it.title
                 .toLowerCase()
                 .replace(/[^a-z]+/g, "-")

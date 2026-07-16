@@ -30,9 +30,14 @@ Phase 3 is built on top of Phase 2. Phase 2: auth (Better Auth via
 Settings → account with linked accounts. **Phase 3**: the **profile editor**
 at `/profile` — the product's default screen — a section-based form over
 `@resfolio/profile` with drag reorder, debounced autosave, a save indicator,
-and Publish. `/resumes`, `/portfolio`, `/domains` remain `ComingSoon`
-placeholders until their phases land. Use current Next.js best practices
-from `node_modules/next/dist/docs/` when adding features.
+and Publish. **Phase 4 (4E/4F)**: the **resumes** feature — `/resumes` lists
+resume documents; `/resumes/[id]` is the first `SplitWorkspace` editor (config
+form left, live in-browser resume preview right). **Phase 5**: the **portfolio**
+section at `/portfolio` — slug claim + template pick before a site exists, then
+the settings editor (schema-driven config form, discoverable toggle, template
+switch, publish) with the `apps/sites` draft-preview iframe. `/domains` remains a
+`ComingSoon` placeholder until Phase 7. Use current Next.js best practices from
+`node_modules/next/dist/docs/` when adding features.
 
 ## Established conventions (follow these)
 
@@ -71,9 +76,45 @@ from `node_modules/next/dist/docs/` when adding features.
   lives in `use-profile-autosave.ts` (debounced, re-validates with the
   domain schema before every write, carries `draftRev` for optimistic
   concurrency, `mod+s` forces a save); Publish is a separate deliberate
-  action. Mutations go through `app/(dashboard)/profile/actions.ts` (thin
-  `createAction` adapters over the domain) — **never** query the DB or put
-  business logic in the app.
+  action, disabled unless there are unpublished changes (seeded from
+  `ProfileDraft.hasUnpublishedChanges`, flipped on edit, cleared on publish) so
+  an unchanged draft can't be re-snapshotted. Mutations go through
+  `app/(dashboard)/profile/actions.ts` (thin `createAction` adapters over the
+  domain) — **never** query the DB or put business logic in the app.
+- **Resumes editor** (doc 08/09, 4E/4F): `/resumes` reads documents via
+  `@resfolio/document/server`; `/resumes/[id]` loads the document + the profile
+  draft and hands both to the `ResumeEditor` client island
+  (`components/resume/`). The `SplitWorkspace` primitive
+  (`components/workspace/`) is form-left / preview-right, reused by every
+  future editor. The preview renders the **real** `resume-classic` template
+  in-browser via the pure `buildProfileView` (same function the print route
+  runs — that's the parity guarantee), scaled to fit with advisory page-break
+  guides (`lib/resume-preview.ts`, pure + unit-tested). A resume edits
+  **presentation only** (template config); content stays at `/profile`.
+  Mutations go through `app/(dashboard)/resumes/actions.ts` (thin `createAction`
+  adapters over `@resfolio/document/server`). "Print view" is env-gated
+  (`render.dashboard`: `PRINT_TOKEN_SECRET` + `SITES_URL`) — it mints a stored
+  render token and opens the `apps/sites` print route.
+- **Portfolio section** (doc 03/04, Phase 5): `/portfolio` reads the user's Site
+  via `@resfolio/portfolio/server` (`getSiteForOwner`). No site → `PortfolioClaim`
+  (slug input with live availability via `checkSlugAvailabilityAction`, template
+  radio pick). Has a site → `PortfolioEditor` (`SplitWorkspace`: settings form
+  left, draft-preview iframe right). The config form is **schema-driven** —
+  `lib/config-form.ts`'s `describeConfigSchema` introspects the template's
+  `configSchema` into field descriptors (`ConfigFields` renders them), so a new
+  config option never touches the dashboard. Config is **content/visibility only**
+  — the portfolio templates are opinionated and own all styling (doc 03), so the
+  form surfaces toggles/counts, not color/theme pickers. `lib/portfolio-templates.ts`
+  is the pick/config registry (mirrors the `apps/sites` render registry). Autosave
+  persists config + discoverable; a **template switch** resets config to the new
+  template's defaults (URLs are unaffected — routes are platform-owned) and the
+  editor **remounts** on the template `key` (the `router.refresh()` after a switch
+  is a soft refresh that would otherwise keep stale client state). **Publish** is
+  gated on `SiteRecord.hasUnpublishedChanges` (+ the version pin), so it disables
+  when the live page is already up to date and re-enables on any presentation
+  edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`. The
+  preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
+  gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
 - **Unit tests** (`vitest`): co-located `lib/**/*.test.ts`. **E2E**
   (`playwright`): `e2e/` runs the real OAuth dance against a local mock
   authorization server (`AUTH_E2E_MOCK_ISSUER`, localhost-only by
@@ -124,10 +165,12 @@ Shared packages
   `tailwindcss`; fonts are loaded in `app/layout.tsx` via `next/font` with
   the CSS variables the tokens expect.
 - `@resfolio/ui` — cross-app UI primitives (shadcn/ui pattern: cva variants
-  themed by design tokens). Import from `"@resfolio/ui"` only — never
-  internal paths. `app/globals.css` carries
-  `@source "../../../packages/ui/src";` so Tailwind scans the package's
-  classes; keep it if you move the CSS file.
+  themed by design tokens). `Button`, `Input`, `Textarea`, `Label`, `Select`,
+  `Checkbox`, `Switch`, `Card`, plus `Dialog`/`Command`/`DropdownMenu`. **Prefer
+  a primitive over a raw HTML control** — the editors use these, not bare
+  `<select>`/`<input>`. Import from `"@resfolio/ui"` only — never internal
+  paths. `app/globals.css` carries `@source "../../../packages/ui/src";` so
+  Tailwind scans the package's classes; keep it if you move the CSS file.
 - `@resfolio/env` — the only sanctioned reader of `process.env`
 - `@resfolio/auth` — Better Auth server instance + `requireSession`;
   client components import `@resfolio/auth/client`; the proxy imports

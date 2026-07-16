@@ -25,10 +25,12 @@ export function ProfileEditor({
   initialDraft,
   initialRev,
   publishedVersion,
+  initialHasUnpublishedChanges,
 }: {
   initialDraft: Profile;
   initialRev: number;
   publishedVersion: number | null;
+  initialHasUnpublishedChanges: boolean;
 }) {
   const form = useForm<ProfileFormValues>({
     defaultValues: initialDraft,
@@ -40,7 +42,8 @@ export function ProfileEditor({
     mode: "onChange",
   });
 
-  const { status, saveNow } = useProfileAutosave(form, initialRev);
+  const { status, saveNow, hasUnpublishedChanges, markPublished } =
+    useProfileAutosave(form, initialRev, initialHasUnpublishedChanges);
 
   return (
     <FormProvider {...form}>
@@ -65,6 +68,8 @@ export function ProfileEditor({
               status={status}
               saveNow={saveNow}
               initialPublishedVersion={publishedVersion}
+              hasUnpublishedChanges={hasUnpublishedChanges}
+              onPublished={markPublished}
             />
           </div>
         </header>

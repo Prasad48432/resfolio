@@ -1,0 +1,10 @@
+# Next.js
+/.next/
+next-env.d.ts
+
+# Local PDF-export spike output (content-addressed PDFs; regenerate on demand)
+/out/
+
+# Env
+.env
+.env*.local

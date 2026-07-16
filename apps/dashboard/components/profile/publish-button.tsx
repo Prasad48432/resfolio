@@ -19,10 +19,14 @@ export function PublishButton({
   status,
   saveNow,
   initialPublishedVersion,
+  hasUnpublishedChanges,
+  onPublished,
 }: {
   status: SaveStatus;
   saveNow: () => void;
   initialPublishedVersion: number | null;
+  hasUnpublishedChanges: boolean;
+  onPublished: () => void;
 }) {
   const [publishing, setPublishing] = useState(false);
   const [publishedVersion, setPublishedVersion] = useState(
@@ -35,7 +39,9 @@ export function PublishButton({
     status === "dirty" ||
     status === "invalid" ||
     status === "conflict" ||
-    status === "offline";
+    status === "offline" ||
+    // Nothing new to snapshot — the draft already matches the published version.
+    !hasUnpublishedChanges;
 
   async function publish() {
     setError(null);
@@ -45,6 +51,7 @@ export function PublishButton({
       const result = await publishProfileAction({});
       if (result.ok) {
         setPublishedVersion(result.data.version);
+        onPublished();
       } else {
         setError(result.error);
       }

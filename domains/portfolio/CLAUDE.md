@@ -1,0 +1,56 @@
+# @resfolio/portfolio — the portfolio domain
+
+The business logic behind public portfolio sites (docs/architecture/03-portfolio-rendering.md,
+04-deployment.md). A **Site** is a Document in the profile-engine sense —
+`Profile × (template + config)`, never a copy of content. Mirrors the layering
+of `@resfolio/profile` and `@resfolio/document`.
+
+## Layering
+
+- **Root (`.`, pure):** framework- and database-free. `siteSlugSchema` +
+  `RESERVED_SLUGS` / `isReservedSlug` (the doc-04 blocklist — never claimable
+  as a public username), `resolvePortfolioRoute` (the **platform route table**,
+  doc 04: URL segments → `{ page, params }`, total and returns `null` for
+  unknown paths so the host 404s), `SiteRecord` type. Safe to import into the
+  sites host, the dashboard, and tests.
+- **`./server` (DB).** The only code that touches the `sites` table. Owner-scoped
+  CRUD (`getSiteForOwner`, `createSite`, `updateSite`, `isSlugAvailable`) — every
+  function takes `userId` and scopes to the profile that user owns. Two unscoped
+  public reads for the render host: `getSiteForRender(slug)` (returns the render
+  descriptor + the **pinned** published Profile, loaded via
+  `@resfolio/profile/server`'s `getProfileVersionById` — never the draft) and
+  `getSiteIdBySlug` (the cheap `slug → site:<id>` lookup the host runs to derive
+  the cache tag). `listDiscoverableSites` feeds the platform sitemap.
+  `publishSite(userId)` pins the profile's currently published version into the
+  site (throws `ProfileNotPublishedError` if the profile was never published) and
+  returns the `siteId`; **the app layer owns cache invalidation** (calls
+  `apps/sites`'s `/api/revalidate`), mirroring the profile/document publish flow.
+  A presentation edit (`updateSite`: template/config/discoverable) sets
+  `has_unpublished_changes` (migration `0004`); `publishSite` clears it — so
+  `SiteRecord.hasUnpublishedChanges` tells the dashboard the live page is stale
+  even when the pinned profile version is unchanged (a profile republish is
+  caught separately by comparing the pin to the profile's published version).
+- **`./token` is the signed preview token** (`node:crypto`, server-only). Mirrors
+  `@resfolio/document/token` with a portfolio-shaped payload (`{ source: "draft",
+ref: userId, exp }`, no `document`). The dashboard mints it; `apps/sites`
+  verifies it to render the owner's draft in the editor preview iframe. The two
+  domains keep independent token modules so neither depends on the other.
+
+## Rules
+
+- **Routes are platform-owned, not template-owned** (doc 04). URLs stay stable
+  across template switches — a template only declares _which_ platform pages it
+  supports via `capabilities.pages`; unsupported pages 404. Add a new page kind
+  by extending the SDK's `PORTFOLIO_PAGE_KINDS` and this route table together.
+- **Config is template-owned and opaque here** (`unknown`). The domain never
+  validates presentation config — that's the template's own Zod schema, run by
+  the render host. Data lives in the Profile; knobs live in config (doc 03).
+- **Slugs are DNS-label-safe** (3–32 chars, lowercase, single internal
+  hyphens) because the same slug becomes a `*.resfolio.site` subdomain later
+  (doc 04). Keep the reserved list ahead of new app/route namespaces.
+
+## Tests
+
+Co-located vitest: slug accept/reject (length, hyphen edges, charset, reserved,
+normalization) and route-table resolution (index routes, detail slugs, 404 for
+unknown/over-deep paths).

@@ -23,6 +23,8 @@
   --color-muted: #6f6455; /* secondary warm-gray text */
   --color-border: #e7dccb; /* warm hairline borders */
   --color-accent: #f0592b; /* burnt-orange accent */
+  --color-accent2: #e54c22; /* warm coral */
+  --color-accent3: #ff9468; /* soft peach */
   --color-accent-soft: #ff6a3d; /* brighter accent for fills */
   --color-live: #2f9e44; /* success / live green */
 

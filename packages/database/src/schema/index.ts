@@ -5,7 +5,9 @@
  * @resfolio/auth db:generate-schema`) and committed — never hand-edited
  * (docs/architecture/10-auth-and-security.md). Product tables land with
  * their features (docs/architecture/07-storage.md): `./profiles` in
- * Phase 3; `documents`, `sites`, `assets` in later phases.
+ * Phase 3; `./documents` in Phase 4; `./sites` in Phase 5; `assets` later.
  */
 export * from "./auth";
 export * from "./profiles";
+export * from "./documents";
+export * from "./sites";

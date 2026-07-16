@@ -8,6 +8,7 @@
 export {
   getOrCreateProfile,
   getProfile,
+  getProfileVersionById,
   getPublishedProfile,
   publishProfile,
   saveDraft,

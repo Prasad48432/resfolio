@@ -1,14 +1,21 @@
-import { createAppEnv, observability, sharedRuntime } from "@resfolio/env";
+import {
+  createAppEnv,
+  observability,
+  render,
+  sharedRuntime,
+} from "@resfolio/env";
 
 /**
  * Dashboard app env — only the slices this app reads directly.
  * Auth/database vars are validated by @resfolio/auth and
- * @resfolio/database on their own import.
+ * @resfolio/database on their own import. `render.dashboard` (optional) powers
+ * the "Open print view" affordance on resumes — absent, it's simply hidden.
  */
 export const env = createAppEnv({
   server: {
     ...sharedRuntime.server,
     ...observability.server,
+    ...render.dashboard,
   },
   client: {
     ...observability.client,

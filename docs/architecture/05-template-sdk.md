@@ -62,9 +62,16 @@ export const template = defineTemplate({
 });
 ```
 
-Renderers receive exactly `{ view: ProfileView, config: Config, theme:
-ResolvedTheme }` — validated, resolved, read-only. Templates never fetch
-data, never read the database, never import from `domains/*`.
+Renderers receive validated, resolved, read-only inputs. A **resume**
+`document` receives exactly `{ view: ProfileView, config: Config, theme:
+ResolvedTheme }`. A **portfolio** page renderer receives the same three plus
+two routing inputs the platform owns (doc 04): `params` — the matched route
+params (e.g. `{ slug }` for `projectDetail` / `blogPost`; `{}` for index
+pages) — and `basePath` — the site root (e.g. `/p/ada`, no trailing slash)
+the template prefixes onto inter-page links so URLs stay stable across
+template switches without the template ever hard-coding a username or base.
+Templates never fetch data, never read the database, never import from
+`domains/*`.
 
 Renderers are **universal components**, not strictly Server Components:
 server-first (no `"use client"` at the definition, rendered as RSC on every
@@ -132,13 +139,19 @@ extraction check ([02-resume-rendering](02-resume-rendering.md)).
 
 ## Implementation Strategy
 
-1. Build `packages/template-sdk` with `kind: "resume"` support only —
+1. ✅ Build `packages/template-sdk` with `kind: "resume"` support only —
    `ProfileView` type, `defineTemplate`, theme tokens.
-2. First resume template consumes it ([02-resume-rendering](02-resume-rendering.md)).
-3. Extend for `kind: "portfolio"` (pages map, capabilities.pages) alongside
-   `apps/sites` ([03-portfolio-rendering](03-portfolio-rendering.md)).
+2. ✅ First resume template consumes it ([02-resume-rendering](02-resume-rendering.md)).
+3. ✅ Extend for `kind: "portfolio"` (pages map, `capabilities.pages`, the
+   `PortfolioPageProps` `params` + `basePath` inputs) — Phase 5, alongside the
+   first portfolio template (`portfolio-minimal`)
+   ([03-portfolio-rendering](03-portfolio-rendering.md)). `defineTemplate`
+   validates page coverage (every declared page has a renderer; `home` is
+   mandatory) and forbids a renderer for an undeclared page.
 4. Template CI harness (render every page with fixture ProfileViews, visual
-   snapshots) as soon as template #2 exists.
+   snapshots) as soon as template #2 exists. _Seed landed with
+   `portfolio-minimal`'s render tests; the visual-snapshot layer arrives with
+   the second portfolio template._
 5. `create-template` starter script when template authoring becomes routine.
 
 ## Open Questions

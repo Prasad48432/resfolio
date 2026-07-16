@@ -15,6 +15,17 @@ export { Button, buttonVariants, type ButtonProps } from "./components/button";
 export { Input } from "./components/input";
 export { Textarea } from "./components/textarea";
 export { Label } from "./components/label";
+export { Select } from "./components/select";
+export { Checkbox } from "./components/checkbox";
+export { Switch } from "./components/switch";
+export {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "./components/card";
 export {
   Dialog,
   DialogClose,

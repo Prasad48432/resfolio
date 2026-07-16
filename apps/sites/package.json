@@ -1,0 +1,43 @@
+{
+  "name": "sites",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3002",
+    "build": "next build",
+    "start": "next start --port 3002",
+    "lint": "eslint --max-warnings 0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "dev:url": "tsx scripts/dev-url.mts",
+    "export:pdf": "tsx scripts/export-pdf.mts",
+    "check:ats": "tsx scripts/ats-check.mts"
+  },
+  "dependencies": {
+    "@resfolio/document": "workspace:*",
+    "@resfolio/env": "workspace:*",
+    "@resfolio/fixtures": "workspace:*",
+    "@resfolio/portfolio": "workspace:*",
+    "@resfolio/profile": "workspace:*",
+    "@resfolio/template-portfolio-minimal": "workspace:*",
+    "@resfolio/template-portfolio-sidebar": "workspace:*",
+    "@resfolio/template-resume-classic": "workspace:*",
+    "@resfolio/template-sdk": "workspace:*",
+    "next": "16.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@resfolio/eslint-config": "workspace:*",
+    "@resfolio/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "^9.39.1",
+    "pdfjs-dist": "^4.10.38",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.2"
+  }
+}

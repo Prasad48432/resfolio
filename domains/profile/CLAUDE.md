@@ -17,6 +17,10 @@ the first `domains/*` package and sets the pattern every future domain
   context (`userId`) explicitly and scopes every query to it — ownership is
   enforced here, never assumed from the caller (doc 06/10). Apps call these
   from Server Actions/Components; they never touch the DB directly.
+  `ProfileDraft.hasUnpublishedChanges` is the authoritative "draft differs from
+  the published snapshot" flag (canonical `migrateProfile` diff; always true
+  when never published) — the editor disables Publish when there's nothing new
+  to snapshot.
 
 ## Rules the schema enforces (don't weaken casually)
 

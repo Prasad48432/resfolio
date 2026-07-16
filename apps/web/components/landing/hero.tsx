@@ -34,7 +34,9 @@ export default function Hero() {
           >
             Your Career,
             <br />
-            <span className="italic text-accent">Synced.</span>
+            <span className="bg-linear-to-r from-accent2 via-accent to-accent3 bg-clip-text italic text-transparent">
+              Synced.
+            </span>
           </h1>
 
           <p

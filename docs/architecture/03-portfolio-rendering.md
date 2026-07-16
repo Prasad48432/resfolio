@@ -40,15 +40,25 @@ sealed behind the SDK contract, not free-floating app code.
 Portfolio state is a **Site** record (a Document in the
 [01-profile-engine](01-profile-engine.md) sense): `templateId`,
 `templateVersion`, and a `config` JSONB blob validated against the template's
-own Zod `configSchema`. Config is presentation only:
+own Zod `configSchema`. Config is presentation only — and deliberately
+**content/visibility, not styling** (decision, session 4): the templates are
+curated and opinionated, so colors, type, layout, density, and hero/sidebar
+composition are the template's own and are **not** user-overridable. This keeps
+every published site on-brand by default; users choose _what_ shows, not _how_
+the template is designed.
 
-- **Common config** (defined by the SDK, every template must honor it):
-  theme choice, accent color, section visibility/order, social links display,
-  analytics opt-outs.
-- **Template-specific config** (defined by each template's schema): e.g.
-  "hero style: split / centered", "project grid density". The dashboard
-  renders the settings form _from the schema_ — new template options never
-  require dashboard changes.
+- **Content/visibility config** (each template's Zod schema): what shows and how
+  much — e.g. avatar toggle, featured-project count. The dashboard renders the
+  settings form _from the schema_ (`describeConfigSchema`), so a new content
+  option never requires dashboard changes.
+- **Section visibility, order, and item selection** live in the Site's `view`
+  (the ViewDefinition), not in `config` — the per-site **tailoring** surface.
+  `view` is identity (`{}`) today; wiring it through `buildProfileView` + the
+  editor is the next portfolio increment (see DEVELOPMENT-PLAN Phase 5
+  follow-ups).
+- **No styling config.** Accent color, theme/font overrides, and layout variants
+  are not exposed on portfolios. (A résumé document is the one exception — it
+  still exposes an accent, doc 02.)
 
 **Template-specific fields never extend the Profile.** If a template wants
 data the Profile lacks (say, a tagline), that's either (a) config text —
@@ -59,8 +69,11 @@ first-class field. Data lives in the Profile; knobs live in config.
 
 - A theme is **CSS custom properties**, not component variants. The SDK
   defines a token vocabulary (`--rf-bg`, `--rf-fg`, `--rf-accent`, font
-  slots…); each template ships named theme presets (values for those tokens)
-  and declares which tokens users may override (accent color, font pairing).
+  slots…); each template ships named theme presets (values for those tokens).
+  The SDK still supports per-template `customizableTokens` for surfaces that
+  want it (a résumé's accent), but the **portfolio templates declare none** —
+  they're opinionated (decision, session 4), so a portfolio's tokens resolve
+  from the chosen preset with no user overrides.
 - Light/dark is a theme dimension handled at the tokens layer; templates
   style against tokens only, so user customization is data, not code.
 

@@ -1,0 +1,1 @@
+ALTER TABLE "sites" ADD COLUMN "has_unpublished_changes" boolean DEFAULT true NOT NULL;

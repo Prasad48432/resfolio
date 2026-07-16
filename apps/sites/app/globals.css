@@ -1,0 +1,15 @@
+/* apps/sites is the rendering host — it carries no marketing theme. Templates
+   ship their own self-contained styles; this file is only a minimal reset. The
+   on-screen paper backdrop for the resume print route lives in
+   app/render/layout.tsx so it never bleeds onto full-bleed portfolio pages. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: #ffffff;
+}

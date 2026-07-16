@@ -18,8 +18,11 @@ html {
   scrollbar-gutter: stable;
 }
 
-/* Warm ambient wash over the base — layered radial tints for depth without a
-   visible seam. Kept very subtle on the light theme. */
+/* Warm ambient wash over the cream base — a subtle brand gradient layered
+   from a few soft radials plus an airy light lift at the top, for depth
+   without a visible seam. Semi-transparent so the base cream shows through;
+   opacities stay low to read as premium, never "gradient-y". Uses the same
+   burnt-orange accent and "live" green as the rest of the palette. */
 body::before {
   content: "";
   position: fixed;
@@ -27,8 +30,14 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(60% 45% at 12% 0%, rgba(240, 89, 43, 0.05), transparent 62%),
-    radial-gradient(50% 40% at 100% 8%, rgba(240, 89, 43, 0.04), transparent 60%);
+    /* warm accent glow behind the hero copy (top-left) */
+    radial-gradient(46% 40% at 6% -6%, rgba(240, 89, 43, 0.09), transparent 58%),
+    /* softer secondary glow behind the hero graphic (top-right) */
+    radial-gradient(44% 38% at 102% 2%, rgba(255, 106, 61, 0.06), transparent 56%),
+    /* faint green whisper anchoring the lower page (the "live" hue) */
+    radial-gradient(70% 55% at 50% 112%, rgba(47, 158, 68, 0.045), transparent 60%),
+    /* airy light lift at the very top, settling into the cream base */
+    linear-gradient(180deg, rgba(255, 253, 249, 0.85) 0%, rgba(255, 253, 249, 0) 40%);
 }
 
 @layer components {

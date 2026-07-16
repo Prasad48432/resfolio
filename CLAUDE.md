@@ -61,7 +61,10 @@ Example
 All workspace packages use the `@resfolio/*` scope. Current packages:
 
 - `@resfolio/ui` — shared UI primitives (shadcn/ui pattern; import from the
-  package root only)
+  package root only). Form controls (`Button`, `Input`, `Textarea`, `Label`,
+  `Select`, `Checkbox`, `Switch`, `Card`) are token-styled native elements;
+  overlays (`Dialog`, `Command`, `DropdownMenu`) use Radix. Prefer a primitive
+  over a raw HTML control
 - `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens, base
   styles, shared component classes (CSS-only package)
 - `@resfolio/env` — validated environment access; the **only** code allowed
@@ -80,6 +83,13 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
 - `@resfolio/fixtures` — the shared sample-data corpus (realistic Profiles
   and their ProfileViews), validated through `@resfolio/profile`; feeds
   unit, template, and e2e tests so sample data exists exactly once
+- `@resfolio/template-sdk` (`packages/template-sdk`) — the template contract
+  (doc 05): `defineTemplate`, the versioned `ProfileView` contract, `--rf-*`
+  theme tokens, and deterministic format + rich-text helpers. Templates
+  depend on this and nothing else platform-side. Two kinds: `resume` (a single
+  `document` renderer) and `portfolio` (a `pages` renderer map over the
+  platform route table, `PortfolioPageProps` carrying `params` + `basePath`).
+  See `packages/template-sdk/CLAUDE.md`
 - `@resfolio/eslint-config`, `@resfolio/typescript-config` — shared tooling
 
 Business-logic packages live under `domains/`:
@@ -89,6 +99,37 @@ Business-logic packages live under `domains/`:
   pure edit helpers (framework-free, root export), and database-backed
   draft/publish operations (the `@resfolio/profile/server` subpath, the only
   code that touches the `profiles`/`profile_versions` tables)
+- `@resfolio/portfolio` (`domains/portfolio`) — the portfolio domain: a **Site**
+  is `Profile × (template + config)`. Pure root (slug rules + reserved-word
+  blocklist, the platform route table `resolvePortfolioRoute`, `SiteRecord`
+  type), the `./token` signed preview token (server-only), and the `./server`
+  surface (the `sites` table: owner-scoped CRUD, `getSiteForRender`, and
+  `publishSite` — pins the profile's published version). See
+  `domains/portfolio/CLAUDE.md`
+- `@resfolio/document` (`domains/document`) — the document engine: a document
+  is `Profile × config` (template + presentation `config` + a `view`
+  ViewDefinition), never a copy of content. Pure root (schema, types,
+  `newResumeDocumentInput`), the shared signed render token
+  (`@resfolio/document/token`, server-only), and the DB surface
+  (`@resfolio/document/server`, the only code that touches the `documents`
+  table). See `domains/document/CLAUDE.md`
+
+Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
+
+- `@resfolio/template-resume-classic` (`templates/resume-classic`) — the first
+  resume template: clean single-column, ATS-safe, self-hosted Manrope,
+  physical-unit CSS, inline SVG icons
+- `@resfolio/template-portfolio-minimal` (`templates/portfolio-minimal`) — the
+  first portfolio template (`kind: "portfolio"`): a quiet editorial dark/light
+  site (home, projects, project detail, about, résumé), serif display type,
+  self-contained `.rf-site`-scoped stylesheet, universal RSC pages. See
+  `templates/portfolio-minimal/CLAUDE.md`
+- `@resfolio/template-portfolio-sidebar` (`templates/portfolio-sidebar`) — the
+  second portfolio template: a two-column site (sticky profile sidebar + content),
+  dark/light sans-serif, its own content-only config shape (proves the schema-
+  driven settings form) and the **same** route table (proves URL-stable template
+  switching). Templates are opinionated — config exposes content/visibility, not
+  styling. See `templates/portfolio-sidebar/CLAUDE.md`
 
 ---
 
@@ -122,8 +163,13 @@ Examples
 
 - web — public marketing site (resfolio.me)
 - dashboard — authenticated dashboard (app.resfolio.me)
-- sites — multi-tenant portfolio renderer + print/preview routes (planned,
-  see docs 04 and 09)
+- sites — the rendering host (port 3002, docs 04 and 09): the resume **print
+  route** (private, token-guarded) + local PDF spike, the **public portfolio
+  route** `/p/[username]/[[...slug]]` (ISR-cached, indexable, DB- or
+  fixture-backed), the **draft-preview route** `/preview/portfolio` (private,
+  token-guarded, iframed by the dashboard), platform SEO (`sitemap.xml`,
+  `robots.txt`, JSON-LD), and `POST /api/revalidate` (publish invalidation).
+  Cloud (R2/Trigger.dev) delivery is later. See `apps/sites/CLAUDE.md`
 
 ## packages/
 

@@ -134,25 +134,53 @@ AI, imports all explicitly out of this phase).
 **Goal:** the "many outputs" promise becomes real: a resume rendered
 identically in preview and PDF. Docs: [05](architecture/05-template-sdk.md), [02](architecture/02-resume-rendering.md), [09](architecture/09-rendering-pipeline.md).
 
-- `packages/template-sdk`: `defineTemplate`, ProfileView contract v1, theme
-  tokens — `kind: "resume"` only.
-- First resume template (semantic, flow-layout, physical units, inline SVG
-  icons, self-hosted fonts).
-- Scaffold `apps/sites` (port 3002) with the **print route** (token-guarded,
-  signed 5-minute tokens) — before any public pages.
-- `documents` table + resume documents UI (create/name/select template,
-  A4/Letter config).
-- Editor preview pane: the split-workspace layout primitive; resume
-  template rendered in-browser in a scaled page box with optimistic
-  client-side `buildProfileView`; pagination overlay.
-- PDF export: Trigger.dev task (Playwright → R2 content-hash cache → signed
-  download URL); R2 + `assets` table land here.
-- CI: template contract harness — visual snapshots of the print route, ATS
-  text-extraction check, the preview↔PDF parity diff.
+**Status: product-complete (2026-07-15) — 4A–4F done.** The
+`Resolve → Project → Render → Deliver` pipeline is built and verified locally
+end-to-end, and both editor pieces (documents + `/resumes` UI, the in-browser
+live preview) ship. The only remaining Phase-4 items are **account-gated**:
+the cloud delivery adapters (R2 + Trigger.dev + Redis nonces) and the CI
+preview↔PDF parity diff (which lands with template #2 in Phase 5). The docs'
+mandated "spike the Playwright→PDF→R2 path first" is satisfied (local disk,
+cloud endpoints stubbed behind seams).
+
+- ✅ **4A** `packages/template-sdk`: `defineTemplate`, ProfileView contract v1,
+  theme tokens, deterministic format + rich-text helpers — `kind: "resume"`
+  only. 30 unit tests.
+- ✅ **4B** first resume template (`templates/resume-classic`): semantic,
+  flow-layout, physical units, inline SVG icons, self-hosted Manrope. The
+  ATS check caught (and drove the fix for) letter-spacing that split heading
+  glyphs in the text layer.
+- ✅ **4C** `apps/sites` (port 3002) with the **print route** (token-guarded,
+  signed short-TTL HMAC tokens) — before any public pages. Fixture + DB
+  resolve sources; DB imported dynamically so the fixture path needs no DB.
+- ✅ **4D** PDF export **spike**: Playwright → content-hash cache
+  (`LocalFsExportStore`) → PDF on disk; second export of unchanged content is
+  a cache hit (no Chromium boot); ATS text-extraction check (headings in
+  reading order, visible URLs survive). Cloud wiring stubbed behind
+  `ExportStore` + token-signer seams.
+- ✅ **4E** `documents` table + `@resfolio/document` domain + resume documents
+  UI (create/name, A4/Letter, margins, accent, icons). The print route now
+  resolves a stored document by id (the signed render token carries an
+  inline-or-stored ref, keeping `source`/`ref`); the token module is shared
+  from `@resfolio/document/token` so the dashboard mints and `apps/sites`
+  verifies with one implementation.
+- ✅ **4F** Editor preview pane: the `SplitWorkspace` layout primitive; the
+  `resume-classic` template rendered **in-browser** in a scaled page box with
+  optimistic client-side `buildProfileView`; advisory pagination overlay.
+- ⏳ **Cloud delivery** (needs account access): swap `LocalFsExportStore` →
+  `R2ExportStore`, wrap `export-pdf` in a Trigger.dev task, add Redis
+  token-nonce hardening; `R2` + `assets` table land here.
+- ⏳ CI: template contract harness — visual snapshots of the print route, the
+  preview↔PDF parity diff (arrives with template #2). The ATS text-extraction
+  check exists now (`pnpm --filter sites check:ats`).
 
 **Exit criteria:** edit → see paginated preview → export → PDF matches
 preview, links clickable, text extractable; second export of unchanged
 content is a cache hit (no Chromium boot); parity test green in CI.
+_Met: edit → in-editor paginated live preview (4F), export → PDF with
+extractable text in order and clickable links, cache hit on unchanged content.
+Outstanding (account-gated): the CI preview↔PDF parity diff, which lands with
+template #2 in Phase 5._
 
 **Risks:** **highest-risk phase.** Chromium-in-Trigger.dev packaging and
 cold starts (mitigate: spike the Playwright→PDF→R2 path in week one of the
@@ -167,23 +195,100 @@ add after).
 
 **Goal:** `resfolio.me/p/<username>` is live. Docs: [03](architecture/03-portfolio-rendering.md), [04](architecture/04-deployment.md).
 
-- SDK extended for `kind: "portfolio"` (pages map, capabilities).
-- `apps/sites` public rendering: catch-all route, Site resolution (Redis
-  cached), template registry dispatch, ISR + `revalidateTag` on publish.
-- First portfolio template (home, projects, project detail, about, resume
-  page). Port the visual language from `apps/web/design-refs/portfolio/`.
-- `sites` table; portfolio section in the dashboard: slug claim (with
-  reserved-word blocklist), template pick, theme/config (schema-driven
-  form), publish flow.
-- Draft-preview route (signed tokens) + the portfolio preview iframe in the
-  editor — the full "never edit blindly" split workspace.
-- Platform SEO: metadata, JSON-LD, per-site sitemap/robots, discoverable
-  toggle. CSP with frame-ancestors carve-out for the preview route.
-- **Second template** (resume or portfolio) to prove the SDK contract.
+**Status: product-complete (2026-07-16).** Sessions 1–2 built the SDK
+portfolio contract, the first portfolio template, and the **public rendering
+host**. Session 3 closed the phase: the DB `sites` table + `@resfolio/portfolio/server`
+(owner CRUD, `getSiteForRender`, `publishSite`), the DB-backed `resolve-site`
+swap + the `apps/sites` on-demand revalidation endpoint, the **dashboard
+portfolio section** (slug claim, template pick, schema-driven config form,
+publish, template switch), the **draft-preview route + editor iframe** (signed
+preview token, CSP frame-ancestors carve-out), **platform SEO** (JSON-LD
+`Person`, canonical URLs, per-discoverable `sitemap.xml`/`robots.txt`), and the
+**second portfolio template** (`portfolio-sidebar`). The only remaining Phase-5
+items are **account-gated**: verifying ISR tag-invalidation on a Vercel preview
+deploy (the publish flow now exists) and acquiring `resfolio.site` for
+subdomains (V1.x only).
+
+**Session 4 (post-phase refinements, 2026-07-16).** Publish state is now
+accurate on both editors: the profile's Publish disables when the draft matches
+the published version (`ProfileDraft.hasUnpublishedChanges`), and the site's
+Publish re-enables on any presentation edit — template switch, config, or
+discoverable — via a new `sites.has_unpublished_changes` column (migration
+`0004`) that publish clears and `updateSite` sets. The template selector's
+stuck-after-switch bug is fixed (the editor remounts on the template `key`).
+The dashboard design system was rounded out — `Select`, `Checkbox`, `Switch`,
+and `Card` primitives added to `@resfolio/ui` and swapped in across the profile,
+portfolio, and resume editors (no more raw HTML controls). And portfolio
+**config was trimmed to content/visibility only** (the doc-03 opinionated-
+templates decision): `accent`, `heroLayout`, `sidebarPosition`, and `density`
+removed; templates now own all styling.
+
+- ✅ **SDK `kind: "portfolio"`** — `PortfolioTemplateDefinition` (a `pages`
+  renderer map), `capabilities.pages` over the platform route table
+  (`PORTFOLIO_PAGE_KINDS`), `PortfolioPageProps` (`{ view, config, theme,
+params, basePath }`). `defineTemplate` enforces page coverage (`home`
+  mandatory, every declared page rendered, no stray renderers). `resolveTheme`
+  is now kind-agnostic. +5 SDK unit tests (35 total).
+- ✅ **First portfolio template** (`templates/portfolio-minimal`) — home,
+  projects, project detail, about, résumé; two themes (dark/light), serif
+  editorial language ported from `apps/web/design-refs/portfolio/`; universal
+  RSC pages; `.rf-site`-scoped self-contained stylesheet; 12 render-harness
+  tests against the fixture ProfileViews (doc 05 impl step 4 seed).
+- ✅ **`apps/sites` public rendering** — the catch-all
+  `/p/[username]/[[...slug]]`, Site resolution (`lib/resolve-site.ts`, fixture
+  source now; DB source is a dynamic-import seam), the portfolio template
+  registry (`lib/portfolio-templates.ts`), the platform route table
+  (`@resfolio/portfolio` `resolvePortfolioRoute`), ISR + `site:<id>` cache tags,
+  and `generateMetadata` honoring the discoverable toggle. Verified end-to-end
+  (home/projects/detail/about render with self-hosted fonts; unknown route +
+  unknown username 404). `revalidateTag` on publish lands with the `sites` table.
+- ✅ **`domains/portfolio`** — pure root (slug rules + reserved-word blocklist,
+  route table, `SiteRecord`) **plus** the `./server` surface (the `sites` table,
+  owner-scoped CRUD, `getSiteForRender`/`getSiteIdBySlug`, `listDiscoverableSites`,
+  and `publishSite` — pins the profile's published version; the app layer calls
+  the `apps/sites` revalidation endpoint) and the `./token` preview token.
+- ✅ **`sites` table** (`packages/database`, migration `0003`) + the DB-backed
+  `resolve-site` swap (fixture source kept for CI; DB gated on `DATABASE_URL` so
+  the fixture path 404s cleanly with no DB) + `apps/sites` `POST /api/revalidate`
+  (secret-guarded on-demand `revalidateTag`).
+- ✅ **Dashboard portfolio section** — slug claim with live availability check,
+  template pick, the **schema-driven settings form** (generated from the
+  template's `configSchema` via `describeConfigSchema`), discoverable toggle,
+  publish, and live **template switch** (proves URL-stable switching).
+- ✅ Draft-preview route (`apps/sites/preview/portfolio`, signed preview token)
+  - the portfolio preview **iframe** in the editor (CSP `frame-ancestors`
+    carve-out; re-minted per save so it never expires mid-session).
+- ✅ Platform SEO: per-page metadata + canonical URLs, JSON-LD `Person`
+  (home only), `sitemap.xml` (discoverable sites, template-aware page set) and
+  `robots.txt` honoring the discoverable toggle.
+- ✅ **Second template** (`@resfolio/template-portfolio-sidebar`) — a two-column
+  sidebar layout with a _different_ config shape (exercises the schema-driven
+  form) and the same route table (proves URL-stable switching). Both templates'
+  render harnesses seed the CI visual-snapshot layer.
+
+**Follow-ups (next portfolio increment — not account-gated):**
+
+- **Per-site view tailoring** — the content-selection surface: show/hide
+  sections, reorder, and choose which projects/experiences/skills display. The
+  seam already exists — `sites.view` (a ViewDefinition, `{}` = identity) flows to
+  `buildProfileView` — so this is wiring the projection through render + building
+  the editor UI (schema-driven, alongside the config form). This is the "what
+  shows" half of the doc-03 config decision; the "styling stays opinionated"
+  half shipped in session 4.
+- A dashboard **portfolio e2e** (claim → configure → publish), deferred with the
+  DB + auth-mock harness the resume e2e uses.
+- Optional `RadioGroup` primitive to replace the claim screen's radio-cards.
 
 **Exit criteria:** publish → public URL serves cached pages → edit + publish
 again → page updates via tag invalidation; template switch preserves URLs;
 Lighthouse ≥ 95 on the portfolio home; preview iframe shows draft changes.
+_Met: the publish flow pins the version and invalidates `site:<id>` (the
+cross-deployment invalidation via `apps/sites`'s revalidation endpoint — final
+proof on a Vercel preview deploy is the one account-gated carry-over); template
+switch preserves URLs (both templates share the platform route table + `href`
+seam, asserted in the render harness); the preview iframe renders the real draft
+through the template. The public route + SEO surfaces were verified end-to-end
+against a production build (fixture source)._
 
 **Risks:** ISR/tag behavior differing between local and Vercel (mitigate:
 verify invalidation on preview deploys early); SDK contract feeling wrong

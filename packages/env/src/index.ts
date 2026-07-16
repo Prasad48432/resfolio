@@ -17,3 +17,4 @@ export { database } from "./slices/database";
 export { auth } from "./slices/auth";
 export { ratelimit } from "./slices/ratelimit";
 export { observability } from "./slices/observability";
+export { render } from "./slices/render";

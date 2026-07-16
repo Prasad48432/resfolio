@@ -30,8 +30,16 @@ const DEBOUNCE_MS = 800;
 export function useProfileAutosave(
   form: UseFormReturn<ProfileFormValues>,
   initialRev: number,
+  initialHasUnpublishedChanges: boolean,
 ) {
   const [status, setStatus] = useState<SaveStatus>("idle");
+  // Tracks whether the draft has content not yet snapshotted by Publish. Seeded
+  // from the server (draft-vs-published diff), flipped true on any edit, and
+  // reset by `markPublished` after a successful publish. Publish is disabled
+  // while this is false so an unchanged draft can't be re-published (doc 01).
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(
+    initialHasUnpublishedChanges,
+  );
   const baseRev = useRef(initialRev);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guards against overlapping saves and out-of-order responses.
@@ -89,10 +97,13 @@ export function useProfileAutosave(
     void runSave();
   }, [runSave]);
 
+  const markPublished = useCallback(() => setHasUnpublishedChanges(false), []);
+
   // Subscribe to form edits; a conflict halts autosave until reload.
   useEffect(() => {
     const subscription = form.watch(() => {
       if (status === "conflict") return;
+      setHasUnpublishedChanges(true);
       scheduleSave();
     });
     return () => subscription.unsubscribe();
@@ -116,5 +127,5 @@ export function useProfileAutosave(
     };
   }, []);
 
-  return { status, saveNow };
+  return { status, saveNow, hasUnpublishedChanges, markPublished };
 }
