@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@resfolio/ui";
+import { TagInput } from "@resfolio/ui";
 import {
   useController,
   useFormContext,
@@ -9,9 +9,12 @@ import {
 } from "react-hook-form";
 
 /**
- * Controlled editor for a `string[]` field (skills, technologies): a single
- * comma-separated input. Stored as a trimmed array; empty entries are kept
- * out. `buildProfileView` also tidies empties, so mid-edit states are safe.
+ * Controlled editor for a `string[]` field (skills, technologies) — the
+ * dashboard's reusable pattern for string arrays. Binds the shared `TagInput`
+ * chip editor to the enclosing React Hook Form: Enter or comma commits a
+ * trimmed, deduplicated tag; each chip has a remove button. The pending
+ * (uncommitted) text lives inside `TagInput`, so the form — and autosave —
+ * only ever see the committed `string[]`.
  */
 export function TagsField<TValues extends FieldValues>({
   id,
@@ -27,19 +30,12 @@ export function TagsField<TValues extends FieldValues>({
   const value = Array.isArray(field.value) ? (field.value as string[]) : [];
 
   return (
-    <Input
+    <TagInput
       id={id}
-      value={value.join(", ")}
-      placeholder={placeholder ?? "Comma, separated, values"}
-      onChange={(event) =>
-        field.onChange(
-          event.target.value
-            .split(",")
-            .map((entry) => entry.trim())
-            .filter((entry) => entry.length > 0),
-        )
-      }
+      value={value}
+      onChange={field.onChange}
       onBlur={field.onBlur}
+      placeholder={placeholder ?? "Type a skill, press Enter"}
     />
   );
 }

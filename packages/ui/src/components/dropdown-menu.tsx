@@ -18,8 +18,12 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "card-surface z-50 min-w-52 rounded-2xl p-1.5",
-          "data-[state=open]:animate-fade-scale",
+          "z-50 min-w-52 rounded-2xl border border-border bg-surface p-1.5 shadow-[0_12px_32px_rgba(38,32,25,0.10)]",
+          // Scale from the trigger, not from the menu's own centre — a menu
+          // that grows out of the button that opened it reads as caused by
+          // the click, which `transform-origin: center` never does.
+          "[transform-origin:var(--radix-dropdown-menu-content-transform-origin)]",
+          "data-[state=open]:animate-popover-in data-[state=closed]:animate-popover-out",
           className,
         )}
         {...props}

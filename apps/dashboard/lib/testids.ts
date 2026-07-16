@@ -51,6 +51,13 @@ export const TEST_IDS = {
   portfolioPublicUrl: "portfolio-public-url",
   portfolioDiscoverable: "portfolio-discoverable",
   portfolioPreviewFrame: "portfolio-preview-frame",
+  sourcesPage: "sources-page",
+  sourcesGallery: "sources-gallery",
+  sourcesLinkedinUpload: "sources-linkedin-upload",
+  sourcesTriage: "sources-triage",
+  sourcesTriageEmpty: "sources-triage-empty",
+  sourcesHistory: "sources-history",
+  sourcesConnections: "sources-connections",
 } as const;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
@@ -70,6 +77,25 @@ export const portfolioTemplateTestId = (id: string) =>
   `portfolio-template-${id}`;
 export const portfolioConfigFieldTestId = (key: string) =>
   `portfolio-config-${key}`;
+
+export const sourceConnectInputTestId = (connectorId: string) =>
+  `sources-connect-${connectorId}-input`;
+export const sourceConnectButtonTestId = (connectorId: string) =>
+  `sources-connect-${connectorId}-button`;
+export const sourceConnectionTestId = (id: string) => `source-connection-${id}`;
+export const sourceCheckUpdatesTestId = (id: string) =>
+  `source-check-updates-${id}`;
+export const sourceRemoveTestId = (id: string) => `source-remove-${id}`;
+export const triageItemTestId = (id: string) => `triage-item-${id}`;
+export const triageImportTestId = (id: string) => `triage-import-${id}`;
+export const triageSkipTestId = (id: string) => `triage-skip-${id}`;
+export const triageEditTestId = (id: string) => `triage-edit-${id}`;
+export const triageDestinationTestId = (id: string) =>
+  `triage-destination-${id}`;
+export const triageImportGroupTestId = (key: string) =>
+  `triage-import-group-${key}`;
+export const receiptItemTestId = (id: string) => `receipt-item-${id}`;
+export const receiptReimportTestId = (id: string) => `receipt-reimport-${id}`;
 
 export const profileSectionTestId = (key: string) => `profile-section-${key}`;
 export const profileAddItemTestId = (key: string) => `profile-add-${key}`;

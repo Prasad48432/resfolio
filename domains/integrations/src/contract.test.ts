@@ -26,8 +26,7 @@ function makeValid(): Connector<{ username: string }, unknown> {
     tier: "A",
     input: z.object({ username: z.string() }),
     resources: ["project"],
-    capabilities: { incremental: false, webhooks: false },
-    schedule: { defaultEvery: "24h" },
+    capabilities: { refreshable: true, incremental: false },
     fetch: (ctx: FetchContext<{ username: string }>) => {
       void ctx;
       return noItems;
@@ -57,13 +56,16 @@ describe("defineConnector", () => {
     );
   });
 
-  it("rejects a bad schedule duration", () => {
+  it("requires the refreshable capability declaration", () => {
     expect(() =>
       defineConnector({
         ...makeValid(),
-        schedule: { defaultEvery: "soon" },
+        capabilities: { incremental: false } as unknown as {
+          refreshable: boolean;
+          incremental: boolean;
+        },
       }),
-    ).toThrow(/duration/);
+    ).toThrow(ConnectorDefinitionError);
   });
 
   it("requires auth.scopes for oauth2/token connectors", () => {

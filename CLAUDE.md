@@ -62,11 +62,20 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
 
 - `@resfolio/ui` — shared UI primitives (shadcn/ui pattern; import from the
   package root only). Form controls (`Button`, `Input`, `Textarea`, `Label`,
-  `Select`, `Checkbox`, `Switch`, `Card`) are token-styled native elements;
-  overlays (`Dialog`, `Command`, `DropdownMenu`) use Radix. Prefer a primitive
-  over a raw HTML control
-- `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens, base
-  styles, shared component classes (CSS-only package)
+  `Checkbox`, `Switch`, `Card`) are token-styled native elements; `Select`
+  (full shadcn API: `SelectTrigger`/`SelectContent`/`SelectItem`/…) and the
+  overlays (`Dialog`, `Command`, `DropdownMenu`) use Radix; `TagInput` is the
+  chip editor for `string[]` values (Enter/comma commits, dedup, per-chip
+  remove). Prefer a primitive over a raw HTML control. These render inside
+  Server Components, so they carry **no `"use client"` unless the behavior
+  forces it** (Radix, or `TagInput`'s pending-text state) — keep interaction
+  feedback in CSS rather than reaching for a motion library
+- `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens (colour,
+  type, and the `--ease-*` / `--duration-*` motion scale), base styles, shared
+  component classes (CSS-only package). Global rules belong in `@layer base` —
+  unlayered CSS outranks every cascade layer, including Tailwind's utilities.
+  It carries **two surface systems**: `card-surface` (marketing) and, in
+  `@resfolio/ui`, `Card` (product) — see `docs/architecture/08-dashboard-ux.md`
 - `@resfolio/env` — validated environment access; the **only** code allowed
   to read `process.env` (ESLint-enforced everywhere else). One schema slice
   per concern; apps _and_ packages compose the slices they need into their
@@ -113,16 +122,24 @@ Business-logic packages live under `domains/`:
   (`@resfolio/document/token`, server-only), and the DB surface
   (`@resfolio/document/server`, the only code that touches the `documents`
   table). See `domains/document/CLAUDE.md`
-- `@resfolio/integrations` (`domains/integrations`) — the integrations domain
-  (doc 12): one pipeline (**Connect → Fetch → Normalize → Stage → Review →
-  Apply**) with providers as small connectors (`fetch` + pure `normalize`)
-  behind a static registry, each declaring an `authMode` (`oauth2 | token |
-  public | file`). Pure root today: `defineConnector`, the canonical
-  `CandidateItem` schema (payloads reuse the profile item schemas), the
-  deterministic `computeFingerprint`, the three-way `classifyCandidate` merge
-  decision, the registry, and the first two connectors (`github` oauth2,
-  `rss` public). The DB `./server` runtime (staging tables, encrypted tokens,
-  apply-to-draft) lands next. See `domains/integrations/CLAUDE.md`
+- `@resfolio/integrations` (`domains/integrations`) — the imports domain
+  (doc 12, **import-first**): one pipeline (**Connect → Fetch → Normalize →
+  Route → Stage → Review → Import**) with providers as small connectors
+  (`fetch` + pure `normalize`) behind a static registry, each declaring an
+  `authMode` (`oauth2 | token | public | file`) and whether it's
+  `refreshable`. Providers are import sources only — imported content is
+  ordinary Resfolio data. Pure root: `defineConnector`, the canonical
+  `CandidateItem` schema (kinds cover the Profile + the `unclassified`
+  escape hatch; payloads reuse the profile item schemas), the routing policy
+  (per-kind defaults, user override, unrouted = "needs a home"), the
+  deterministic `computeFingerprint` (dedupe/idempotence), the import
+  classification (`new | duplicate | refresh_available`), the registry, and
+  the first two connectors (`github` oauth2, `rss` public). The `./server`
+  runtime: staging tables (migrations `0005`+`0006`), key-versioned
+  AES-256-GCM token storage, `runImport` (route + stage + duplicate-skip +
+  run log), and `importItem` (route-validated apply-to-draft; a warned
+  re-import is the only path over a user edit) — the dashboard's `/sources`
+  import workspace drives it. See `domains/integrations/CLAUDE.md`
 
 Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 

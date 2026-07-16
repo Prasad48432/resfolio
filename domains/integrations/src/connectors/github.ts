@@ -153,8 +153,7 @@ export const github = defineConnector<undefined, GithubRepo>({
   tier: "A",
   auth: { scopes: ["read:user", "public_repo"] },
   resources: ["project"],
-  capabilities: { incremental: true, webhooks: true },
-  schedule: { defaultEvery: "24h" },
+  capabilities: { refreshable: true, incremental: true },
   fetch: fetchRepos,
   normalize: normalizeRepo,
 });

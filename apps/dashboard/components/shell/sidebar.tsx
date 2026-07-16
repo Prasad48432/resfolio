@@ -15,13 +15,15 @@ export function Sidebar({ user }: { user: ShellUser }) {
 
   return (
     <aside
-      className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-background"
+      className="sticky top-0 flex h-screen w-(--spacing-sidebar) shrink-0 flex-col border-r border-border bg-background"
       data-testid={TEST_IDS.sidebar}
     >
-      <div className="flex h-14 items-center border-b border-border px-5">
+      <div className="flex h-(--spacing-topbar) shrink-0 items-center border-b border-border px-4">
+        {/* The wordmark keeps Instrument Serif. This is the one place in the
+            product where the brand voice belongs — it's identity, not UI. */}
         <Link
           href="/profile"
-          className="font-display text-xl text-foreground"
+          className="rounded-md font-display text-xl text-foreground"
           aria-label="Resfolio home"
         >
           Resfolio<span className="text-accent">.</span>
@@ -29,7 +31,7 @@ export function Sidebar({ user }: { user: ShellUser }) {
       </div>
 
       <nav
-        className="flex flex-1 flex-col gap-1 overflow-y-auto p-3"
+        className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2"
         aria-label="Primary"
         data-testid={TEST_IDS.sidebarNav}
       >
@@ -42,16 +44,23 @@ export function Sidebar({ user }: { user: ShellUser }) {
               key={item.key}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              // Nav is hit constantly, so it does not animate on click and the
+              // hover transition is only a press-length colour fade — anything
+              // longer feels like the nav is lagging behind the cursor.
+              // Every item carries a border, transparent when inactive, so
+              // becoming active changes colour and never nudges layout. The
+              // active surface is only a shade off the page, which is the
+              // point: the hairline is what makes it legible.
               className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-[13px] transition-colors duration-(--duration-press) ease-out",
                 active
-                  ? "bg-surface font-medium text-foreground shadow-[inset_0_0_0_1px_var(--color-border)]"
-                  : "text-muted hover:bg-surface hover:text-foreground",
+                  ? "border-border bg-surface font-medium text-foreground"
+                  : "border-transparent text-muted hover:bg-surface/70 hover:text-foreground",
               )}
               data-testid={navItemTestId(item.key)}
             >
               <Icon
-                className={cn("size-4", active ? "text-accent" : "")}
+                className={cn("size-4 shrink-0", active && "text-accent")}
                 aria-hidden
               />
               {item.label}
@@ -60,7 +69,7 @@ export function Sidebar({ user }: { user: ShellUser }) {
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="shrink-0 border-t border-border p-2">
         <UserMenu user={user} />
       </div>
     </aside>

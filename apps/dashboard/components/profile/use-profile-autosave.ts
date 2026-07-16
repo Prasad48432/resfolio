@@ -6,6 +6,7 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { saveProfileDraftAction } from "@/app/(dashboard)/profile/actions";
 import type { ProfileFormValues } from "@/lib/profile-form";
+import type { SaveStatus } from "@/lib/save-status";
 
 /**
  * Autosave state machine for the profile editor
@@ -16,14 +17,7 @@ import type { ProfileFormValues } from "@/lib/profile-form";
  * concurrency (doc 01) is carried by `baseRev`: on a conflict the machine
  * stops and asks the user to reload rather than clobbering another writer.
  */
-export type SaveStatus =
-  | "idle"
-  | "dirty"
-  | "saving"
-  | "saved"
-  | "invalid"
-  | "offline"
-  | "conflict";
+export type { SaveStatus };
 
 const DEBOUNCE_MS = 800;
 

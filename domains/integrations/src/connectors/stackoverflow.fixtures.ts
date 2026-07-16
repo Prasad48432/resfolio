@@ -1,0 +1,20 @@
+import type { StackoverflowTag, StackoverflowUser } from "./stackoverflow";
+
+/** Recorded shapes of the Stack Exchange API's `/users/{id}` and
+ * `/users/{id}/top-tags` items (doc 11 fixture discipline). */
+export const stackoverflowUser: StackoverflowUser = {
+  user_id: 22656,
+  display_name: "ada-l",
+  reputation: 41230,
+  location: "Berlin, Germany",
+  profile_image: "https://i.sstatic.net/abc123.jpg",
+  link: "https://stackoverflow.com/users/22656/ada-l",
+};
+
+export const stackoverflowTopTags: StackoverflowTag[] = [
+  { tag_name: "postgresql", answer_score: 812 },
+  { tag_name: "typescript", answer_score: 655 },
+  { tag_name: "node.js", answer_score: 244 },
+  { tag_name: "", answer_score: 1 },
+  { tag_name: "postgresql", answer_score: 5 },
+];

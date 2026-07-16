@@ -9,8 +9,16 @@ import { z } from "zod";
  */
 
 /** Provenance: where an item came from (doc 01 / doc 12). `manual` is the
- * editor; connector values land with their Phase 6 integrations. */
-export const ITEM_SOURCES = ["manual", "github", "linkedin", "rss"] as const;
+ * editor; connector values land with their Phase 6 integrations. Additive
+ * only — widening this enum never invalidates stored profiles. */
+export const ITEM_SOURCES = [
+  "manual",
+  "github",
+  "linkedin",
+  "rss",
+  "devto",
+  "stackoverflow",
+] as const;
 
 export const itemSourceSchema = z.enum(ITEM_SOURCES);
 

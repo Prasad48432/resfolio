@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@resfolio/ui";
+import { Button, Card, Input } from "@resfolio/ui";
 import { Plus, X } from "lucide-react";
 import {
   useFieldArray,
@@ -8,6 +8,7 @@ import {
   type UseFieldArrayRemove,
 } from "react-hook-form";
 
+import { EmptyState } from "@/components/layout/empty-state";
 import {
   CUSTOM_ITEM_FIELDS,
   makeBlankCustomItem,
@@ -39,7 +40,7 @@ function CustomSectionCard({
   });
 
   return (
-    <div className="card-surface flex flex-col gap-4 p-4">
+    <Card className="flex flex-col gap-4 p-4">
       <div className="flex items-center gap-2">
         <Input
           className="font-medium"
@@ -98,7 +99,7 @@ function CustomSectionCard({
           </Button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -140,9 +141,7 @@ export function CustomSectionsEditor() {
       </div>
 
       {fields.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
-          No custom sections yet.
-        </p>
+        <EmptyState size="inline" title="No custom sections yet." />
       ) : (
         <div className="flex flex-col gap-3">
           {fields.map((field, index) => (

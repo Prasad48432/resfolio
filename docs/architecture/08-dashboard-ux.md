@@ -55,6 +55,56 @@ token block, fonts, and CSS component classes — CSS-first, no
   limited to purposeful 150–200ms transforms/opacity (Framer Motion only in
   client leaves).
 
+#### Two surfaces, and which is which
+
+`@resfolio/design` carries both systems; picking the wrong one is the single
+easiest way to make the product look like a marketing page.
+
+| | `card-surface` (@resfolio/design) | `Card` (@resfolio/ui) |
+| --- | --- | --- |
+| Radius | 20px | 16px |
+| Depth | inset highlight + 32px ambient glow | 1px border, no shadow |
+| Use for | `apps/web`, the login screen | **everything in the dashboard** |
+
+The dashboard uses `Card`. A shadow is permitted only where the element is
+genuinely elevated — a modal, a menu, a row lifted mid-drag — never as
+decoration.
+
+#### The dashboard's voice
+
+- **Titles are Manrope**, not Instrument Serif. The serif is Resfolio's brand
+  voice and belongs to marketing and the sidebar wordmark; a screen the user
+  reads for hours earns hierarchy from weight, size, and space. `PageHeader`
+  owns this — routes never build their own title block.
+- `.label-section` (quiet, muted) is the product's section label.
+  `.label-eyebrow` (accent, wide-tracked) is marketing's and stays there.
+- Mono carries meaning, never decoration: URLs, slugs, keyboard shortcuts.
+
+#### Motion contract
+
+Easing and duration are tokens in `@resfolio/design` (`--ease-out`,
+`--ease-in-out`, `--duration-press|fast|base|slow`); components never inline a
+raw cubic-bezier. `--ease-out` deliberately overrides Tailwind's weaker
+built-in, so the plain `ease-out` utility resolves to the platform curve.
+
+- **`ease-in` is banned in product UI.** It delays the first frame, which is
+  exactly when the user is watching, so it reads as lag. Exits use `ease-out`,
+  just faster than enters.
+- **Marketing entrances (`animate-fade-up`, `fade-scale`, `focus-in`) are for
+  `apps/web` only** — they run 550–900ms. Product overlays use
+  `animate-overlay-in|modal-in|popover-in` at 150–200ms.
+- **Keyboard-triggered surfaces do not animate.** The `cmd+k` palette passes
+  `animated={false}` to `DialogContent`. An animation on something summoned
+  a hundred times a day is lag, not polish.
+- **Popovers scale from their trigger** (`--radix-*-content-transform-origin`);
+  modals stay centred, because they are not anchored to anything.
+- Framer Motion lives in client leaves via `components/motion/`
+  (`FadeIn`, `Stagger`/`StaggerItem`, `SwapIn`, `RouteTransition`). Shared
+  primitives that Server Components render — `Button` above all — keep their
+  feedback in CSS so they never drag a page over the client boundary.
+- Everything respects `prefers-reduced-motion`, which means **gentler, not
+  none**: movement and scale go, opacity stays.
+
 ### The editing model: form ↔ preview, never blind
 
 Every editor route is a **split workspace**:

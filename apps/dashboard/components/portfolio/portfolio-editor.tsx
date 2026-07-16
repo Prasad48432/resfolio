@@ -1,14 +1,17 @@
 "use client";
 
-import { Button, Label, Select, Switch } from "@resfolio/ui";
 import {
-  Check,
-  CloudOff,
-  ExternalLink,
-  Globe,
-  Loader2,
-  Rocket,
-} from "lucide-react";
+  Button,
+  Card,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from "@resfolio/ui";
+import { ExternalLink, Globe, Loader2, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,9 +20,13 @@ import {
   publishPortfolioSiteAction,
   updatePortfolioSiteAction,
 } from "@/app/(dashboard)/portfolio/actions";
+import { Page } from "@/components/layout/page";
+import { FadeIn } from "@/components/motion/motion";
 import { ConfigFields } from "@/components/portfolio/config-fields";
+import { SaveIndicator } from "@/components/status/save-indicator";
 import { SplitWorkspace } from "@/components/workspace/split-workspace";
 import type { ConfigFieldDescriptor } from "@/lib/config-form";
+import type { SaveStatus } from "@/lib/save-status";
 import { TEST_IDS } from "@/lib/testids";
 
 /**
@@ -29,17 +36,10 @@ import { TEST_IDS } from "@/lib/testids";
  * — the draft-preview iframe layers in here later. Publishing pins the
  * profile's published version and invalidates the public cache; editing config
  * never republishes (publish is one deliberate action, doc 04).
+ *
+ * Save state uses the shared `SaveStatus` vocabulary and `SaveIndicator`; this
+ * editor simply never reaches the profile-only `invalid`/`conflict` states.
  */
-type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "offline";
-
-const SAVE_LABEL: Record<SaveStatus, string> = {
-  idle: "All changes saved",
-  dirty: "Unsaved changes…",
-  saving: "Saving…",
-  saved: "Saved",
-  offline: "Offline — will retry",
-};
-
 const DEBOUNCE_MS = 700;
 
 export function PortfolioEditor({
@@ -152,7 +152,7 @@ export function PortfolioEditor({
   const publicUrl = `${publicBaseUrl}/p/${slug}`;
 
   return (
-    <div className="flex flex-col gap-6" data-testid={TEST_IDS.portfolioEditor}>
+    <Page wide data-testid={TEST_IDS.portfolioEditor}>
       <Header
         slug={slug}
         status={status}
@@ -161,69 +161,79 @@ export function PortfolioEditor({
         siteUpToDate={siteUpToDate}
       />
 
-      <SplitWorkspace
-        form={
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <p className="label-eyebrow">{templateName}</p>
-              <p className="text-sm text-muted">
-                Presentation only — your content lives in your profile.
-              </p>
-            </div>
-
-            {templates.length > 1 ? (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="portfolio-template">Template</Label>
-                <Select
-                  id="portfolio-template"
-                  value={templateId}
-                  disabled={switching}
-                  onChange={(event) => void switchTemplate(event.target.value)}
-                  data-testid={TEST_IDS.portfolioTemplatePick}
-                >
-                  {templates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
-                </Select>
-                <p className="text-xs text-muted">
-                  Switching keeps your URL — only the design changes.
+      <FadeIn>
+        <SplitWorkspace
+          form={
+            <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-1">
+                <p className="label-section">{templateName}</p>
+                <p className="text-[13px] leading-relaxed text-muted">
+                  Presentation only — your content lives in your profile.
                 </p>
               </div>
-            ) : null}
 
-            <ConfigFields
-              fields={fields}
-              config={config}
-              onChange={(key, value) =>
-                setConfig((current) => ({ ...current, [key]: value }))
-              }
-            />
+              {templates.length > 1 ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="portfolio-template">Template</Label>
+                  <Select
+                    value={templateId}
+                    disabled={switching}
+                    onValueChange={(value) => void switchTemplate(value)}
+                  >
+                    <SelectTrigger
+                      id="portfolio-template"
+                      data-testid={TEST_IDS.portfolioTemplatePick}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted">
+                    Switching keeps your URL — only the design changes.
+                  </p>
+                </div>
+              ) : null}
 
-            <label className="flex items-center justify-between gap-4 border-t border-border pt-6 text-sm text-foreground">
-              <span>List my site publicly (allow search engines to index it)</span>
-              <Switch
-                checked={discoverable}
-                onChange={(event) => setDiscoverable(event.target.checked)}
-                data-testid={TEST_IDS.portfolioDiscoverable}
+              <ConfigFields
+                fields={fields}
+                config={config}
+                onChange={(key, value) =>
+                  setConfig((current) => ({ ...current, [key]: value }))
+                }
               />
-            </label>
-          </div>
-        }
-        preview={
-          previewEnabled && previewUrl ? (
-            <PreviewFrame previewUrl={previewUrl} publicUrl={publicUrl} />
-          ) : (
-            <SiteCard
-              publicUrl={publicUrl}
-              sitePublished={sitePublished}
-              discoverable={discoverable}
-            />
-          )
-        }
-      />
-    </div>
+
+              <label className="flex items-center justify-between gap-4 border-t border-border pt-6 text-sm text-foreground">
+                <span>
+                  List my site publicly (allow search engines to index it)
+                </span>
+                <Switch
+                  checked={discoverable}
+                  onChange={(event) => setDiscoverable(event.target.checked)}
+                  data-testid={TEST_IDS.portfolioDiscoverable}
+                />
+              </label>
+            </div>
+          }
+          preview={
+            previewEnabled && previewUrl ? (
+              <PreviewFrame previewUrl={previewUrl} publicUrl={publicUrl} />
+            ) : (
+              <SiteCard
+                publicUrl={publicUrl}
+                sitePublished={sitePublished}
+                discoverable={discoverable}
+              />
+            )
+          }
+        />
+      </FadeIn>
+    </Page>
   );
 }
 
@@ -240,39 +250,28 @@ function Header({
   sitePublished: boolean;
   siteUpToDate: boolean;
 }) {
-  const SaveIcon =
-    status === "saving" ? Loader2 : status === "offline" ? CloudOff : Check;
-  const tone = status === "offline" ? "text-accent" : "text-muted";
-
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="label-eyebrow">Portfolio</p>
-          <h2 className="font-display text-3xl text-foreground">
-            resfolio.me/p/{slug}
-          </h2>
-        </div>
-        <div className="flex items-center gap-3">
-          <span
-            className={`flex items-center gap-1.5 text-xs ${tone}`}
-            role="status"
-            aria-live="polite"
-            data-testid={TEST_IDS.portfolioSaveIndicator}
-            data-status={status}
-          >
-            <SaveIcon
-              className={`size-3.5 ${status === "saving" ? "animate-spin" : ""}`}
-              aria-hidden
-            />
-            {SAVE_LABEL[status]}
-          </span>
-          <PublishButton
-            profilePublished={profilePublished}
-            sitePublished={sitePublished}
-            siteUpToDate={siteUpToDate}
-          />
-        </div>
+    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h2 className="text-lg font-semibold tracking-[-0.01em] text-foreground">
+          Portfolio
+        </h2>
+        {/* The URL is the page's subject, so it gets mono — the one place a
+            typeface change carries meaning rather than decoration. */}
+        <p className="truncate font-mono text-[13px] text-muted">
+          resfolio.me/p/{slug}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <SaveIndicator
+          status={status}
+          testId={TEST_IDS.portfolioSaveIndicator}
+        />
+        <PublishButton
+          profilePublished={profilePublished}
+          sitePublished={sitePublished}
+          siteUpToDate={siteUpToDate}
+        />
       </div>
     </div>
   );
@@ -324,7 +323,11 @@ function PublishButton({
           data-published={sitePublished}
           data-uptodate={upToDate}
         >
-          {upToDate ? "Live & up to date" : sitePublished ? "Update available" : "Not published"}
+          {upToDate
+            ? "Live & up to date"
+            : sitePublished
+              ? "Update available"
+              : "Not published"}
         </span>
         <Button
           type="button"
@@ -363,14 +366,14 @@ function PreviewFrame({
   publicUrl: string;
 }) {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="font-mono text-xs text-muted">Draft preview</span>
+    <Card className="flex h-full flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+        <span className="label-section">Draft preview</span>
         <a
           href={publicUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-muted hover:text-accent"
+          className="flex items-center gap-1 text-xs text-muted transition-colors duration-(--duration-fast) ease-out hover:text-accent"
           data-testid={TEST_IDS.portfolioPublicUrl}
         >
           Open live site
@@ -387,7 +390,7 @@ function PreviewFrame({
         sandbox="allow-scripts allow-same-origin"
         data-testid={TEST_IDS.portfolioPreviewFrame}
       />
-    </div>
+    </Card>
   );
 }
 
@@ -401,15 +404,15 @@ function SiteCard({
   discoverable: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
-      <Globe className="size-9 text-accent" aria-hidden />
-      <div className="flex flex-col gap-1">
-        <p className="text-sm text-muted">Your site is at</p>
+    <Card className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
+      <Globe className="size-8 text-muted/70" aria-hidden />
+      <div className="flex flex-col gap-1.5">
+        <p className="label-section">Your site is at</p>
         <a
           href={publicUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 font-mono text-sm text-foreground hover:text-accent"
+          className="flex items-center justify-center gap-1.5 font-mono text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:text-accent"
           data-testid={TEST_IDS.portfolioPublicUrl}
         >
           {publicUrl.replace(/^https?:\/\//, "")}
@@ -423,6 +426,6 @@ function SiteCard({
             : "Live but hidden from search engines (not discoverable)."
           : "Not published yet — publish to make this URL live."}
       </p>
-    </div>
+    </Card>
   );
 }

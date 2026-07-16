@@ -2,6 +2,7 @@ import {
   FileText,
   Globe,
   Link2,
+  Plug,
   Settings,
   UserRound,
   type LucideIcon,
@@ -25,6 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "profile", label: "Profile", href: "/profile", icon: UserRound },
   { key: "resumes", label: "Resumes", href: "/resumes", icon: FileText },
   { key: "portfolio", label: "Portfolio", href: "/portfolio", icon: Globe },
+  { key: "sources", label: "Sources", href: "/sources", icon: Plug },
   { key: "domains", label: "Domains", href: "/domains", icon: Link2 },
   {
     key: "settings",

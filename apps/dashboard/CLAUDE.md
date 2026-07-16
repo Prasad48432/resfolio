@@ -35,12 +35,62 @@ resume documents; `/resumes/[id]` is the first `SplitWorkspace` editor (config
 form left, live in-browser resume preview right). **Phase 5**: the **portfolio**
 section at `/portfolio` — slug claim + template pick before a site exists, then
 the settings editor (schema-driven config form, discoverable toggle, template
-switch, publish) with the `apps/sites` draft-preview iframe. `/domains` remains a
-`ComingSoon` placeholder until Phase 7. Use current Next.js best practices from
+switch, publish) with the `apps/sites` draft-preview iframe. **Phase 6 (revised to import-first, "6R")**: the
+**Sources** section at `/sources` — an **import workspace** (provider
+gallery, triage-by-destination, needs-a-home bucket, import history):
+import from external sources (RSS live, GitHub pending its OAuth app,
+LinkedIn export next) into the profile draft; nothing lands without an
+explicit Import click. `/domains` remains a `ComingSoon`
+placeholder until Phase 7. The **design-system pass** (doc 08)
+then made the app a coherent product rather than a set of screens: shared
+`Page`/`PageHeader`/`EmptyState`/`SaveIndicator` primitives, the product `Card`
+surface replacing the landing page's `card-surface`, motion tokens + a Framer
+Motion vocabulary in `components/motion/`, and a palette that no longer
+animates. Use current Next.js best practices from
 `node_modules/next/dist/docs/` when adding features.
 
 ## Established conventions (follow these)
 
+- **Design system** (doc 08 → "Design system: extract, then extend"). The
+  dashboard is a productivity app; the landing page is not. Where they differ,
+  the dashboard is always denser, quieter, faster.
+  - **Surfaces**: use `Card` from `@resfolio/ui` (hairline border, no shadow).
+    **Never `card-surface`** — that's the landing page's surface (20px radius,
+    ambient glow) and is confined to `apps/web` plus `/login`, the one brand
+    moment in this app. A shadow is only for something genuinely elevated: a
+    modal, a menu, a row lifted mid-drag.
+  - **Every page** is `<Page>` + `<PageHeader>` (`components/layout/`). Never
+    hand-roll a title block or pick your own `max-w-*` — that's exactly how the
+    routes drifted apart before. `<Page wide>` opts an editor out of the reading
+    measure for its preview pane.
+  - **Titles are Manrope**, never `font-display`. Instrument Serif is the brand
+    voice: marketing and the sidebar wordmark only. Use `.label-section` (quiet)
+    in-product, never `.label-eyebrow` (accent, marketing). Mono means something
+    — URLs, slugs, shortcuts — it is not decoration.
+  - **Empty states** are `<EmptyState>`: `size="page"` for a whole route,
+    `size="inline"` for an empty section inside a form.
+  - **Autosave UI** is `<SaveIndicator>` over the shared `SaveStatus`
+    (`lib/save-status.ts`). Never redeclare either — all three editors share
+    them; an editor simply may not reach every state.
+- **Motion** (doc 08 → "Motion contract"). Easing/duration are tokens in
+  `@resfolio/design`; never inline a cubic-bezier or a magic ms. `ease-out`
+  resolves to the platform curve (the `@theme` block overrides Tailwind's).
+  - Framer Motion belongs in client leaves via `components/motion/`: `FadeIn`,
+    `Stagger`/`StaggerItem`, `SwapIn`, `RouteTransition`. Shared primitives that
+    Server Components render — `Button` especially — keep feedback in **CSS**, so
+    they never drag a page over the client boundary.
+  - **Never animate a keyboard-triggered surface.** The palette passes
+    `animated={false}` to `DialogContent`.
+  - `prefers-reduced-motion` means gentler, not none: movement goes, opacity
+    stays. `useReducedMotion()` in JS; the media query in CSS.
+  - Marketing entrances (`animate-fade-up`/`fade-scale`/`focus-in`, 550–900ms)
+    are `apps/web`'s. Product overlays use `animate-overlay-in`/`modal-in`/
+    `popover-in` (150–200ms).
+- **CSS layering**: base rules in `@resfolio/design` live inside `@layer base`.
+  Unlayered CSS beats *every* cascade layer, so an unlayered rule there would
+  override Tailwind utilities app-wide with no way to opt out (this is what made
+  the focus ring un-suppressible on the palette input). Keep new global rules in
+  a layer.
 - **Route groups**: `(auth)` = minimal-chrome public screens (`/login`);
   `(dashboard)` = everything behind `requireSession` (its layout verifies
   the session server-side and renders `AppShell`).
@@ -115,6 +165,33 @@ switch, publish) with the `apps/sites` draft-preview iframe. `/domains` remains 
   edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`. The
   preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
   gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
+- **Sources section** (doc 12 import-first, Phase 6R): `/sources` is the
+  **import workspace** — "Import from…" provider gallery on top (RSS live;
+  GitHub + LinkedIn export teasers), then triage (pending items grouped by
+  destination with per-group Import all, a destination Select for unrouted
+  "needs a home" items, inline edit-before-import, Skip), import history
+  (receipts with a "Newer version available" badge and a **warned** re-import
+  when the user edited their copy), and a demoted "Connected sources"
+  management row (Check for updates / Remove). Reads via
+  `@resfolio/integrations/server` (`listConnections`, `listPendingItems`,
+  `listImportReceipts`), mapped to plain DTOs in `lib/sources.ts` (display
+  strings only — no `raw` provider payloads ever reach the client), rendered
+  by the `SourcesView` island (`components/sources/`). Mutations go through
+  `app/(dashboard)/sources/actions.ts`: connect-RSS runs the first import
+  inline; `importItemAction` takes `routeTo`/`edits` and revalidates
+  `/profile` too because the import mutates the profile draft. Nothing
+  reaches the profile without an explicit Import click; imported items are
+  ordinary profile content, and publish stays at `/profile`.
+- **String arrays** (skills, technologies) are edited with `TagsField`
+  (`components/profile/tags-field.tsx`), the RHF binding over `@resfolio/ui`'s
+  `TagInput` chip editor — never a comma-separated text input. Enter (and
+  comma) commits a trimmed tag, duplicates are rejected case-insensitively,
+  every chip has a remove button; the pending text stays inside the component
+  so autosave only ever sees the committed `string[]`.
+- **Selects** use the Radix `Select` from `@resfolio/ui` (`SelectTrigger` +
+  `SelectValue` + `SelectContent`/`SelectItem`), never native `<option>`s —
+  put the `data-testid` on the `SelectTrigger`; in e2e, open the trigger and
+  click the `option` role (Playwright's `selectOption` no longer applies).
 - **Unit tests** (`vitest`): co-located `lib/**/*.test.ts`. **E2E**
   (`playwright`): `e2e/` runs the real OAuth dance against a local mock
   authorization server (`AUTH_E2E_MOCK_ISSUER`, localhost-only by
@@ -160,10 +237,13 @@ Language
 Shared packages
 
 - `@resfolio/design` — the shared design system (warm-cream light theme,
-  Instrument Serif / Manrope / JetBrains Mono, semantic tokens,
-  `card-surface` classes). Imported in `app/globals.css` after
-  `tailwindcss`; fonts are loaded in `app/layout.tsx` via `next/font` with
-  the CSS variables the tokens expect.
+  Instrument Serif / Manrope / JetBrains Mono, semantic tokens, motion tokens
+  `--ease-*`/`--duration-*`, `card-surface` classes). Imported in
+  `app/globals.css` after `tailwindcss`; fonts are loaded in `app/layout.tsx`
+  via `next/font` with the CSS variables the tokens expect. `app/globals.css`
+  then **extends** the layer with dashboard-only tokens (`--spacing-sidebar`,
+  `--spacing-topbar`, `--spacing-page`, `.label-section`) — extend it there,
+  never fork a shared value.
 - `@resfolio/ui` — cross-app UI primitives (shadcn/ui pattern: cva variants
   themed by design tokens). `Button`, `Input`, `Textarea`, `Label`, `Select`,
   `Checkbox`, `Switch`, `Card`, plus `Dialog`/`Command`/`DropdownMenu`. **Prefer

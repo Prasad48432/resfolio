@@ -297,52 +297,72 @@ deferred); slug/abuse squatting at launch (blocklist + rate limit).
 
 ---
 
-## Phase 6 — Integrations V1 (import → review → apply)
+## Phase 6 — Imports V1 (import → route → review → apply)
 
-**Goal:** the Career-OS differentiator: connect GitHub, review candidates,
-apply to the Profile. Doc: [12](architecture/12-integrations-and-sync.md).
+**Goal:** the Career-OS differentiator: import professional content from
+external sources into the Profile through an **import workspace**. Providers
+are import sources only; imported content becomes ordinary Resfolio data.
+Doc: [12](architecture/12-integrations-and-sync.md) (revised 2026-07-16 to
+import-first — the sections below follow the revision's 6R phases).
 
-**Status: foundation started (2026-07-16).** The pure `@resfolio/integrations`
-root is built and tested (39 unit tests): the **connector contract**
-(`defineConnector` + the `FetchContext` runtime seam), the canonical
-**`CandidateItem`** schema (payloads reuse the profile item schemas — the schema
-already reserved `sourceId`/`github`/`rss` for this), the deterministic
-**`computeFingerprint`** and the three-way **`classifyCandidate`** merge decision
-(the never-overwrite invariant is locked + fuzzed at the pure layer), the static
-**registry**, and the first two connectors — **GitHub** (`oauth2`, `project`)
-and **RSS** (`public`, `article`) — each `fetch` + pure `normalize` with recorded
-fixtures (fetch exercised against a fake `ctx`, no network). Remaining: the DB
-runtime + review inbox + account-gated cloud (below).
+**Status: 6R-1 → 6R-3 built and verified (2026-07-16).** The sync-era
+machinery that survived unchanged: the connector contract + `FetchContext`
+seam, `computeFingerprint`, registry, GitHub + RSS connectors' fetch/
+normalize, the staging tables (migration `0005`), the key-versioned
+AES-256-GCM token module, the owner-scoped repository, budgeted
+token-injecting fetch, staging upsert on `(connectionId, externalId)`, and
+apply-to-draft with provenance + optimistic-concurrency retry. Deleted by
+the revision: the three-way conflict merge, archive suggestions, the
+auto-accept surface (column dormant), and the sync-shaped `/sources` inbox.
 
-- 🟡 `domains/integrations` (`@resfolio/integrations`): connector contract +
-  registry ✅; runtime (encrypted token storage, rate-budgeted fetch,
-  Trigger.dev sync task, staging tables, fingerprint diffing, media
-  rehosting to R2) — **next**.
-- 🟡 **GitHub connector** (oauth2 mode) emitting project/contribution
-  candidates, with recorded fixtures + normalize tests — `project` +
-  `normalize` + `fetch` ✅ (recorded fixtures); `contribution` + the live OAuth
-  wiring remain.
-- **Review inbox** in the dashboard: new/updated/conflict/removed states,
-  field-level diffs, inline edit, accept → draft apply with provenance.
-- 🟡 **RSS connector** (public mode) — proves the cheap path and covers
-  Medium/Substack/blogs in one stroke. `fetch` (RSS 2.0 + Atom parse) +
-  `normalize` + fixtures ✅; wiring it through the runtime end-to-end (the
-  fully-local publish-nothing proof, no OAuth needed) is the runtime increment.
-- Scheduled refresh (jittered daily), manual sync (rate-limited),
-  per-connection auto-accept toggle, `needs_reauth`/`degraded` connection
-  health UI, sync-run log.
+- ✅ **6R-1 — Architecture (pure layer).** Candidate kinds cover the Profile
+  (`experience`, `education`, `skillGroup`, `certification`; `unclassified`
+  as the escape hatch); routing is data (`routing.ts`: per-kind defaults,
+  `COMPATIBLE_ROUTE_TARGETS` validation, connector declarations sanitized to
+  unrouted, user override at import); `classifyCandidate` re-specced to
+  `new | duplicate | refresh_available`; `detectUserEdit` extracted as the
+  pure re-import-warning primitive; `capabilities` → `{ refreshable,
+  incremental }` (schedule/webhooks dropped). Classify/apply/routing tests
+  rewritten (78 package tests).
+- ✅ **6R-2 — Runtime.** Additive migration `0006` (route columns +
+  state-value migration, applied locally); `syncConnection` → `runImport`
+  (duplicate-skip, dismissals sticky, prunes unseen never-imported rows,
+  receipts untouched by upstream deletion); `acceptItem` →
+  `importItem(itemId, { routeTo?, customSectionTitle?, edits? })` with
+  payload↔section validation and unrouted refusal. **Live RSS end-to-end
+  proof re-run under import semantics** (routed staging → import with
+  provenance → idempotent re-run → refresh badge with draft untouched →
+  user-edit warning → explicit warned re-import → upstream deletion produces
+  nothing → unrouted refusal → route-to-custom).
+- ✅ **6R-3 — Import workspace UI.** `/sources` rebuilt: "Import from…"
+  provider gallery (RSS live; GitHub + LinkedIn-export teasers), triage
+  grouped by destination with per-group Import all, destination Select,
+  inline edit-before-import and Skip, the "needs a home" bucket, import
+  history (receipts, refresh badges, warned re-import, links into
+  `/profile`), and the demoted "Connected sources" row (Check for updates /
+  Remove).
+- **6R-4 — LinkedIn file import.** ZIP → `experience` / `education` /
+  `skillGroup` / `certification` — the multi-section routing proof; no
+  accounts needed (pulled forward from Phase 7).
+- **6R-5 — Breadth + optional refresh.** Dev.to / Stack Overflow connectors;
+  user-initiated "Check for updates" for `refreshable` providers
+  (`refresh_available` badge + warned re-import — no scheduling). GitHub
+  OAuth app/routes, R2 media rehosting, Redis rate limits remain
+  account-gated.
 
-**Exit criteria:** connect GitHub → candidates staged with rehosted images
-→ accept → items in draft with provenance → re-sync is idempotent (no
-dupes) → editing an imported item then re-syncing yields a conflict, never
-an overwrite. RSS connector lands in under a day of work (the architecture
-claim, tested).
+**Exit criteria:** import from a source → candidates staged and routed →
+import → items in draft with provenance, ordinary and fully editable →
+re-running the import is idempotent (duplicates silently skipped) → a
+LinkedIn export lands across four Profile sections → unmappable content
+waits in "needs a home" instead of being dropped → replacing a user-edited
+copy is possible only via an explicit, warned re-import.
 
 **Risks:** provider API surprises (mitigate: fixtures recorded from real
 accounts; failure classification built before the second connector);
 token encryption key handling mistakes (mitigate: it's one audited module
-in the runtime, never inline); scope creep toward many connectors
-(mitigate: exactly two in this phase — breadth is post-launch, demand-driven).
+in the runtime, never inline); users expecting live sync (mitigate: honest
+copy — "Import from GitHub", "Check for updates"); scope creep toward many
+connectors (mitigate: breadth is 6R-5 and post-launch, demand-driven).
 
 ---
 
@@ -356,8 +376,6 @@ in the runtime, never inline); scope creep toward many connectors
 - Subdomains (`<username>.resfolio.site`, wildcard + middleware) and
   custom domains (CNAME + Vercel Domains API, Redis host mapping) — doc 04
   phases 2–3.
-- LinkedIn **file import** (doc 12, file mode) — high-demand, closes the
-  "LinkedIn?" question honestly.
 - Ops: GC/pruning jobs (orphaned exports, version retention), uptime
   checks, Sentry alert rules, PostHog dashboards + portfolio page beacon,
   axe scans in CI, Lighthouse budget checks, landing-page waitlist → real
@@ -375,9 +393,9 @@ first and watch volume).
 
 ## Post-launch tracks (demand-ordered, not scheduled)
 
-- **Connector breadth** — GitLab, Dev.to, Hashnode, Stack Overflow,
-  YouTube, Hugging Face, Figma, Notion, Product Hunt, Dribbble; Tier B
-  (CodePen, Kaggle, LeetCode) behind beta labels after ToS review.
+- **Connector breadth** — GitLab, Hashnode, YouTube, Hugging Face, Figma,
+  Notion, Product Hunt, Dribbble (Dev.to + Stack Overflow land in 6R-5);
+  Tier B (CodePen, Kaggle, LeetCode) behind beta labels after ToS review.
 - **AI enrichment** — enrich stage in the integration pipeline; AI deltas
   in the editor (doc 01/09/12 seams).
 - **Blogs / custom pages** — new page kinds through SDK capabilities + the

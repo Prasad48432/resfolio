@@ -20,6 +20,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 
+import { EmptyState } from "@/components/layout/empty-state";
 import {
   rowTitle,
   readField,
@@ -102,9 +103,7 @@ export function SectionEditor({ config }: { config: SectionConfig }) {
       </div>
 
       {fields.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted">
-          No {config.title.toLowerCase()} yet.
-        </p>
+        <EmptyState size="inline" title={`No ${config.title.toLowerCase()} yet.`} />
       ) : (
         <DndContext
           sensors={sensors}

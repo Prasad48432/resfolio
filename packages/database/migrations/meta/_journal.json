@@ -36,6 +36,20 @@
       "when": 1784177228411,
       "tag": "0004_cynical_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784200723266,
+      "tag": "0005_mixed_dracula",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784213678433,
+      "tag": "0006_shiny_sphinx",
+      "breakpoints": true
     }
   ]
 }

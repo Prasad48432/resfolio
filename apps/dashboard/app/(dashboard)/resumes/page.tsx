@@ -1,9 +1,14 @@
 import { requireSession } from "@resfolio/auth";
 import { listDocuments } from "@resfolio/document/server";
 import { getOrCreateProfile } from "@resfolio/profile/server";
+import { Card } from "@resfolio/ui";
 import { FileText } from "lucide-react";
 import Link from "next/link";
 
+import { EmptyState } from "@/components/layout/empty-state";
+import { Page } from "@/components/layout/page";
+import { PageHeader } from "@/components/layout/page-header";
+import { Stagger, StaggerItem } from "@/components/motion/motion";
 import { CreateResumeButton } from "@/components/resume/create-resume-button";
 import { TEST_IDS, resumeItemTestId } from "@/lib/testids";
 
@@ -20,63 +25,58 @@ export default async function ResumesPage() {
   const documents = await listDocuments(user.id);
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
-        <div className="flex flex-col gap-1">
-          <p className="label-eyebrow">Your resumes</p>
-          <h2 className="font-display text-3xl text-foreground">Resumes</h2>
-          <p className="text-sm leading-relaxed text-muted">
-            Each resume renders from your profile — what you preview is
-            pixel-for-pixel what the PDF exports.
-          </p>
-        </div>
-        <CreateResumeButton hasExisting={documents.length > 0} />
-      </header>
+    <Page>
+      <PageHeader
+        title="Resumes"
+        description="Each resume renders from your profile — what you preview is pixel-for-pixel what the PDF exports."
+        actions={<CreateResumeButton hasExisting={documents.length > 0} />}
+      />
 
       {documents.length === 0 ? (
-        <div
-          className="card-surface flex flex-col items-center gap-3 p-10 text-center"
+        <EmptyState
+          icon={FileText}
+          title="No resumes yet"
+          description="Create one to pick a template, set the page size, and see it render live from your profile."
           data-testid={TEST_IDS.resumesEmpty}
-        >
-          <FileText className="size-8 text-muted" aria-hidden />
-          <p className="text-sm text-muted">
-            No resumes yet. Create one to pick a template, set the page size,
-            and see it render live from your profile.
-          </p>
-        </div>
+        />
       ) : (
-        <ul
-          className="flex flex-col gap-3"
-          data-testid={TEST_IDS.resumesList}
-        >
+        // `Stagger` is a client island; the rows themselves stay server-
+        // rendered and are passed through as children, so this list costs no
+        // extra client JS beyond the wrapper.
+        <Stagger className="flex flex-col gap-2" data-testid={TEST_IDS.resumesList}>
           {documents.map((doc) => {
             const pageSize =
               typeof doc.config.pageSize === "string"
                 ? doc.config.pageSize
                 : "A4";
             return (
-              <li key={doc.id}>
-                <Link
-                  href={`/resumes/${doc.id}`}
-                  className="card-surface flex items-center gap-4 p-4 transition-colors hover:border-accent/40"
-                  data-testid={resumeItemTestId(doc.id)}
-                >
-                  <FileText className="size-5 shrink-0 text-accent" aria-hidden />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {doc.name}
+              <StaggerItem key={doc.id}>
+                <Card interactive asChild>
+                  <Link
+                    href={`/resumes/${doc.id}`}
+                    className="flex items-center gap-3.5 p-3.5"
+                    data-testid={resumeItemTestId(doc.id)}
+                  >
+                    <FileText
+                      className="size-4 shrink-0 text-muted"
+                      aria-hidden
+                    />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {doc.name}
+                      </span>
+                      <span className="text-xs text-muted">
+                        Classic · {pageSize} · updated{" "}
+                        {doc.updatedAt.toLocaleDateString()}
+                      </span>
                     </span>
-                    <span className="text-xs text-muted">
-                      Classic · {pageSize} · updated{" "}
-                      {doc.updatedAt.toLocaleDateString()}
-                    </span>
-                  </span>
-                </Link>
-              </li>
+                  </Link>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </ul>
+        </Stagger>
       )}
-    </div>
+    </Page>
   );
 }

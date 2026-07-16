@@ -22,7 +22,7 @@ document must be updated in the same change.
 | 09  | [Rendering Pipeline](architecture/09-rendering-pipeline.md)         | The unified Resolve → Project → Render → Deliver pipeline all outputs share            |
 | 10  | [Auth & Security](architecture/10-auth-and-security.md)             | Better Auth (Google + GitHub), cross-app trust model, signed render tokens, UGC safety |
 | 11  | [Engineering Foundation](architecture/11-engineering-foundation.md) | Task vocabulary, env validation, testing pyramid, CI/CD, observability                 |
-| 12  | [Integrations & Sync](architecture/12-integrations-and-sync.md)     | Connector contract, auth modes, staging + review pipeline, conflict policy             |
+| 12  | [Data Imports & Sources](architecture/12-integrations-and-sync.md)  | Connector contract, auth modes, routing + staging + review pipeline, import semantics  |
 
 ## Development plan
 
@@ -37,9 +37,9 @@ improvise them from scratch — write the architecture document first:
 
 - **Billing & plan gating** — Stripe integration, plan limits (custom
   domains, version retention, white-label). Referenced by docs 04 and 07.
-- **Resume import / onboarding** — PDF/LinkedIn import, AI-assisted profile
-  seeding. Likely the activation make-or-break; design before building
-  onboarding.
+- **Resume import / onboarding** — PDF import, AI-assisted profile seeding.
+  Likely the activation make-or-break; design before building onboarding.
+  (The LinkedIn export-file import is designed — doc 12's `file` mode.)
 - **Blogs / CMS / custom pages** — extension points reserved in docs 03, 04,
   05, 09.
 - **AI writing & resume optimization** — operates on deltas and ProfileViews

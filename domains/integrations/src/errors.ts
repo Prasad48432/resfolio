@@ -12,3 +12,12 @@ export class ConnectorDefinitionError extends Error {
     this.name = "ConnectorDefinitionError";
   }
 }
+
+/** A candidate cannot be mapped onto the Profile (unknown source, wrong
+ * kind for the requested operation). */
+export class CandidateApplyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CandidateApplyError";
+  }
+}

@@ -66,6 +66,59 @@ describe("candidateItemSchema", () => {
     expect(bad.success).toBe(false);
   });
 
+  it("validates the profile-coverage kinds against their profile schemas", () => {
+    expect(
+      candidateItemSchema.safeParse({
+        kind: "experience",
+        externalId: "pos-1",
+        title: "Acme",
+        raw: {},
+        payload: { company: "Acme", role: "Engineer" },
+      }).success,
+    ).toBe(true);
+    // experience requires company+role — an empty payload must not validate.
+    expect(
+      candidateItemSchema.safeParse({
+        kind: "experience",
+        externalId: "pos-1",
+        title: "Acme",
+        raw: {},
+        payload: {},
+      }).success,
+    ).toBe(false);
+    expect(
+      candidateItemSchema.safeParse({
+        kind: "skillGroup",
+        externalId: "sk-1",
+        title: "Skills",
+        raw: {},
+        payload: { name: "Languages", skills: ["TS"] },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("parses an unclassified candidate's loose payload and its route field", () => {
+    const parsed = candidateItemSchema.parse({
+      kind: "unclassified",
+      externalId: "odd-1",
+      title: "Odd thing",
+      raw: {},
+      route: { sectionKey: null, confidence: "suggested" },
+      payload: { title: "Odd thing", url: "https://example.com" },
+    });
+    expect(parsed.route).toEqual({ sectionKey: null, confidence: "suggested" });
+    if (parsed.kind === "unclassified") {
+      expect(parsed.payload.text).toBe("");
+    }
+    // route targets are the profile section keys + "basics" — nothing else.
+    expect(
+      candidateItemSchema.safeParse({
+        ...validProject,
+        route: { sectionKey: "sidebar", confidence: "certain" },
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects a metric with a non-member key", () => {
     expect(
       candidateItemSchema.safeParse({

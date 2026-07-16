@@ -1,5 +1,8 @@
+import { devto } from "./connectors/devto";
 import { github } from "./connectors/github";
+import { linkedin } from "./connectors/linkedin";
 import { rss } from "./connectors/rss";
+import { stackoverflow } from "./connectors/stackoverflow";
 import type { AnyConnector } from "./contract";
 
 /**
@@ -15,13 +18,22 @@ import type { AnyConnector } from "./contract";
  * happens.
  */
 
-export const CONNECTOR_IDS = ["github", "rss"] as const;
+export const CONNECTOR_IDS = [
+  "github",
+  "rss",
+  "devto",
+  "stackoverflow",
+  "linkedin",
+] as const;
 
 export type ConnectorId = (typeof CONNECTOR_IDS)[number];
 
 export const CONNECTORS: Record<ConnectorId, AnyConnector> = {
   github: github as unknown as AnyConnector,
   rss: rss as unknown as AnyConnector,
+  devto: devto as unknown as AnyConnector,
+  stackoverflow: stackoverflow as unknown as AnyConnector,
+  linkedin: linkedin as unknown as AnyConnector,
 };
 
 /** The connector for `id`, or undefined for an unknown provider. */

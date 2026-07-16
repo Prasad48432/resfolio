@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input, Label } from "@resfolio/ui";
+import { Button, Card, cn, Input, Label } from "@resfolio/ui";
 import { Check, Globe, Loader2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -9,10 +9,9 @@ import {
   checkSlugAvailabilityAction,
   createPortfolioSiteAction,
 } from "@/app/(dashboard)/portfolio/actions";
-import {
-  TEST_IDS,
-  portfolioTemplateTestId,
-} from "@/lib/testids";
+import { Page } from "@/components/layout/page";
+import { PageHeader } from "@/components/layout/page-header";
+import { TEST_IDS, portfolioTemplateTestId } from "@/lib/testids";
 
 /**
  * The first-run portfolio screen (docs/architecture/03-portfolio-rendering.md):
@@ -102,20 +101,11 @@ export function PortfolioClaim({
     slugState.status === "ok" && Boolean(templateId) && !creating;
 
   return (
-    <div
-      className="mx-auto flex max-w-2xl flex-col gap-8"
-      data-testid={TEST_IDS.portfolioClaim}
-    >
-      <header className="flex flex-col gap-2 border-b border-border pb-5">
-        <p className="label-eyebrow">Portfolio</p>
-        <h2 className="font-display text-3xl text-foreground">
-          Claim your site
-        </h2>
-        <p className="text-sm leading-relaxed text-muted">
-          Your portfolio renders from the same profile — pick a name and a
-          template, then publish to a public URL.
-        </p>
-      </header>
+    <Page data-testid={TEST_IDS.portfolioClaim}>
+      <PageHeader
+        title="Claim your site"
+        description="Your portfolio renders from the same profile — pick a name and a template, then publish to a public URL."
+      />
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="portfolio-slug">Site address</Label>
@@ -150,32 +140,39 @@ export function PortfolioClaim({
           data-testid={TEST_IDS.portfolioTemplatePick}
         >
           {templates.map((template) => (
-            <label
+            <Card
+              asChild
               key={template.id}
-              className={`card-surface flex cursor-pointer items-start gap-3 p-4 transition-colors ${
+              // Selection is carried by the border alone. A filled background
+              // would be the loudest thing on a page whose subject is the
+              // templates themselves.
+              className={cn(
+                "cursor-pointer transition-[border-color,background-color] duration-(--duration-press) ease-out",
                 templateId === template.id
-                  ? "border-accent/60"
-                  : "hover:border-accent/30"
-              }`}
+                  ? "border-accent/60 bg-surface-warm"
+                  : "hover:border-accent/30",
+              )}
               data-testid={portfolioTemplateTestId(template.id)}
             >
-              <input
-                type="radio"
-                name="template"
-                value={template.id}
-                checked={templateId === template.id}
-                onChange={() => setTemplateId(template.id)}
-                className="mt-1 size-4 text-accent focus-visible:ring-accent"
-              />
-              <span className="flex flex-col gap-1">
-                <span className="text-sm font-medium text-foreground">
-                  {template.name}
+              <label className="flex items-start gap-3 p-4">
+                <input
+                  type="radio"
+                  name="template"
+                  value={template.id}
+                  checked={templateId === template.id}
+                  onChange={() => setTemplateId(template.id)}
+                  className="mt-0.5 size-4 accent-accent"
+                />
+                <span className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-foreground">
+                    {template.name}
+                  </span>
+                  <span className="text-xs leading-relaxed text-muted">
+                    {template.description}
+                  </span>
                 </span>
-                <span className="text-xs leading-relaxed text-muted">
-                  {template.description}
-                </span>
-              </span>
-            </label>
+              </label>
+            </Card>
           ))}
         </div>
       </fieldset>
@@ -200,7 +197,7 @@ export function PortfolioClaim({
           </span>
         ) : null}
       </div>
-    </div>
+    </Page>
   );
 }
 

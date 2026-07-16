@@ -11,10 +11,11 @@ import { ConnectorDefinitionError } from "./errors";
  * The connector contract (docs/architecture/12-integrations-and-sync.md). Every
  * provider is one small module implementing exactly two functions — `fetch`
  * (the only place a provider API is touched) and `normalize` (**pure**: raw →
- * canonical candidates) — plus metadata declaring its auth mode. Everything
- * else (token refresh, retries, scheduling, staging, diffing, dedupe, media
- * rehosting, the review UI) is the runtime, written once. This is the single
- * biggest lever for "adding provider #19 is a small, boring task".
+ * canonical candidates) — plus metadata declaring its auth mode and whether
+ * it is `refreshable`. Everything else (token handling, retries, staging,
+ * routing defaults, dedupe, media rehosting, the workspace UI) is the
+ * runtime, written once. This is the single biggest lever for "adding
+ * provider #19 is a small, boring task".
  *
  * The root is pure: `fetch` receives a pre-authenticated, rate-limited `fetch`
  * from the runtime via `FetchContext` and never handles credentials itself
@@ -37,17 +38,14 @@ export interface ConnectorAuth {
 }
 
 export interface ConnectorCapabilities {
+  /** May offer "Check for updates" — a user-initiated re-fetch that can
+   * surface `refresh_available` badges (doc 12, optional refresh). One-shot
+   * providers (file imports) declare `false` and skip every piece of refresh
+   * machinery by construction. */
+  refreshable: boolean;
   /** Supports cursor/ETag incremental fetch (else the runtime full-refetches —
    * cheap and idempotent anyway thanks to fingerprints). */
   incremental: boolean;
-  /** Provider offers cheap webhooks (an optimization, wired later — doc 12). */
-  webhooks: boolean;
-}
-
-export interface ConnectorSchedule {
-  /** Default refresh cadence (`"24h"`, `"7d"`, …). The runtime jitters this
-   * per connection; public feeds can be lazier. */
-  defaultEvery: string;
 }
 
 /**
@@ -88,7 +86,6 @@ export interface Connector<Input = unknown, Raw = unknown> {
   /** Canonical kinds this connector emits. */
   resources: readonly CandidateKind[];
   capabilities: ConnectorCapabilities;
-  schedule: ConnectorSchedule;
   /** The only place a provider API is touched — yields raw items, updates the
    * cursor via `ctx.setCursor`. */
   fetch: (ctx: FetchContext<Input>) => AsyncIterable<Raw>;
@@ -100,7 +97,6 @@ export interface Connector<Input = unknown, Raw = unknown> {
 export type AnyConnector = Connector<unknown, unknown>;
 
 const CONNECTOR_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const DURATION = /^\d+(s|m|h|d|w)$/;
 
 const metaSchema = z.object({
   id: z.string().regex(CONNECTOR_ID, "id must be kebab-case"),
@@ -111,13 +107,8 @@ const metaSchema = z.object({
     .array(z.enum(CANDIDATE_KINDS))
     .min(1, "must declare at least one resource kind"),
   capabilities: z.object({
+    refreshable: z.boolean(),
     incremental: z.boolean(),
-    webhooks: z.boolean(),
-  }),
-  schedule: z.object({
-    defaultEvery: z
-      .string()
-      .regex(DURATION, "schedule.defaultEvery must be a duration like 24h"),
   }),
 });
 
@@ -180,6 +171,5 @@ export function defineConnector<Input, Raw>(
     ...def,
     resources: Object.freeze([...def.resources]),
     capabilities: Object.freeze({ ...def.capabilities }),
-    schedule: Object.freeze({ ...def.schedule }),
   }) as Connector<Input, Raw>;
 }

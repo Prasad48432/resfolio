@@ -45,16 +45,16 @@ export function UserMenu({ user }: { user: ShellUser }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-2 text-left transition-colors hover:bg-surface"
+        className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors duration-(--duration-press) ease-out hover:border-border hover:bg-surface data-[state=open]:border-border data-[state=open]:bg-surface"
         aria-label="Account menu"
         data-testid={TEST_IDS.userMenuTrigger}
       >
         <Avatar user={user} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">
+          <span className="block truncate text-[13px] font-medium text-foreground">
             {user.name}
           </span>
-          <span className="block truncate text-xs text-muted">
+          <span className="block truncate text-[11px] text-muted">
             {user.email}
           </span>
         </span>

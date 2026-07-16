@@ -1,6 +1,15 @@
 "use client";
 
-import { Input, Label, Select, Switch } from "@resfolio/ui";
+import {
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from "@resfolio/ui";
 
 import type { ConfigFieldDescriptor } from "@/lib/config-form";
 import { portfolioConfigFieldTestId } from "@/lib/testids";
@@ -64,16 +73,19 @@ function ConfigField({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={id}>{field.label}</Label>
           <Select
-            id={id}
             value={String(value ?? field.defaultValue)}
-            onChange={(event) => onChange(field.key, event.target.value)}
-            data-testid={testId}
+            onValueChange={(next) => onChange(field.key, next)}
           >
-            {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </option>
-            ))}
+            <SelectTrigger id={id} data-testid={testId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
       );

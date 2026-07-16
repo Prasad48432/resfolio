@@ -29,7 +29,9 @@ test("create a resume, preview renders live, config persists", async ({
   await expect(page.getByTestId("resume-preview")).toContainText("E2E User");
 
   // Changing the page size updates the optimistic preview immediately…
-  await page.getByTestId("resume-page-size").selectOption("LETTER");
+  // (Radix Select: open the popover, pick the option.)
+  await page.getByTestId("resume-page-size").click();
+  await page.getByRole("option", { name: "US Letter" }).click();
   await expect(page.getByTestId("resume-preview-meta")).toContainText("LETTER");
 
   // …and autosaves.

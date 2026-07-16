@@ -210,8 +210,7 @@ export const rss = defineConnector<RssInput, RssRawEntry>({
   tier: "B",
   input: rssInputSchema,
   resources: ["article"],
-  capabilities: { incremental: false, webhooks: false },
-  schedule: { defaultEvery: "24h" },
+  capabilities: { refreshable: true, incremental: false },
   fetch: fetchFeed,
   normalize: normalizeEntry,
 });

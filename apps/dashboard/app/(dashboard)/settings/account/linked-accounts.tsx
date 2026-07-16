@@ -2,7 +2,7 @@
 
 import type { SignInProvider } from "@resfolio/auth";
 import { authClient } from "@resfolio/auth/client";
-import { Button } from "@resfolio/ui";
+import { Button, Card } from "@resfolio/ui";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -79,7 +79,7 @@ export function LinkedAccounts({
   }
 
   return (
-    <div className="card-surface divide-y divide-border">
+    <Card className="divide-y divide-border">
       {providers.map((provider) => {
         const account = accounts.find(
           (candidate) => candidate.providerId === provider.id,
@@ -91,7 +91,7 @@ export function LinkedAccounts({
         return (
           <div
             key={provider.id}
-            className="flex items-center justify-between gap-4 px-6 py-4"
+            className="flex items-center justify-between gap-4 px-5 py-3.5"
             data-testid={linkedAccountRowTestId(provider.id)}
           >
             <div className="flex items-center gap-3">
@@ -144,13 +144,13 @@ export function LinkedAccounts({
       })}
       {error ? (
         <p
-          className="px-6 py-3 text-xs text-accent"
+          className="px-5 py-3 text-xs text-accent"
           role="alert"
           data-testid={TEST_IDS.linkedAccountsError}
         >
           {error}
         </p>
       ) : null}
-    </div>
+    </Card>
   );
 }

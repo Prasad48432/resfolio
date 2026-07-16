@@ -1,21 +1,54 @@
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 
 import { cn } from "../lib/cn";
 
 /**
- * A surface container (shadcn/ui `Card` pattern) themed by design tokens. Use
- * `Card` as the shell and the sub-parts for consistent header/body rhythm
- * across the dashboard's editor panels.
+ * A surface container (shadcn/ui `Card` pattern) themed by design tokens.
+ *
+ * This — a hairline border and no shadow — is the product's surface. It is
+ * not `card-surface` from @resfolio/design, which carries a 32px ambient glow
+ * and an inset highlight built for the landing page. Doc 08 is explicit:
+ * "hairline `border-border` separators over shadows". Reach for `Card` in the
+ * dashboard; leave `card-surface` to marketing.
  */
-export function Card({ className, ...props }: ComponentProps<"div">) {
+export const cardVariants = cva(
+  "rounded-2xl border border-border bg-surface text-foreground",
+  {
+    variants: {
+      /**
+       * `interactive` is for a card that is itself a link or button. Hover
+       * warms the border rather than lifting the card, which keeps the row
+       * flat and the list calm; the press scale matches `Button`.
+       */
+      interactive: {
+        true: "cursor-pointer transition-[transform,border-color,background-color] duration-(--duration-press) ease-out hover:border-accent/40 active:scale-[0.995]",
+        false: "",
+      },
+    },
+    defaultVariants: { interactive: false },
+  },
+);
+
+export function Card({
+  className,
+  interactive,
+  asChild = false,
+  ...props
+}: ComponentProps<"div"> &
+  VariantProps<typeof cardVariants> & {
+    /**
+     * Render the child element (a Next `<Link>`, a `<button>`) with card
+     * styling. An interactive card should almost always use this: it makes
+     * the whole card the single real link or button, rather than a div with
+     * a click handler wrapped around one.
+     */
+    asChild?: boolean;
+  }) {
+  const Comp = asChild ? Slot : "div";
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-border bg-surface text-foreground",
-        className,
-      )}
-      {...props}
-    />
+    <Comp className={cn(cardVariants({ interactive }), className)} {...props} />
   );
 }
 

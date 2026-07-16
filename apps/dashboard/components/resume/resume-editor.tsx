@@ -2,15 +2,18 @@
 
 import type { Profile, ViewDefinition } from "@resfolio/profile";
 import type { ResumeClassicConfig } from "@resfolio/template-resume-classic";
-import { Button, Input, Label, Select, Switch } from "@resfolio/ui";
 import {
-  ArrowLeft,
-  Check,
-  CloudOff,
-  ExternalLink,
-  Loader2,
-  Trash2,
-} from "lucide-react";
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from "@resfolio/ui";
+import { ArrowLeft, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +23,11 @@ import {
   mintResumePrintUrlAction,
   updateResumeAction,
 } from "@/app/(dashboard)/resumes/actions";
+import { Page } from "@/components/layout/page";
+import { FadeIn } from "@/components/motion/motion";
+import { SaveIndicator } from "@/components/status/save-indicator";
 import { SplitWorkspace } from "@/components/workspace/split-workspace";
+import type { SaveStatus } from "@/lib/save-status";
 import { TEST_IDS } from "@/lib/testids";
 
 import { ResumePreview } from "./resume-preview";
@@ -31,17 +38,10 @@ import { ResumePreview } from "./resume-preview";
  * accent, icons). Right: the live `ResumePreview`, updated optimistically as
  * you type. Debounced autosave persists the document via a Server Action; the
  * profile content is edited at `/profile` — a resume only presents it.
+ *
+ * Save state uses the shared `SaveStatus` vocabulary and `SaveIndicator`; this
+ * editor simply never reaches the profile-only `invalid`/`conflict` states.
  */
-type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "offline";
-
-const SAVE_LABEL: Record<SaveStatus, string> = {
-  idle: "All changes saved",
-  dirty: "Unsaved changes…",
-  saving: "Saving…",
-  saved: "Saved",
-  offline: "Offline — will retry",
-};
-
 const DEBOUNCE_MS = 700;
 
 export function ResumeEditor({
@@ -114,7 +114,7 @@ export function ResumeEditor({
   }
 
   return (
-    <div className="flex flex-col gap-6" data-testid={TEST_IDS.resumeEditor}>
+    <Page wide data-testid={TEST_IDS.resumeEditor}>
       <Header
         name={name}
         onName={setName}
@@ -124,15 +124,15 @@ export function ResumeEditor({
         onDeleted={() => router.push("/resumes")}
       />
 
-      <SplitWorkspace
-        form={
-          <ConfigForm config={config} onChange={updateConfig} />
-        }
-        preview={
-          <ResumePreview profile={profile} config={config} view={view} />
-        }
-      />
-    </div>
+      <FadeIn>
+        <SplitWorkspace
+          form={<ConfigForm config={config} onChange={updateConfig} />}
+          preview={
+            <ResumePreview profile={profile} config={config} view={view} />
+          }
+        />
+      </FadeIn>
+    </Page>
   );
 }
 
@@ -151,46 +151,34 @@ function Header({
   printEnabled: boolean;
   onDeleted: () => void;
 }) {
-  const SaveIcon =
-    status === "saving" ? Loader2 : status === "offline" ? CloudOff : Check;
-  const tone = status === "offline" ? "text-accent" : "text-muted";
-
   return (
-    <div className="flex flex-col gap-4 border-b border-border pb-5">
+    <div className="flex flex-col gap-3 border-b border-border pb-4">
       <Link
         href="/resumes"
-        className="flex w-fit items-center gap-1.5 text-xs text-muted hover:text-foreground"
+        className="flex w-fit items-center gap-1.5 text-xs text-muted transition-colors duration-(--duration-fast) ease-out hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" aria-hidden />
         All resumes
       </Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
           <Label htmlFor="resume-name" className="sr-only">
             Resume name
           </Label>
+          {/* The title *is* the input — renaming shouldn't need a mode switch.
+              It borrows PageHeader's type so the page reads as titled rather
+              than as a form field pretending to be a heading, and reveals its
+              editability with a border on hover. */}
           <Input
             id="resume-name"
             value={name}
             onChange={(event) => onName(event.target.value)}
-            className="h-auto border-0 bg-transparent px-0 font-display text-2xl text-foreground shadow-none focus-visible:ring-0"
+            className="h-auto -mx-2 w-full border-transparent bg-transparent px-2 py-1 text-lg font-semibold tracking-[-0.01em] text-foreground hover:border-border"
             data-testid={TEST_IDS.resumeNameInput}
           />
         </div>
         <div className="flex items-center gap-3">
-          <span
-            className={`flex items-center gap-1.5 text-xs ${tone}`}
-            role="status"
-            aria-live="polite"
-            data-testid={TEST_IDS.resumeSaveIndicator}
-            data-status={status}
-          >
-            <SaveIcon
-              className={`size-3.5 ${status === "saving" ? "animate-spin" : ""}`}
-              aria-hidden
-            />
-            {SAVE_LABEL[status]}
-          </span>
+          <SaveIndicator status={status} testId={TEST_IDS.resumeSaveIndicator} />
           {printEnabled ? <PrintLink documentId={documentId} /> : null}
           <DeleteButton documentId={documentId} onDeleted={onDeleted} />
         </div>
@@ -376,17 +364,17 @@ function SelectField<T extends string>({
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={`resume-${label}`}>{label}</Label>
-      <Select
-        id={`resume-${label}`}
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        data-testid={testId}
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {labels[option]}
-          </option>
-        ))}
+      <Select value={value} onValueChange={(next) => onChange(next as T)}>
+        <SelectTrigger id={`resume-${label}`} data-testid={testId}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {labels[option]}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
     </div>
   );

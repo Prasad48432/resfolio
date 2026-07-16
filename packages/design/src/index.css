@@ -32,27 +32,63 @@
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono:
     var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Motion: easing ───────────────────────────────────────────────────
+     The built-in CSS easings are too weak to read as intentional. These are
+     the only curves the platform uses — never inline a raw cubic-bezier.
+
+     `ease-in` is deliberately absent: it delays the initial movement, the
+     exact moment a user watches most closely, so it makes UI feel sluggish.
+     Exits use --ease-out too, just faster. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* enter / exit — responsive */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); /* on-screen movement */
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1); /* long marketing reveals */
+
+  /* ── Motion: duration ─────────────────────────────────────────────────
+     Doc 08 budgets dashboard motion at 150–200ms. UI motion stays under
+     300ms; anything above that belongs to marketing, not the product.
+     Scale: press → tooltip → dropdown → modal. */
+  --duration-press: 140ms;
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 260ms;
 }
 
-body {
-  background: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* These live in `@layer base` on purpose. Unlayered CSS beats *every* cascade
+   layer, so an unlayered `:focus-visible` rule here would silently override
+   `outline-none` on any component that manages its own focus (the command
+   palette's input, for one) with no way to opt out. Inside `base`, Tailwind's
+   later `utilities` layer wins, which is the correct precedence. */
+@layer base {
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-::selection {
-  background: var(--color-accent);
-  color: #fffdf9;
-}
+  ::selection {
+    background: var(--color-accent);
+    color: #fffdf9;
+  }
 
-:where(button, a, input, [role="button"]):focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--color-background),
-    0 0 0 4px var(--color-accent);
-  border-radius: 10px;
+  /* The focus halo. `outline`, not box-shadow, because outline follows the
+     element's own border-radius — a box-shadow ring must hardcode one, which
+     is wrong on everything that isn't exactly that radius (pill buttons,
+     cards). `outline-offset` shows the page beneath as the inner gap. */
+  :where(
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    [role="button"],
+    [tabindex]
+  ):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
@@ -91,9 +127,14 @@ body {
   }
 }
 
-/* ── Shared entrance animations (CSS, not JS) ──────────────────────────
+/* ── Marketing entrances (CSS, not JS) ────────────────────────────────
    Above-the-fold content paints immediately and animates in without
-   waiting on hydration. */
+   waiting on hydration.
+
+   These are deliberately slow (0.55–0.9s) and emphasized: they explain and
+   set a mood on a page a visitor sees once. Product UI must NOT use them —
+   an overlay a user opens fifty times a day needs the 150–200ms overlay
+   curves below. Keeping the two sets apart is the point. */
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -141,10 +182,92 @@ body {
   animation: focus-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* ── Product overlay motion ───────────────────────────────────────────
+   Modals, popovers, and menus. Doc 08 budgets product motion at 150–200ms;
+   exits run faster than enters, because an exit is the system responding to
+   a decision the user already made.
+
+   Never used for the command palette — see `Command` in @resfolio/ui. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-overlay-in {
+  animation: overlay-in var(--duration-fast) var(--ease-out) both;
+}
+.animate-overlay-out {
+  animation: overlay-in var(--duration-press) var(--ease-out) reverse both;
+}
+
+/* Modals scale from centre: unlike a popover they aren't anchored to a
+   trigger, so centre *is* their origin. Starting scale is 0.98, never 0 —
+   nothing in the real world appears from nothing. The translateX(-50%) is
+   part of the keyframe because it would otherwise be clobbered by it. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+.animate-modal-in {
+  animation: modal-in var(--duration-base) var(--ease-out) both;
+}
+.animate-modal-out {
+  animation: modal-in var(--duration-fast) var(--ease-out) reverse both;
+}
+
+/* Popovers scale from their trigger, not their centre. Consumers must set
+   transform-origin from the library's own variable (Radix exposes
+   `--radix-*-content-transform-origin`); the default here is only a
+   fallback. */
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-popover-in {
+  animation: popover-in var(--duration-fast) var(--ease-out) both;
+}
+.animate-popover-out {
+  animation: popover-in var(--duration-press) var(--ease-out) reverse both;
+}
+
+/* Reduced motion means fewer and gentler animations, not zero. Movement and
+   scale go; opacity stays, because a fade still explains that something
+   arrived — cutting it entirely makes overlays appear to teleport. */
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-fade-scale,
   .animate-focus-in {
     animation: none !important;
+  }
+
+  .animate-modal-in,
+  .animate-popover-in {
+    animation: overlay-in var(--duration-fast) var(--ease-out) both;
+  }
+
+  .animate-modal-out,
+  .animate-popover-out {
+    animation: overlay-in var(--duration-press) var(--ease-out) reverse both;
+  }
+
+  /* A modal still needs its centring transform when its keyframe is gone. */
+  .animate-modal-in,
+  .animate-modal-out {
+    transform: translateX(-50%);
   }
 }

@@ -4,6 +4,50 @@
 /* Tailwind must scan workspace UI package sources for class detection. */
 @source "../../../packages/ui/src";
 
-/* Dashboard-specific styles only below this line — shared tokens, body
-   base, focus/selection, and .card-surface classes come from
-   @resfolio/design. */
+/* ────────────────────────────────────────────────────────────────────────
+   Dashboard-only design tokens.
+
+   Doc 08: the dashboard "extends [the token layer] with app-only tokens
+   (denser spacing scale, focus rings, sidebar surfaces) rather than forking
+   values". Everything here is additive — colour, type, motion, and the
+   `card-surface` classes all come from @resfolio/design and are never
+   redefined here.
+
+   The dashboard is a productivity app, not a marketing page. Where the two
+   diverge it is always in the same direction: denser, quieter, faster.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Shell geometry ─────────────────────────────────────────────────
+     Named because the sidebar width and bar height are referenced from
+     several places (sticky offsets, preview panes) and must agree. */
+  --spacing-sidebar: 15rem; /* 240px — nav column */
+  --spacing-topbar: 3.5rem; /* 56px — top bar height */
+
+  /* ── Page rhythm ────────────────────────────────────────────────────
+     One reading measure for every non-editor page. Previously each page
+     picked its own (max-w-2xl / max-w-3xl / full), so switching routes
+     shifted the content column sideways. */
+  --spacing-page: 56rem; /* 896px — standard page measure */
+}
+
+@layer components {
+  /* The sidebar and top bar sit *behind* the content plane: page background,
+     not card surface. The only thing separating them is a hairline, which is
+     the whole border-over-shadow philosophy in one rule. */
+  .shell-chrome {
+    background: var(--color-background);
+    border-color: var(--color-border);
+  }
+
+  /* A section label. Replaces `.label-eyebrow` inside the product: the
+     accent-coloured, wide-tracked marketing eyebrow shouts on a screen the
+     user stares at all day. This one is quiet — muted, tighter, smaller. */
+  .label-section {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+}

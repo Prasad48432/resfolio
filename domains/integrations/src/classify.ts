@@ -1,70 +1,51 @@
 /**
- * The three-way merge decision (docs/architecture/12-integrations-and-sync.md).
- * Pure — the provenance fingerprint recorded at last accept is the merge base.
- * This is where the phase's non-negotiable rule lives: imports may update their
- * own untouched previous import, and may **never** touch a user edit.
+ * The import classification (docs/architecture/12-integrations-and-sync.md).
+ * Pure — the fingerprint recorded at last import is the comparison base.
  *
- * | External changed? | User edited since import? | Result   |
- * | ----------------- | ------------------------- | -------- |
- * | new item          | —                         | new      |
- * | yes               | no                        | updated  |
- * | yes               | yes                       | conflict |
- * | no                | —                         | unchanged|
- * | removed           | —                         | archive  |
+ * Import semantics, not sync semantics: after import the staged row is an
+ * **import receipt**, and re-fetching may at most suggest a re-import. The
+ * never-overwrite invariant is structural here — nothing is ever applied
+ * without a user click, so there is no conflict state to resolve and no
+ * archive suggestion (upstream deletion produces nothing; the user's
+ * imported item doesn't care that a repo was deleted).
  *
- * `updated` is the only state the runtime may auto-apply (when the connection's
- * auto-accept is on) — and it is unreachable for an edited item by construction.
+ * | Upstream vs. receipt              | Classification      |
+ * | --------------------------------- | ------------------- |
+ * | never imported                    | `new`               |
+ * | same fingerprint as the receipt   | `duplicate` (skip)  |
+ * | changed fingerprint vs. receipt   | `refresh_available` |
+ *
+ * `duplicate` is what makes re-imports idempotent: importing the same feed
+ * twice can never create a second copy. `refresh_available` is only ever a
+ * badge + a re-import button; whether the user edited their copy since import
+ * is detected separately (`detectUserEdit`) so the UI can warn — "this will
+ * replace your edited copy" — on that explicit, user-initiated re-import.
  */
 
-export const CANDIDATE_STATES = [
+export const IMPORT_CLASSIFICATIONS = [
   "new",
-  "updated",
-  "conflict",
-  "unchanged",
-  "archive",
+  "duplicate",
+  "refresh_available",
 ] as const;
 
-export type CandidateState = (typeof CANDIDATE_STATES)[number];
+export type ImportClassification = (typeof IMPORT_CLASSIFICATIONS)[number];
 
 export interface ClassifyInput {
   /** Fingerprint of the freshly-fetched candidate (`computeFingerprint`). */
   externalFingerprint: string;
-  /** Fingerprint recorded at the last accept (the merge base), or `null` if
-   * this `externalId` was never imported. */
+  /** Fingerprint recorded at the last import (the receipt), or `null` if this
+   * `externalId` was never imported. */
   baseFingerprint: string | null;
-  /** Has the user edited the applied item since it was imported? (The runtime
-   * derives this by comparing the applied item's current content to its stored
-   * import fingerprint — an edit shifts it.) */
-  userEdited: boolean;
-  /** Did this `externalId` disappear from the provider this run? */
-  upstreamRemoved?: boolean;
 }
 
-/**
- * Decide a candidate's review state. `archive` (removed upstream) takes
- * precedence — there is no new content to merge. Otherwise: never-seen →
- * `new`; identical to base → `unchanged`; changed splits on whether the user
- * touched it — edited → `conflict` (always reviewed), untouched → `updated`.
- */
-export function classifyCandidate(input: ClassifyInput): CandidateState {
-  const {
-    externalFingerprint,
-    baseFingerprint,
-    userEdited,
-    upstreamRemoved = false,
-  } = input;
-
-  if (upstreamRemoved) {
-    // Removed upstream is a *suggestion* to archive — never auto-applied.
-    return "archive";
-  }
+/** Decide what a fetched candidate means for the workspace. */
+export function classifyCandidate(input: ClassifyInput): ImportClassification {
+  const { externalFingerprint, baseFingerprint } = input;
   if (baseFingerprint === null) {
     return "new";
   }
   if (externalFingerprint === baseFingerprint) {
-    return "unchanged";
+    return "duplicate";
   }
-  // Upstream changed. A user edit is sacred: it can never be silently
-  // overwritten, so an edited item is always a conflict, never an update.
-  return userEdited ? "conflict" : "updated";
+  return "refresh_available";
 }

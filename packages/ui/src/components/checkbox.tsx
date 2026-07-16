@@ -15,13 +15,15 @@ export function Checkbox({ className, ...props }: ComponentProps<"input">) {
       <input
         type="checkbox"
         className={cn(
-          "peer size-4 cursor-pointer appearance-none rounded border border-border bg-surface transition-colors checked:border-accent checked:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
+          // Focus is the platform halo from @resfolio/design, matching every
+          // other control — not a bespoke ring.
+          "peer size-4 cursor-pointer appearance-none rounded border border-border bg-surface transition-colors duration-(--duration-press) ease-out checked:border-accent checked:bg-accent disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}
       />
       <Check
-        className="pointer-events-none absolute size-3 text-white opacity-0 peer-checked:opacity-100"
+        className="pointer-events-none absolute size-3 scale-90 text-white opacity-0 transition-[opacity,transform] duration-(--duration-press) ease-out peer-checked:scale-100 peer-checked:opacity-100"
         aria-hidden
       />
     </span>

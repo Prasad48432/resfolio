@@ -26,6 +26,11 @@ export function Command({
  * Command palette in a dialog — the `cmd+k` surface
  * (docs/architecture/08-dashboard-ux.md). Callers own open state and
  * provide CommandInput/List children.
+ *
+ * Deliberately unanimated (`animated={false}`): this is a keyboard surface
+ * opened dozens of times a session, and any enter transition puts a delay
+ * between the shortcut and the input being ready to type into. It should
+ * simply be there. Raycast ships no palette animation for the same reason.
  */
 export function CommandDialog({
   open,
@@ -40,7 +45,11 @@ export function CommandDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden" aria-describedby={undefined}>
+      <DialogContent
+        className="overflow-hidden"
+        animated={false}
+        aria-describedby={undefined}
+      >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <Command {...props}>{children}</Command>
       </DialogContent>

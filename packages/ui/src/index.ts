@@ -15,11 +15,24 @@ export { Button, buttonVariants, type ButtonProps } from "./components/button";
 export { Input } from "./components/input";
 export { Textarea } from "./components/textarea";
 export { Label } from "./components/label";
-export { Select } from "./components/select";
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "./components/select";
+export { TagInput } from "./components/tag-input";
 export { Checkbox } from "./components/checkbox";
 export { Switch } from "./components/switch";
 export {
   Card,
+  cardVariants,
   CardHeader,
   CardTitle,
   CardDescription,
