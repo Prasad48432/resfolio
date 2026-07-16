@@ -302,16 +302,32 @@ deferred); slug/abuse squatting at launch (blocklist + rate limit).
 **Goal:** the Career-OS differentiator: connect GitHub, review candidates,
 apply to the Profile. Doc: [12](architecture/12-integrations-and-sync.md).
 
-- `domains/integrations` (`@resfolio/integrations`): connector contract +
-  registry, runtime (encrypted token storage, rate-budgeted fetch,
+**Status: foundation started (2026-07-16).** The pure `@resfolio/integrations`
+root is built and tested (39 unit tests): the **connector contract**
+(`defineConnector` + the `FetchContext` runtime seam), the canonical
+**`CandidateItem`** schema (payloads reuse the profile item schemas — the schema
+already reserved `sourceId`/`github`/`rss` for this), the deterministic
+**`computeFingerprint`** and the three-way **`classifyCandidate`** merge decision
+(the never-overwrite invariant is locked + fuzzed at the pure layer), the static
+**registry**, and the first two connectors — **GitHub** (`oauth2`, `project`)
+and **RSS** (`public`, `article`) — each `fetch` + pure `normalize` with recorded
+fixtures (fetch exercised against a fake `ctx`, no network). Remaining: the DB
+runtime + review inbox + account-gated cloud (below).
+
+- 🟡 `domains/integrations` (`@resfolio/integrations`): connector contract +
+  registry ✅; runtime (encrypted token storage, rate-budgeted fetch,
   Trigger.dev sync task, staging tables, fingerprint diffing, media
-  rehosting to R2).
-- **GitHub connector** (oauth2 mode) emitting project/contribution
-  candidates, with recorded fixtures + normalize tests.
+  rehosting to R2) — **next**.
+- 🟡 **GitHub connector** (oauth2 mode) emitting project/contribution
+  candidates, with recorded fixtures + normalize tests — `project` +
+  `normalize` + `fetch` ✅ (recorded fixtures); `contribution` + the live OAuth
+  wiring remain.
 - **Review inbox** in the dashboard: new/updated/conflict/removed states,
   field-level diffs, inline edit, accept → draft apply with provenance.
-- **RSS connector** (public mode) — proves the cheap path and covers
-  Medium/Substack/blogs in one stroke.
+- 🟡 **RSS connector** (public mode) — proves the cheap path and covers
+  Medium/Substack/blogs in one stroke. `fetch` (RSS 2.0 + Atom parse) +
+  `normalize` + fixtures ✅; wiring it through the runtime end-to-end (the
+  fully-local publish-nothing proof, no OAuth needed) is the runtime increment.
 - Scheduled refresh (jittered daily), manual sync (rate-limited),
   per-connection auto-accept toggle, `needs_reauth`/`degraded` connection
   health UI, sync-run log.

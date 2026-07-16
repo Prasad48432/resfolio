@@ -113,6 +113,16 @@ Business-logic packages live under `domains/`:
   (`@resfolio/document/token`, server-only), and the DB surface
   (`@resfolio/document/server`, the only code that touches the `documents`
   table). See `domains/document/CLAUDE.md`
+- `@resfolio/integrations` (`domains/integrations`) — the integrations domain
+  (doc 12): one pipeline (**Connect → Fetch → Normalize → Stage → Review →
+  Apply**) with providers as small connectors (`fetch` + pure `normalize`)
+  behind a static registry, each declaring an `authMode` (`oauth2 | token |
+  public | file`). Pure root today: `defineConnector`, the canonical
+  `CandidateItem` schema (payloads reuse the profile item schemas), the
+  deterministic `computeFingerprint`, the three-way `classifyCandidate` merge
+  decision, the registry, and the first two connectors (`github` oauth2,
+  `rss` public). The DB `./server` runtime (staging tables, encrypted tokens,
+  apply-to-draft) lands next. See `domains/integrations/CLAUDE.md`
 
 Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 

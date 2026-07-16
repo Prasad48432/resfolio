@@ -265,7 +265,10 @@ it subsumes Medium, Substack, personal blogs, and podcast feeds in one
 ## Open Questions
 
 - Exact canonical `MetricKey` vocabulary (stars, followers, views,
-  reputation…) — finalize with the first two connectors.
+  reputation…) — finalize with the first two connectors. **Seeded (Phase 6
+  foundation):** `stars`, `forks`, `followers`, `reactions`, `views`,
+  `reputation` (`domains/integrations` `candidate.ts`); GitHub emits
+  `stars`/`forks`. Left open — additive per new connector.
 - Token encryption key rotation procedure (re-encrypt job vs. lazy
   re-encrypt on read) — decide when the second key version is actually
   needed; the key-version byte keeps both doors open.
