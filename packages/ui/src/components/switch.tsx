@@ -21,7 +21,7 @@ export function Switch({ className, ...props }: ComponentProps<"input">) {
           visible to draw on. The track mirrors it instead — same outline,
           width, and offset — so this reads identically to every other
           control despite being drawn by a sibling. */}
-      <span className="h-5 w-9 rounded-full bg-border transition-colors duration-(--duration-fast) ease-out peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:cursor-not-allowed peer-disabled:opacity-50" />
+      <span className="h-5 w-9 rounded-full bg-border transition-colors duration-(--duration-fast) ease-out peer-checked:bg-brand peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand peer-disabled:cursor-not-allowed peer-disabled:opacity-50" />
       <span className="pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-(--duration-fast) ease-out peer-checked:translate-x-4" />
     </label>
   );

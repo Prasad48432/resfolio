@@ -2,6 +2,7 @@ import {
   FileText,
   Globe,
   Link2,
+  PenLine,
   Plug,
   Settings,
   UserRound,
@@ -26,6 +27,13 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "profile", label: "Profile", href: "/profile", icon: UserRound },
   { key: "resumes", label: "Resumes", href: "/resumes", icon: FileText },
   { key: "portfolio", label: "Portfolio", href: "/portfolio", icon: Globe },
+  {
+    key: "blog",
+    label: "Blog",
+    href: "/blog",
+    icon: PenLine,
+    comingInPhase: 8,
+  },
   { key: "sources", label: "Sources", href: "/sources", icon: Plug },
   { key: "domains", label: "Domains", href: "/domains", icon: Link2 },
   {

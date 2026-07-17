@@ -2,14 +2,22 @@ import { z } from "zod";
 
 /**
  * Rendering-host secrets (docs/architecture/02-resume-rendering.md,
- * 09-rendering-pipeline.md). `apps/sites` mints and verifies short-lived
- * signed tokens for its private print/preview routes; the dashboard and the
- * export job mint tokens with the same secret. Redis nonce hardening
- * (doc 07) layers on later — the secret is the stable dependency.
+ * 09-rendering-pipeline.md).
+ *
+ * `RENDER_SECRET` is a **server-to-server** secret — never handed to a user,
+ * never placed in a user-facing URL. It signs the portfolio draft-preview
+ * token (`@resfolio/portfolio/token`) and bears the two dashboard→sites API
+ * calls: `POST /api/revalidate` (publish invalidation) and
+ * `POST /api/export/resume/[documentId]` (PDF).
+ *
+ * It was `PRINT_TOKEN_SECRET` until resume print tokens were removed: a resume
+ * now has a permanent URL gated by its own `visibility` (doc 02), so there is
+ * no print token left to name it after. Redis nonce hardening (doc 07) layers
+ * on later — the secret is the stable dependency.
  */
 export const render = {
   server: {
-    PRINT_TOKEN_SECRET: z.string().min(16),
+    RENDER_SECRET: z.string().min(16),
     /**
      * The dashboard origin allowed to frame the private portfolio
      * draft-preview route (CSP `frame-ancestors`, doc 08). Optional — absent,
@@ -18,14 +26,13 @@ export const render = {
     DASHBOARD_URL: z.string().url().optional(),
   },
   /**
-   * The dashboard mints stored-document print URLs against `apps/sites`, but
-   * that "Open print view" affordance is optional locally — both vars absent
-   * simply hides it (full cloud PDF delivery lands later). Kept separate from
-   * `server` so the dashboard boots without the secret while `apps/sites`
-   * still requires it.
+   * The dashboard calls `apps/sites` for the portfolio preview iframe and the
+   * resume PDF export. Optional locally — both vars absent simply hides those
+   * affordances. Kept separate from `server` so the dashboard boots without
+   * the secret while `apps/sites` still requires it.
    */
   dashboard: {
-    PRINT_TOKEN_SECRET: z.string().min(16).optional(),
+    RENDER_SECRET: z.string().min(16).optional(),
     SITES_URL: z.string().url().optional(),
   },
 } as const;

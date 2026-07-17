@@ -25,9 +25,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const siteUrl = "https://resfolio.me";
-const title = "Resfolio — Your Career, Synced.";
+const title = "Resfolio — Your career, one profile.";
 const description =
-  "Resfolio pulls your work from GitHub, Dribbble, Behance, LinkedIn and Medium, then ships a resume and a live portfolio to your own domain. Update once. Everywhere follows.";
+  "Resfolio is the single source of truth for your professional identity. Maintain one profile of your work and publish it as a polished resume, a live portfolio site, and a public API — all generated from the same source, and all up to date by default.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

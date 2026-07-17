@@ -1,39 +1,38 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FaGithub, FaDribbble, FaBehance, FaMedium } from "react-icons/fa";
-import { SiSubstack, SiFigma, SiNotion, SiYoutube } from "react-icons/si";
+import { FaGithub } from "react-icons/fa";
+import { SiDevdotto, SiStackoverflow, SiRss } from "react-icons/si";
 import { fadeUp, staggerTransition, viewport } from "@/lib/motion";
 import { TEST_IDS } from "@/lib/testids";
 
+/** `id` mirrors the connector ids in `@resfolio/integrations` — these four
+ *  are the whole V1 registry, and all of them are public-data connectors. */
 const primary = [
   {
+    id: "github",
     Icon: FaGithub,
     name: "GitHub",
-    hint: "Repos, stars, pinned projects and contributions.",
+    hint: "Repos, stars, languages and pinned projects.",
   },
   {
-    Icon: FaDribbble,
-    name: "Dribbble",
-    hint: "Shots, palettes and case-study highlights.",
+    id: "rss",
+    Icon: SiRss,
+    name: "RSS",
+    hint: "Any feed — Substack, Medium, or your own blog.",
   },
   {
-    Icon: FaBehance,
-    name: "Behance",
-    hint: "Long-form project galleries and process shots.",
+    id: "devto",
+    Icon: SiDevdotto,
+    name: "Dev.to",
+    hint: "Published posts, tags and reactions.",
   },
   {
-    Icon: FaMedium,
-    name: "Medium",
-    hint: "Essays, publications and long-form writing.",
+    id: "stackoverflow",
+    Icon: SiStackoverflow,
+    name: "Stack Overflow",
+    hint: "Answers, reputation and the tags you know best.",
   },
-];
-
-const secondary = [
-  { Icon: SiSubstack, name: "Substack" },
-  { Icon: SiFigma, name: "Figma" },
-  { Icon: SiNotion, name: "Notion" },
-  { Icon: SiYoutube, name: "YouTube" },
 ];
 
 export default function Integrations() {
@@ -50,22 +49,23 @@ export default function Integrations() {
             Import your work from everywhere.
           </h2>
           <p className="mt-5 max-w-xl text-[15px] text-muted md:text-lg">
-            Connect the platforms you already use and pull in just what you
-            approve — projects, posts, shots and writing — structured into one
-            profile you control.
+            Every source reads public data — no OAuth, no passwords, nothing
+            stored. Give us a username or a feed URL, review what we find, and
+            import only what you want. It becomes ordinary profile content, and
+            it&apos;s yours to edit from there.
           </p>
         </div>
 
         <div className="mt-14 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
           {primary.map((p, i) => (
             <motion.div
-              key={p.name}
+              key={p.id}
               initial="hidden"
               whileInView="visible"
               viewport={viewport}
               variants={fadeUp}
               transition={staggerTransition(i, { base: 0.05 })}
-              data-testid={`integration-${p.name.toLowerCase()}`}
+              data-testid={`integration-${p.id}`}
               className="card-surface group relative overflow-hidden p-5 transition hover:-translate-y-0.5"
             >
               <div className="flex items-center justify-between">
@@ -84,19 +84,10 @@ export default function Integrations() {
           ))}
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <span className="label-eyebrow mr-2">Coming next</span>
-          {secondary.map((s) => (
-            <div
-              key={s.name}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] text-muted"
-            >
-              <s.Icon size={12} aria-hidden />
-              {s.name}
-            </div>
-          ))}
-          <span className="text-[12px] text-muted/70">&amp; more</span>
-        </div>
+        <p className="mt-8 text-[13px] text-muted">
+          Nothing to import? Sources are optional — you can write your profile
+          by hand and never connect a thing.
+        </p>
       </div>
     </section>
   );

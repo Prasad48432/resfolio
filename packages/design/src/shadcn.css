@@ -1,0 +1,105 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   The shadcn/ui token bridge — dashboard only.
+
+   Doc 08: "Design system: extract, then extend… apps never own a one-off."
+   `apps/dashboard` adopts shadcn/ui as its UI foundation; `apps/web` stays
+   fully custom and must never import this file.
+
+   shadcn's components are written against a fixed colour vocabulary
+   (`bg-primary`, `bg-card`, `hover:bg-accent`, `bg-sidebar`…). Rather than
+   rewrite every component we add — which would fight `shadcn diff` on every
+   future update, forever — this maps that vocabulary onto the Resfolio tokens
+   in `./index.css`. @resfolio/design stays the single source of truth: nothing
+   here declares a colour, every value is a `var()` pointing home.
+
+   Four of shadcn's names already match ours exactly (`background`,
+   `foreground`, `border`, `muted`), which is why the whole idea works. The
+   ones that don't are the interesting part:
+
+   - **`accent`**: shadcn's is a *neutral hover surface* (menu rows, sidebar
+     buttons, command items). Resfolio's brand orange used to own that name,
+     which would have turned every hover state in the product bright orange —
+     so the brand token was renamed to `--color-brand`, freeing `accent` for
+     its shadcn meaning. See the Brand block in `./index.css`.
+   - **`primary`**: shadcn's "high-contrast fill" — Button's default variant,
+     Tooltip's background, a checked Switch. Mapped to **ink, not brand
+     orange**: in a productivity surface the loud fill is the exception, not
+     the default (doc 08 — "denser, quieter, faster"). Brand orange stays
+     deliberate; `Button`'s `primary` variant reaches for `bg-brand` by name.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Surfaces ──────────────────────────────────────────────────────────
+     `card` and `popover` are both our elevated panel surface. `background`,
+     `foreground`, `border` and `muted` need no entry — @resfolio/design
+     already defines those exact names. */
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-foreground);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-foreground);
+
+  /* ── Fills ─────────────────────────────────────────────────────────────
+     Ink, not brand — see the header note. */
+  --color-primary: var(--color-foreground);
+  --color-primary-foreground: var(--color-surface);
+  --color-secondary: var(--color-surface-warm);
+  --color-secondary-foreground: var(--color-foreground);
+
+  /* ── Interaction ───────────────────────────────────────────────────────
+     `accent` is the quiet hover wash; `muted-foreground` is the secondary
+     text colour shadcn pairs with `bg-muted` (ours is `--color-muted`). */
+  --color-accent: var(--color-surface-warm);
+  --color-accent-foreground: var(--color-foreground);
+  --color-muted-foreground: var(--color-muted);
+
+  /* ── Feedback ──────────────────────────────────────────────────────────
+     Destructive is the one colour with no Resfolio token: brand orange is
+     already a warm red-orange, and reusing it for "delete forever" would make
+     the primary action and the dangerous one indistinguishable. */
+  --color-destructive: #b3261e;
+  --color-destructive-foreground: var(--color-surface);
+
+  /* The focus ring. @resfolio/design draws focus with `outline` (so it
+     follows each element's own radius) — this keeps shadcn's `ring-*`
+     utilities on the same colour when a component uses them. */
+  --color-ring: var(--color-brand);
+  --color-input: var(--color-border);
+
+  /* ── Sidebar ───────────────────────────────────────────────────────────
+     shadcn's sidebar carries its own token namespace, which is what lets the
+     chrome be themed independently of the content plane. Doc 08: the sidebar
+     sits *behind* the content — page background, not card surface, separated
+     by a hairline. That is exactly `.shell-chrome`, expressed in shadcn's
+     names. */
+  --color-sidebar: var(--color-background);
+  --color-sidebar-foreground: var(--color-foreground);
+  --color-sidebar-primary: var(--color-brand);
+  --color-sidebar-primary-foreground: var(--color-surface);
+  --color-sidebar-accent: var(--color-surface-warm);
+  --color-sidebar-accent-foreground: var(--color-foreground);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-ring: var(--color-brand);
+}
+
+/* `destructive` is the one name in this file that owns a literal colour rather
+   than a `var()` home — so it is also the only one that needs restating for
+   dark. Every other token here aliases a Resfolio token and follows
+   `@resfolio/design/dark` automatically (see that file for why the aliasing
+   survives the theme swap). #b3261e is a deep red tuned for cream; on warm
+   charcoal it falls to 2.8:1 and fails. This is the same red opened up until
+   it clears 5.3:1 on both dark surfaces.
+
+   Unlayered on purpose, exactly as in `./dark.css`: `@theme` above compiles
+   into `@layer theme`, and unlayered CSS outranks every layer. */
+.dark {
+  --color-destructive: #f2635a;
+}
+
+/* shadcn components reach for a `--radius` scale (`rounded-lg` → `--radius`,
+   `rounded-md` → `calc(--radius - 2px)`). Resfolio's surfaces are 16px
+   (`Card` = `rounded-2xl`); 10px keeps the controls *inside* them a notch
+   tighter, which is the relationship the existing hand-authored primitives
+   already have (`Input`/`Select` are `rounded-xl`). */
+@theme {
+  --radius: 0.625rem;
+}

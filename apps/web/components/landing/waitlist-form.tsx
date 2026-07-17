@@ -56,7 +56,7 @@ export default function WaitlistForm({
               placeholder="you@makingthings.com"
               aria-label="Email address"
               data-testid={TEST_IDS.waitlistInput}
-              className="h-12 w-full rounded-full border border-border bg-surface px-5 pr-28 text-sm text-foreground shadow-[0_1px_2px_rgba(38,32,25,0.04)] outline-none transition placeholder:text-muted/70 focus:border-accent/50"
+              className="h-12 w-full rounded-full border border-border bg-surface px-5 pr-28 text-sm text-foreground shadow-[0_1px_2px_rgba(38,32,25,0.04)] outline-none transition placeholder:text-muted/70 focus:border-brand/50"
             />
             {variant === "hero" && (
               <span className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 font-mono text-[11px] text-muted sm:block">
@@ -69,7 +69,7 @@ export default function WaitlistForm({
             <p
               role="alert"
               data-testid={TEST_IDS.waitlistError}
-              className="text-sm text-accent sm:col-span-2"
+              className="text-sm text-brand sm:col-span-2"
             >
               {state.message}
             </p>
@@ -88,7 +88,7 @@ function SubmitButton({ variant }: { variant: "hero" | "cta" }) {
       type="submit"
       disabled={pending}
       data-testid={TEST_IDS.waitlistSubmit}
-      className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-accent px-6 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(240,89,43,0.28)] transition hover:bg-accent-soft disabled:opacity-60"
+      className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-brand px-6 text-[13px] font-semibold text-white shadow-[0_8px_24px_rgba(240,89,43,0.28)] transition hover:bg-brand-soft disabled:opacity-60"
     >
       {pending
         ? "Joining…"

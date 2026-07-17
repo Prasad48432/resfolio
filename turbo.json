@@ -15,7 +15,7 @@
     "NEXT_PUBLIC_SENTRY_DSN",
     "LOG_LEVEL",
     "AUTH_E2E_MOCK_ISSUER",
-    "PRINT_TOKEN_SECRET",
+    "RENDER_SECRET",
     "SITES_URL"
   ],
   "tasks": {

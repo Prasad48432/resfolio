@@ -8,6 +8,7 @@ import { resolveRoute } from "../routing";
 import { getConnector } from "../registry";
 import type { CandidateItem } from "../candidate";
 import type { FetchContext } from "../contract";
+import { serverTokenFor } from "./env";
 import { getDecryptedToken, requireOwnedConnection } from "./repository";
 import { UnknownConnectorError } from "./errors";
 
@@ -57,12 +58,24 @@ class RunBudgetExceededError extends Error {
  * `FetchContext` seam). Tokens are injected as an Authorization header here
  * and never reach connector code; the wrapper also notices auth-shaped
  * failures so the runtime can flip the connection to `needs_reauth`.
+ *
+ * Two token sources, and the difference matters. `connectionToken` is the
+ * user's own decrypted grant — a 401/403 against it means the grant is gone
+ * and only the user can fix it, so it flips the connection to
+ * `needs_reauth`. `serverToken` is a platform-wide rate-limit lever nobody
+ * granted (doc 12): a 403 there is GitHub throttling *us*, which reconnecting
+ * cannot fix, so it must never be reported to the user as a broken
+ * connection. Only a connection token can raise the auth alarm.
  */
 function buildRuntimeFetch(
-  token: string | null,
+  {
+    connectionToken,
+    serverToken,
+  }: { connectionToken: string | null; serverToken: string | null },
   onAuthFailure: () => void,
 ): typeof fetch {
   let remaining = MAX_REQUESTS_PER_RUN;
+  const token = connectionToken ?? serverToken;
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (remaining <= 0) {
       throw new RunBudgetExceededError();
@@ -73,7 +86,10 @@ function buildRuntimeFetch(
       headers.set("authorization", `Bearer ${token}`);
     }
     const response = await fetch(input, { ...init, headers });
-    if (token && (response.status === 401 || response.status === 403)) {
+    if (
+      connectionToken &&
+      (response.status === 401 || response.status === 403)
+    ) {
       onAuthFailure();
     }
     return response;
@@ -140,9 +156,15 @@ export async function runImport(
 
   try {
     const ctx: FetchContext<unknown> = {
-      fetch: buildRuntimeFetch(getDecryptedToken(connection), () => {
-        authFailed = true;
-      }),
+      fetch: buildRuntimeFetch(
+        {
+          connectionToken: getDecryptedToken(connection),
+          serverToken: serverTokenFor(connection.connectorId),
+        },
+        () => {
+          authFailed = true;
+        },
+      ),
       input: connection.input ?? undefined,
       cursor: startCursor,
       setCursor: (cursor) => {

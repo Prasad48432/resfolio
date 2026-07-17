@@ -8,7 +8,12 @@
    Fonts: apps must load Instrument Serif, Manrope, and JetBrains Mono via
    next/font with the CSS variables --font-instrument-serif, --font-manrope,
    and --font-jetbrains-mono (see apps/web/app/layout.tsx for the canonical
-   setup).
+   setup). Those next/font `.variable` classes MUST go on <html>, not <body>:
+   the --font-* tokens below are declared on :root, and a custom property is
+   substituted where it is declared, not where it is used. Put the classes on
+   <body> and every one of these tokens resolves to nothing at :root, is
+   inherited as nothing, and `font-display`/`font-sans`/`font-mono` all fall
+   back to system fonts with no error anywhere.
 
    See docs/architecture/08-dashboard-ux.md (Design system) and
    apps/web/CLAUDE.md (Theme & tokens).
@@ -22,10 +27,18 @@
   --color-foreground: #262019; /* warm near-black ink */
   --color-muted: #6f6455; /* secondary warm-gray text */
   --color-border: #e7dccb; /* warm hairline borders */
-  --color-accent: #f0592b; /* burnt-orange accent */
-  --color-accent2: #e54c22; /* warm coral */
-  --color-accent3: #ff9468; /* soft peach */
-  --color-accent-soft: #ff6a3d; /* brighter accent for fills */
+  /* ── Brand ────────────────────────────────────────────────────────────
+     Named `brand`, not `accent`, on purpose. shadcn/ui — the dashboard's UI
+     foundation — spends `accent` on its *neutral hover surface* (menu items,
+     sidebar buttons, command rows). Every other name in this block already
+     matches shadcn's vocabulary, so `accent` was the one collision, and
+     leaving the burnt orange there would have turned every hover state in
+     the product bright orange. The bridge that maps shadcn's `accent` onto
+     `--color-surface-warm` lives in `./shadcn.css` (dashboard-only). */
+  --color-brand: #f0592b; /* burnt orange — the brand */
+  --color-brand-2: #e54c22; /* warm coral */
+  --color-brand-3: #ff9468; /* soft peach */
+  --color-brand-soft: #ff6a3d; /* brighter brand for fills */
   --color-live: #2f9e44; /* success / live green */
 
   --font-display: var(--font-instrument-serif), ui-serif, Georgia, serif;
@@ -69,7 +82,7 @@
   }
 
   ::selection {
-    background: var(--color-accent);
+    background: var(--color-brand);
     color: #fffdf9;
   }
 
@@ -86,7 +99,7 @@
     [role="button"],
     [tabindex]
   ):focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
 }
@@ -122,7 +135,7 @@
     font-size: 11px;
     letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: var(--color-accent);
+    color: var(--color-brand);
     font-weight: 600;
   }
 }

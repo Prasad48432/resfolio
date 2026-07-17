@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -19,6 +19,11 @@ export interface StoredExport {
 export interface ExportStore {
   /** Is an object already stored under this key? (the cache check) */
   head(key: string): Promise<boolean>;
+  /** The stored bytes, or null if absent. Serving a download needs the object
+   * itself, not just its existence — on R2 this becomes a GET (or, later, a
+   * redirect to a signed URL, at which point this returns null and callers use
+   * `location`). */
+  get(key: string): Promise<Uint8Array | null>;
   /** Store bytes under this key and return its location. */
   put(key: string, bytes: Uint8Array): Promise<StoredExport>;
   /** The location an object would have, without touching storage. */
@@ -42,6 +47,14 @@ export class LocalFsExportStore implements ExportStore {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async get(key: string): Promise<Uint8Array | null> {
+    try {
+      return new Uint8Array(await readFile(this.path(key)));
+    } catch {
+      return null;
     }
   }
 

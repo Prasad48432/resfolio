@@ -159,18 +159,38 @@ cloud endpoints stubbed behind seams).
   reading order, visible URLs survive). Cloud wiring stubbed behind
   `ExportStore` + token-signer seams.
 - ✅ **4E** `documents` table + `@resfolio/document` domain + resume documents
-  UI (create/name, A4/Letter, margins, accent, icons). The print route now
-  resolves a stored document by id (the signed render token carries an
-  inline-or-stored ref, keeping `source`/`ref`); the token module is shared
-  from `@resfolio/document/token` so the dashboard mints and `apps/sites`
-  verifies with one implementation.
+  UI (create/name, A4/Letter, margins, accent, icons).
 - ✅ **4F** Editor preview pane: the `SplitWorkspace` layout primitive; the
   `resume-classic` template rendered **in-browser** in a scaled page box with
   optimistic client-side `buildProfileView`; advisory pagination overlay.
+- ✅ **4G — resume experience rebuild** (2026-07-17, doc 02 revision). The
+  **print token is gone**: `documents.visibility` (`public` default | `private`,
+  migration `0007`) gates a **permanent public URL**, and the token was the
+  cause of five of the route's six 404 paths. `@resfolio/document/token` is
+  deleted; `PRINT_TOKEN_SECRET` → **`RENDER_SECRET`** (server-to-server only:
+  `/api/revalidate`, the export API, the private draft render). New routes:
+  public `/render/resume/[documentId]` (published version, force-dynamic,
+  noindex), private `/render/resume/[documentId]/draft` (bearer), dev-only
+  `/render/resume/fixture/[key]` (what `check:ats` loads — the fixture path
+  lost its vehicle when the inline token payload went away). **Download PDF**
+  ships: dashboard `GET /api/resumes/[id]/pdf` (session + ownership) → sites
+  `POST /api/export/resume/[documentId]` (bearer) → `lib/pdf.ts`. Fixed the
+  **renderKey staleness bug**: `source`+`ref` → a single `revision`
+  (`draft:<draftRev>` | `version:<id>` | `fixture:<key>`), because `ref` was a
+  userId that never changed when the draft did.
+- ✅ **4H — resume configuration layer** (doc 01/02). `updateResumeAction` now
+  accepts `view`; the editor gained **Sections** (locked core rows; toggles for
+  projects/skills/writing/certifications/awards/languages/custom; per-item
+  checkbox + dnd-kit reorder) and **Sharing** (visibility + the public link).
+  No migration and no domain change: `ViewDefinition` and `documents.view`
+  already modelled all of it — the only gap was that nothing could _write_ a
+  non-`{}` value. `lib/resume-sections.ts` is pure and tested against the real
+  `buildProfileView`.
 - ⏳ **Cloud delivery** (needs account access): swap `LocalFsExportStore` →
-  `R2ExportStore`, wrap `export-pdf` in a Trigger.dev task, add Redis
-  token-nonce hardening; `R2` + `assets` table land here.
-- ⏳ CI: template contract harness — visual snapshots of the print route, the
+  `R2ExportStore` and wrap the export route's body in a Trigger.dev task
+  (`lib/pdf.ts` imports Playwright dynamically, so a deployment without it
+  answers 501 rather than bundling Chromium). `R2` + `assets` table land here.
+- ⏳ CI: template contract harness — visual snapshots of the resume route, the
   preview↔PDF parity diff (arrives with template #2). The ATS text-extraction
   check exists now (`pnpm --filter sites check:ats`).
 
@@ -322,7 +342,7 @@ auto-accept surface (column dormant), and the sync-shaped `/sources` inbox.
   unrouted, user override at import); `classifyCandidate` re-specced to
   `new | duplicate | refresh_available`; `detectUserEdit` extracted as the
   pure re-import-warning primitive; `capabilities` → `{ refreshable,
-  incremental }` (schedule/webhooks dropped). Classify/apply/routing tests
+incremental }` (schedule/webhooks dropped). Classify/apply/routing tests
   rewritten (78 package tests).
 - ✅ **6R-2 — Runtime.** Additive migration `0006` (route columns +
   state-value migration, applied locally); `syncConnection` → `runImport`
@@ -335,34 +355,48 @@ auto-accept surface (column dormant), and the sync-shaped `/sources` inbox.
   user-edit warning → explicit warned re-import → upstream deletion produces
   nothing → unrouted refusal → route-to-custom).
 - ✅ **6R-3 — Import workspace UI.** `/sources` rebuilt: "Import from…"
-  provider gallery (RSS live; GitHub + LinkedIn-export teasers), triage
-  grouped by destination with per-group Import all, destination Select,
-  inline edit-before-import and Skip, the "needs a home" bucket, import
-  history (receipts, refresh badges, warned re-import, links into
-  `/profile`), and the demoted "Connected sources" row (Check for updates /
-  Remove).
-- **6R-4 — LinkedIn file import.** ZIP → `experience` / `education` /
-  `skillGroup` / `certification` — the multi-section routing proof; no
-  accounts needed (pulled forward from Phase 7).
-- **6R-5 — Breadth + optional refresh.** Dev.to / Stack Overflow connectors;
-  user-initiated "Check for updates" for `refreshable` providers
-  (`refresh_available` badge + warned re-import — no scheduling). GitHub
-  OAuth app/routes, R2 media rehosting, Redis rate limits remain
-  account-gated.
+  provider gallery, triage grouped by destination with per-group Import all,
+  destination Select, inline edit-before-import and Skip, the "needs a home"
+  bucket, import history (receipts, refresh badges, warned re-import, links
+  into `/profile`), and the demoted "Connected sources" row (Check for
+  updates / Remove).
+- ✅ **6R-5 — Breadth + optional refresh.** Dev.to / Stack Overflow
+  connectors; user-initiated "Check for updates" for `refreshable` providers
+  (`refresh_available` badge + warned re-import — no scheduling).
+- ✅ **6R-6 — V1 provider set closed** (2026-07-17, doc 12 revision).
+  **GitHub `oauth2` → `public`**: `GET /users/{username}/repos` answers
+  everything a project needs, so the OAuth app was never needed — the scopes
+  only bought private repos. Proven live against api.github.com. Imports only
+  the named fields (name, description, repoUrl, stars, forks, language,
+  topics); `created_at` and the owner avatar deliberately dropped. An optional
+  server-wide `GITHUB_TOKEN` lifts the anonymous 60 req/hr **per-IP** ceiling
+  to 5,000 — a rate lever, not auth, and only a _connection_ token may raise
+  `needs_reauth`. Gallery = four live cards, no teasers.
+  **6R-4 (LinkedIn file import) was built and then deleted** — a scope
+  decision (doc 12, "Assumptions challenged"); the connector, its CSV parser,
+  the ZIP extractor and `fflate` all went with it. `ITEM_SOURCES` keeps
+  `"linkedin"`: that enum is additive-only and removing a value would
+  invalidate already-imported items.
+- ⏳ Account-gated: R2 media rehosting, Redis rate limits.
+
+**V1 providers: GitHub, Dev.to, RSS, Stack Overflow — all `public`, no OAuth,
+no credentials at rest.** Everything else is evaluated individually, on the
+quality of its public API, when someone asks.
 
 **Exit criteria:** import from a source → candidates staged and routed →
 import → items in draft with provenance, ordinary and fully editable →
-re-running the import is idempotent (duplicates silently skipped) → a
-LinkedIn export lands across four Profile sections → unmappable content
-waits in "needs a home" instead of being dropped → replacing a user-edited
-copy is possible only via an explicit, warned re-import.
+re-running the import is idempotent (duplicates silently skipped) →
+unmappable content waits in "needs a home" instead of being dropped →
+replacing a user-edited copy is possible only via an explicit, warned
+re-import.
 
 **Risks:** provider API surprises (mitigate: fixtures recorded from real
 accounts; failure classification built before the second connector);
-token encryption key handling mistakes (mitigate: it's one audited module
-in the runtime, never inline); users expecting live sync (mitigate: honest
-copy — "Import from GitHub", "Check for updates"); scope creep toward many
-connectors (mitigate: breadth is 6R-5 and post-launch, demand-driven).
+token encryption key handling mistakes (mitigate: it's one audited module in
+the runtime, never inline — and moot in V1, where no connector stores a
+credential); users expecting live sync (mitigate: honest copy — "Import from
+GitHub", "Check for updates"); scope creep toward many connectors (mitigate:
+breadth is demand-driven, and the V1 set is closed).
 
 ---
 
@@ -394,12 +428,19 @@ first and watch volume).
 ## Post-launch tracks (demand-ordered, not scheduled)
 
 - **Connector breadth** — GitLab, Hashnode, YouTube, Hugging Face, Figma,
-  Notion, Product Hunt, Dribbble (Dev.to + Stack Overflow land in 6R-5);
-  Tier B (CodePen, Kaggle, LeetCode) behind beta labels after ToS review.
+  Notion, Product Hunt, Dribbble; Tier B (CodePen, Kaggle, LeetCode) behind
+  beta labels after ToS review; LinkedIn's export ZIP if it earns its way
+  back. Each evaluated on its public API when asked for, not scheduled — the
+  V1 set (GitHub, Dev.to, RSS, Stack Overflow) is closed.
 - **AI enrichment** — enrich stage in the integration pipeline; AI deltas
   in the editor (doc 01/09/12 seams).
-- **Blogs / custom pages** — new page kinds through SDK capabilities + the
-  content domain; Notion-as-CMS reuses connections.
+- **Native blog** (Phase 8) — `/blog` and its nav slot are **reserved now**
+  (a `ComingSoon` route). Today's Writing section holds _references_ to
+  articles published elsewhere; a native post needs a body, a slug, and a
+  draft/published state — a profile schema change (doc 01) plus a
+  `blog`/`blogPost` renderer in every portfolio template (doc 05, where both
+  page kinds are already declared). Reserving the URL means those land as
+  additions, not a re-organisation. Notion-as-CMS reuses connections.
 - **GitHub webhooks**, template gallery growth, dark mode, mobile editing,
   public API extraction (doc 06 trigger), teams/orgs.
 

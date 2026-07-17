@@ -20,9 +20,9 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-accent text-white hover:bg-accent-soft",
+        primary: "bg-brand text-white hover:bg-brand-soft",
         secondary:
-          "border border-border bg-surface text-foreground hover:border-accent/40 hover:text-accent",
+          "border border-border bg-surface text-foreground hover:border-brand/40 hover:text-brand",
         ghost: "text-muted hover:bg-surface-warm hover:text-foreground",
       },
       size: {
@@ -30,6 +30,11 @@ export const buttonVariants = cva(
         md: "h-10 px-5 text-sm [&_svg]:size-4",
         lg: "h-11 px-6 text-sm [&_svg]:size-4",
         icon: "size-9 [&_svg]:size-4",
+        // The registry's components (Sheet's close, Sidebar's trigger/rail)
+        // ask for `icon-sm` by name. Adding the variant is how this Button
+        // stays compatible with anything we `shadcn add`; the alternative is
+        // hand-editing every added file, forever.
+        "icon-sm": "size-7 [&_svg]:size-3.5",
       },
     },
     defaultVariants: {

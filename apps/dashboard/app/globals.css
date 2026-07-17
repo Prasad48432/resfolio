@@ -1,5 +1,15 @@
 @import "tailwindcss";
 @import "@resfolio/design";
+/* The shadcn/ui token bridge — dashboard only (apps/web stays fully custom).
+   Maps shadcn's fixed colour vocabulary onto the tokens above so the
+   components we add from the registry ship unmodified and stay updatable.
+   Declares no colours of its own; see the file for the two names that needed
+   a decision (`accent`, `primary`). */
+@import "@resfolio/design/shadcn";
+/* The dark theme — dashboard only, like the bridge above. Must come after both
+   imports: it is unlayered and overrides the `@theme` tokens they declare.
+   `apps/web` keeps its warm-cream identity and never imports this. */
+@import "@resfolio/design/dark";
 
 /* Tailwind must scan workspace UI package sources for class detection. */
 @source "../../../packages/ui/src";
@@ -32,13 +42,11 @@
 }
 
 @layer components {
-  /* The sidebar and top bar sit *behind* the content plane: page background,
-     not card surface. The only thing separating them is a hairline, which is
-     the whole border-over-shadow philosophy in one rule. */
-  .shell-chrome {
-    background: var(--color-background);
-    border-color: var(--color-border);
-  }
+  /* `.shell-chrome` lived here — "the sidebar and top bar sit *behind* the
+     content plane: page background, not card surface, separated by a
+     hairline." That rule now lives in the `--color-sidebar*` bridge
+     (`@resfolio/design/shadcn`), which is what shadcn's Sidebar reads. The
+     philosophy is unchanged; only the vocabulary moved. */
 
   /* A section label. Replaces `.label-eyebrow` inside the product: the
      accent-coloured, wide-tracked marketing eyebrow shouts on a screen the
@@ -50,4 +58,57 @@
     color: var(--color-muted);
     font-weight: 600;
   }
+}
+
+@keyframes rf-ping {
+  0% {
+    transform: rotate(45deg) scale(1);
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    transform: rotate(45deg) scale(2.6);
+    opacity: 0;
+  }
+}
+.rf-ping {
+  animation: rf-ping 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+.rf-ping-delay {
+  animation-delay: 1.2s;
+  opacity: 0.4;
+}
+
+/* Hide scrollbar but keep scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Thin modern scrollbar */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 9999px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-muted);
 }

@@ -17,6 +17,7 @@ export const TEST_IDS = {
   commandPaletteInput: "command-palette-input",
   userMenuTrigger: "user-menu-trigger",
   userMenuSignOut: "user-menu-sign-out",
+  themeToggle: "theme-toggle",
   settingsAccountCard: "settings-account-card",
   settingsLinkedAccounts: "settings-linked-accounts",
   linkedAccountsError: "linked-accounts-error",
@@ -38,7 +39,10 @@ export const TEST_IDS = {
   resumeAccent: "resume-accent",
   resumeShowIcons: "resume-show-icons",
   resumeDeleteButton: "resume-delete-button",
-  resumePrintLink: "resume-print-link",
+  resumeSections: "resume-sections",
+  resumeVisibility: "resume-visibility",
+  resumePublicUrl: "resume-public-url",
+  resumeDownloadPdf: "resume-download-pdf",
   portfolioClaim: "portfolio-claim",
   portfolioSlugInput: "portfolio-slug-input",
   portfolioSlugStatus: "portfolio-slug-status",
@@ -52,8 +56,8 @@ export const TEST_IDS = {
   portfolioDiscoverable: "portfolio-discoverable",
   portfolioPreviewFrame: "portfolio-preview-frame",
   sourcesPage: "sources-page",
+  sidebarTrigger: "sidebar-trigger",
   sourcesGallery: "sources-gallery",
-  sourcesLinkedinUpload: "sources-linkedin-upload",
   sourcesTriage: "sources-triage",
   sourcesTriageEmpty: "sources-triage-empty",
   sourcesHistory: "sources-history",
@@ -61,6 +65,7 @@ export const TEST_IDS = {
 } as const;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
+export const themeOptionTestId = (theme: string) => `theme-option-${theme}`;
 export const paletteItemTestId = (key: string) => `palette-${key}`;
 export const signInButtonTestId = (providerId: string) =>
   `login-provider-${providerId}`;
@@ -72,6 +77,10 @@ export const unlinkProviderTestId = (providerId: string) =>
   `unlink-provider-${providerId}`;
 
 export const resumeItemTestId = (id: string) => `resume-item-${id}`;
+export const resumeSectionToggleTestId = (key: string) =>
+  `resume-section-toggle-${key}`;
+export const resumeSectionItemTestId = (key: string, id: string) =>
+  `resume-section-item-${key}-${id}`;
 
 export const portfolioTemplateTestId = (id: string) =>
   `portfolio-template-${id}`;

@@ -24,8 +24,11 @@ env:
   GOOGLE_CLIENT_SECRET: ci-google-secret
   GITHUB_CLIENT_ID: ci-github
   GITHUB_CLIENT_SECRET: ci-github-secret
-  # apps/sites print-route token secret (min 16 chars) — build-time stand-in.
-  PRINT_TOKEN_SECRET: ci-print-secret-0123456789abcdef
+  # apps/sites server-to-server secret (min 16 chars) — build-time stand-in.
+  # Signs the portfolio preview token and bears the dashboard→sites API calls
+  # (revalidate, PDF export). Required at config load, so the build fails loudly
+  # without it rather than a request failing later.
+  RENDER_SECRET: ci-render-secret-0123456789abcdef
 
 jobs:
   verify:

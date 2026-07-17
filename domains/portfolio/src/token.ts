@@ -9,11 +9,18 @@ import { z } from "zod";
  * rendering that user's *draft* portfolio inside the editor iframe — the "never
  * edit blindly" split workspace, rendered by the real template.
  *
- * Stateless HMAC-SHA256, mirroring `@resfolio/document/token` but with a
- * portfolio-shaped payload (no `document` — a portfolio renders the whole
- * profile through the user's Site). Server-only (`node:crypto`); never bundle
- * into a client. The two domains keep independent token modules so neither
- * depends on the other.
+ * Stateless HMAC-SHA256 over a `{ source: "draft", ref: userId, exp }` payload.
+ * Server-only (`node:crypto`); never bundle into a client.
+ *
+ * This is now the platform's **only** signed URL token. Its resume counterpart
+ * was deleted when resumes moved to permanent URLs gated by `visibility`
+ * (doc 02) — but the reasoning that killed that one *justifies* this one: a
+ * resume URL exists to be sent to people, so expiry fought its purpose, whereas
+ * this token guards an owner-only draft that the dashboard hands to a browser
+ * in an iframe `src`. A URL a browser must load, showing content nobody else
+ * may see, is exactly what a short-lived capability is for. Server-to-server
+ * calls use the plain `RENDER_SECRET` bearer instead — no token needed when
+ * no browser is involved.
  */
 
 export const previewTokenPayloadSchema = z.object({

@@ -41,7 +41,9 @@ that what you see _is_ what ships — is made structural.
 4. **Deliver** — surface-specific packaging:
    - **Public site**: `apps/sites` page, ISR-cached, tag-invalidated
      ([04](04-deployment.md)).
-   - **PDF**: token-guarded print route in `apps/sites` → Playwright
+   - **Public resume**: `apps/sites` page at a permanent URL, gated by the
+     document's own `visibility` ([02](02-resume-rendering.md)).
+   - **PDF**: the private draft render in `apps/sites` → Playwright
      `page.pdf()` in Trigger.dev → content-addressed R2 object
      ([02](02-resume-rendering.md), [07](07-storage.md)).
    - **Editor preview**: resume — same template component rendered in the
@@ -63,19 +65,49 @@ The dashboard renders resume previews in-browser for keystroke latency
 (same component, same SDK contract), and embeds `apps/sites` for portfolio
 preview. `apps/dashboard` never re-implements rendering.
 
-Draft-preview and print routes are **private**: short-lived signed tokens
-minted by the dashboard/export job, `noindex`, never cached by ISR.
+### Route postures
+
+There are **three**, not two. The original rule — "`/p/*` is public, everything
+else is private and token-guarded" — stopped being true when resumes gained
+permanent public URLs ([02](02-resume-rendering.md)).
+
+| Posture               | Routes                                                                               | Guard                                                                             | Indexed                                | Cached                 |
+| --------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------- | ---------------------- |
+| **Public, indexable** | `/p/[username]/[[...slug]]`                                                          | none                                                                              | yes, honoring `discoverable`           | ISR + `site:<id>` tags |
+| **Public, unlisted**  | `/render/resume/[documentId]`                                                        | the row's `visibility`                                                            | **no** — `X-Robots-Tag` + `robots.txt` | no (see below)         |
+| **Private**           | `/preview/portfolio/*`, `/render/resume/*/draft`, `/api/export/*`, `/api/revalidate` | signed token (portfolio preview) or the `RENDER_SECRET` bearer (server-to-server) | no                                     | never                  |
+
+Two things this table encodes that are easy to get wrong:
+
+- **Public ≠ indexable.** A resume is shared by link and carries contact
+  details; it has no `discoverable` toggle to opt in with.
+- **The public resume is not ISR-cached**, even though a published version is
+  immutable. Its render also depends on the document's `config`, `view`, and
+  `visibility` — all live and autosaved — so it has _two_ invalidation
+  triggers (publish, and any editor edit), and `/api/revalidate` only knows
+  `site:<id>`. Caching it before that plumbing exists means serving yesterday's
+  content, or a private resume that stays readable after being made private.
+  ISR + `document:<id>` tags is a fine optimization once publish _and_ the
+  editor both drop them; it is not free, and the failure mode is silent.
 
 ### Determinism, identity, and caching
 
 Every render's identity is its input hash:
 
 ```
-renderKey = hash(profileVersionId | draftRev,
+renderKey = hash(revision,          // draft:<draftRev> | version:<id> | fixture:<key>
                  documentConfigHash,
                  templateId@resolvedVersion,
+                 view,              // the ViewDefinition
                  surface params (pageSize…))
 ```
+
+**Every input must actually identify content.** `revision` replaced an earlier
+`source` + `ref` pair in which `ref` was the owner's userId for a draft — a
+value that never changed when the draft did, so an edit-then-re-export was a
+silent cache hit on stale bytes. Prefer an identifier that _has_ to move when
+the content moves (a monotonic `draftRev`, an immutable version id) over one
+that merely looks stable.
 
 - Published surfaces cache on it (ISR tags for pages, R2 keys for
   PDFs/images) — stale output is structurally impossible because a change
@@ -105,9 +137,11 @@ everything except Resolve inputs and Deliver packaging:
   cacheable, testable renders.
 - **`apps/sites` as universal rendering host** concentrates responsibility
   in one app (public traffic + previews + print). It also concentrates the
-  parity guarantee; isolation between concerns is route-level (tokens,
-  noindex, no shared cache), which is sufficient and vastly simpler than a
-  third rendering service.
+  parity guarantee; isolation between concerns is route-level (the posture
+  table above), which is sufficient and vastly simpler than a third rendering
+  service. The host has **no sessions** — a deliberate simplification, and the
+  reason ownership checks live in the dashboard and cross-app calls carry the
+  `RENDER_SECRET` bearer instead.
 - **Client-side Project for optimistic preview** ships `buildProfileView` +
   the resume template to the browser (bundle cost, editor-only) and requires
   those to stay isomorphic — enforced by keeping `domains/profile` and
@@ -147,13 +181,21 @@ supplies the seam checklist:
 
 ## Open Questions
 
-- Draft-preview token design (lifetime, per-user vs. per-session scope) —
-  settle when the iframe ships; Redis nonce machinery from
-  [07-storage](07-storage.md) is available.
+- ~~Draft-preview token design (lifetime, per-user vs. per-session scope).~~
+  **Settled.** The portfolio preview keeps a short-lived signed token
+  (`@resfolio/portfolio/token`) because the dashboard hands it to a browser in
+  an iframe URL. The resume needed no token at all: it is public by
+  `visibility`, and its private draft render is reached only server-to-server,
+  where a `RENDER_SECRET` bearer is both simpler and stronger than an expiring
+  URL capability. Redis nonces remain available if a _user-facing_ token ever
+  needs replay protection.
 - Whether the resume preview's in-browser rendering needs a Web Worker for
   large profiles (measure first; likely not).
-- Exact renderKey canonicalization (stable JSON hashing of config) — define
-  once in a shared utility when the first two cache consumers exist.
+- ~~Exact renderKey canonicalization.~~ **Settled** in
+  `apps/sites/lib/render-key.ts`: recursively key-sorted `stableStringify` →
+  sha256, first 24 hex chars.
+- Whether the public resume route earns ISR once `document:<id>` invalidation
+  is wired through publish _and_ the resume editor's autosave.
 
 ## Alternatives Considered
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { linkedinInputSchema, ROUTE_TARGETS } from "@resfolio/integrations";
+import { ROUTE_TARGETS } from "@resfolio/integrations";
 import {
   ConnectionNotFoundError,
   createConnection,
@@ -45,9 +45,15 @@ function toActionError(error: unknown): never {
   throw error;
 }
 
-/** The public (no-credential) connectors the gallery can connect directly.
- * The connector's own Zod input schema validates inside `createConnection`. */
-const PUBLIC_CONNECTOR_IDS = ["rss", "devto", "stackoverflow"] as const;
+/** The public (no-credential) connectors the gallery can connect directly —
+ * in V1 that is every connector there is. The connector's own Zod input schema
+ * validates inside `createConnection`. */
+const PUBLIC_CONNECTOR_IDS = [
+  "github",
+  "rss",
+  "devto",
+  "stackoverflow",
+] as const;
 
 export const connectPublicSourceAction = createAction({
   name: "sources.connectPublic",
@@ -68,35 +74,6 @@ export const connectPublicSourceAction = createAction({
       });
       // Import immediately — connecting should surface items to triage, not
       // an empty row waiting for a second click.
-      const summary = await runImport(ctx.userId, connection.id);
-      revalidatePath("/sources");
-      return {
-        connectionId: connection.id,
-        runStatus: summary.status,
-        runError: summary.error,
-        counts: summary.counts,
-      };
-    } catch (error) {
-      toActionError(error);
-    }
-  },
-});
-
-export const importLinkedinAction = createAction({
-  name: "sources.importLinkedin",
-  // The ZIP is extracted in the browser (domain helper) — only the CSV text
-  // Resfolio reads is sent; the connector schema re-validates it here.
-  input: linkedinInputSchema,
-  handler: async ({ files }, ctx) => {
-    await getOrCreateProfile(ctx.userId, {
-      name: ctx.session.user.name,
-      email: ctx.session.user.email,
-    });
-    try {
-      const connection = await createConnection(ctx.userId, {
-        connectorId: "linkedin",
-        input: { files },
-      });
       const summary = await runImport(ctx.userId, connection.id);
       revalidatePath("/sources");
       return {

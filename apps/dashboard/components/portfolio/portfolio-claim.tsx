@@ -149,8 +149,8 @@ export function PortfolioClaim({
               className={cn(
                 "cursor-pointer transition-[border-color,background-color] duration-(--duration-press) ease-out",
                 templateId === template.id
-                  ? "border-accent/60 bg-surface-warm"
-                  : "hover:border-accent/30",
+                  ? "border-brand/60 bg-surface-warm"
+                  : "hover:border-brand/30",
               )}
               data-testid={portfolioTemplateTestId(template.id)}
             >
@@ -161,7 +161,7 @@ export function PortfolioClaim({
                   value={template.id}
                   checked={templateId === template.id}
                   onChange={() => setTemplateId(template.id)}
-                  className="mt-0.5 size-4 accent-accent"
+                  className="mt-0.5 size-4 accent-brand"
                 />
                 <span className="flex flex-col gap-1">
                   <span className="text-sm font-medium text-foreground">
@@ -192,7 +192,7 @@ export function PortfolioClaim({
           Create site
         </Button>
         {error ? (
-          <span className="text-xs text-accent" role="alert">
+          <span className="text-xs text-brand" role="alert">
             {error}
           </span>
         ) : null}
@@ -206,10 +206,10 @@ function SlugIndicator({ state }: { state: SlugState }) {
     return <Loader2 className="size-4 animate-spin text-muted" aria-hidden />;
   }
   if (state.status === "ok") {
-    return <Check className="size-4 text-accent" aria-hidden />;
+    return <Check className="size-4 text-brand" aria-hidden />;
   }
   if (state.status === "taken" || state.status === "invalid") {
-    return <X className="size-4 text-accent" aria-hidden />;
+    return <X className="size-4 text-brand" aria-hidden />;
   }
   return null;
 }
@@ -228,7 +228,7 @@ function SlugMessage({ state }: { state: SlugState }) {
   }
   return (
     <span
-      className={`text-xs ${state.status === "ok" ? "text-muted" : "text-accent"}`}
+      className={`text-xs ${state.status === "ok" ? "text-muted" : "text-brand"}`}
       role="status"
       data-testid={TEST_IDS.portfolioSlugStatus}
       data-status={state.status}

@@ -1,5 +1,6 @@
 "use client";
 
+import type { DocumentVisibility } from "@resfolio/document";
 import type { Profile, ViewDefinition } from "@resfolio/profile";
 import type { ResumeClassicConfig } from "@resfolio/template-resume-classic";
 import {
@@ -13,14 +14,13 @@ import {
   SelectValue,
   Switch,
 } from "@resfolio/ui";
-import { ArrowLeft, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   deleteResumeAction,
-  mintResumePrintUrlAction,
   updateResumeAction,
 } from "@/app/(dashboard)/resumes/actions";
 import { Page } from "@/components/layout/page";
@@ -31,13 +31,20 @@ import type { SaveStatus } from "@/lib/save-status";
 import { TEST_IDS } from "@/lib/testids";
 
 import { ResumePreview } from "./resume-preview";
+import { ResumeSections } from "./resume-sections";
 
 /**
  * The resume document editor island (docs/architecture/08-dashboard-ux.md).
- * Left: a config form over the template's own schema (page size, margins,
- * accent, icons). Right: the live `ResumePreview`, updated optimistically as
- * you type. Debounced autosave persists the document via a Server Action; the
- * profile content is edited at `/profile` — a resume only presents it.
+ *
+ * Left: the configuration layer — **Sections** (what this resume shows, a
+ * ViewDefinition), **Layout** (the template's own presentation schema), and
+ * **Sharing** (public/private + the permanent URL). Right: the live
+ * `ResumePreview`, updated optimistically as you type. Debounced autosave
+ * persists the document via a Server Action.
+ *
+ * The line this editor holds: a resume **presents** a profile, it never
+ * contains one. Nothing here edits content — that is `/profile`, and it is one
+ * click away from every empty state.
  *
  * Save state uses the shared `SaveStatus` vocabulary and `SaveIndicator`; this
  * editor simply never reaches the profile-only `invalid`/`conflict` states.
@@ -48,26 +55,32 @@ export function ResumeEditor({
   documentId,
   initialName,
   initialConfig,
+  initialView,
+  initialVisibility,
   profile,
-  view,
-  printEnabled,
+  publicUrl,
+  exportEnabled,
 }: {
   documentId: string;
   initialName: string;
   initialConfig: ResumeClassicConfig;
+  initialView: ViewDefinition;
+  initialVisibility: DocumentVisibility;
   profile: Profile;
-  view: ViewDefinition;
-  printEnabled: boolean;
+  publicUrl: string | null;
+  exportEnabled: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [config, setConfig] = useState(initialConfig);
+  const [view, setView] = useState(initialView);
+  const [visibility, setVisibility] = useState(initialVisibility);
   const [status, setStatus] = useState<SaveStatus>("idle");
   const firstRender = useRef(true);
 
   // Latest values for saves triggered outside the debounce (mod+s).
-  const latest = useRef({ name, config });
-  latest.current = { name, config };
+  const latest = useRef({ name, config, view, visibility });
+  latest.current = { name, config, view, visibility };
 
   const save = useCallback(async () => {
     setStatus("saving");
@@ -76,6 +89,8 @@ export function ResumeEditor({
         id: documentId,
         name: latest.current.name,
         config: latest.current.config,
+        view: latest.current.view,
+        visibility: latest.current.visibility,
       });
       setStatus(result.ok ? "saved" : "offline");
     } catch {
@@ -92,7 +107,7 @@ export function ResumeEditor({
     setStatus("dirty");
     const timer = setTimeout(() => void save(), DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [name, config, save]);
+  }, [name, config, view, visibility, save]);
 
   // mod+s forces an immediate save (doc 08 keyboard-first standard).
   useEffect(() => {
@@ -120,13 +135,27 @@ export function ResumeEditor({
         onName={setName}
         status={status}
         documentId={documentId}
-        printEnabled={printEnabled}
+        exportEnabled={exportEnabled}
         onDeleted={() => router.push("/resumes")}
       />
 
       <FadeIn>
         <SplitWorkspace
-          form={<ConfigForm config={config} onChange={updateConfig} />}
+          form={
+            <div className="flex flex-col gap-10">
+              <ResumeSections
+                profile={profile}
+                view={view}
+                onChange={setView}
+              />
+              <ConfigForm config={config} onChange={updateConfig} />
+              <SharingForm
+                visibility={visibility}
+                onChange={setVisibility}
+                publicUrl={publicUrl}
+              />
+            </div>
+          }
           preview={
             <ResumePreview profile={profile} config={config} view={view} />
           }
@@ -141,14 +170,14 @@ function Header({
   onName,
   status,
   documentId,
-  printEnabled,
+  exportEnabled,
   onDeleted,
 }: {
   name: string;
   onName: (value: string) => void;
   status: SaveStatus;
   documentId: string;
-  printEnabled: boolean;
+  exportEnabled: boolean;
   onDeleted: () => void;
 }) {
   return (
@@ -178,8 +207,11 @@ function Header({
           />
         </div>
         <div className="flex items-center gap-3">
-          <SaveIndicator status={status} testId={TEST_IDS.resumeSaveIndicator} />
-          {printEnabled ? <PrintLink documentId={documentId} /> : null}
+          <SaveIndicator
+            status={status}
+            testId={TEST_IDS.resumeSaveIndicator}
+          />
+          {exportEnabled ? <DownloadPdfButton documentId={documentId} /> : null}
           <DeleteButton documentId={documentId} onDeleted={onDeleted} />
         </div>
       </div>
@@ -187,36 +219,23 @@ function Header({
   );
 }
 
-function PrintLink({ documentId }: { documentId: string }) {
-  const [loading, setLoading] = useState(false);
-
-  async function openPrint() {
-    setLoading(true);
-    try {
-      const result = await mintResumePrintUrlAction({ id: documentId });
-      if (result.ok) {
-        window.open(result.data.url, "_blank", "noopener,noreferrer");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
+/**
+ * A plain link, not a fetch-and-blob dance: the route answers with
+ * `Content-Disposition: attachment`, so the browser does the download itself —
+ * progress, cancel, and the user's own save location all come free. Rendering
+ * the current **draft**, matching the preview beside it (the public URL shows
+ * the published version — see `SharingForm`).
+ */
+function DownloadPdfButton({ documentId }: { documentId: string }) {
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="secondary"
-      disabled={loading}
-      onClick={() => void openPrint()}
-      data-testid={TEST_IDS.resumePrintLink}
-    >
-      {loading ? (
-        <Loader2 className="animate-spin" aria-hidden />
-      ) : (
-        <ExternalLink aria-hidden />
-      )}
-      Print view
+    <Button asChild size="sm" variant="secondary">
+      <a
+        href={`/api/resumes/${encodeURIComponent(documentId)}/pdf`}
+        data-testid={TEST_IDS.resumeDownloadPdf}
+      >
+        <Download aria-hidden />
+        Download PDF
+      </a>
     </Button>
   );
 }
@@ -284,14 +303,10 @@ function ConfigForm({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <p className="label-eyebrow">Layout</p>
-        <p className="text-sm text-muted">
-          Presentation only — your content lives in your{" "}
-          <Link href="/profile" className="text-accent hover:underline">
-            profile
-          </Link>
-          .
-        </p>
+        {/* `.label-section`, not `.label-eyebrow`: the accent-coloured,
+            wide-tracked eyebrow is marketing's voice (doc 08). */}
+        <p className="label-section">Layout</p>
+        <p className="text-sm text-muted">How this resume looks on the page.</p>
       </div>
 
       <SelectField
@@ -342,6 +357,79 @@ function ConfigForm({
           data-testid={TEST_IDS.resumeShowIcons}
         />
       </label>
+    </div>
+  );
+}
+
+/**
+ * Sharing (doc 02). Two states, and the copy has to be honest about what each
+ * one means — including the part people get wrong: the public URL shows the
+ * **published** profile, so a resume can be public and still not reflect edits
+ * you haven't published. The Download PDF button, by contrast, always renders
+ * your draft. Saying so here is cheaper than a support thread.
+ */
+function SharingForm({
+  visibility,
+  onChange,
+  publicUrl,
+}: {
+  visibility: DocumentVisibility;
+  onChange: (value: DocumentVisibility) => void;
+  publicUrl: string | null;
+}) {
+  const isPublic = visibility === "public";
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <p className="label-section">Sharing</p>
+        <p className="text-sm text-muted">
+          {isPublic
+            ? "Anyone with the link can view this resume. It isn’t listed in search engines."
+            : "Only you can view this resume."}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="resume-visibility">Visibility</Label>
+        <Select
+          value={visibility}
+          onValueChange={(next) => onChange(next as DocumentVisibility)}
+        >
+          <SelectTrigger
+            id="resume-visibility"
+            data-testid={TEST_IDS.resumeVisibility}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="public">Public</SelectItem>
+            <SelectItem value="private">Private</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isPublic && publicUrl ? (
+        <div className="flex flex-col gap-1.5">
+          <Label>Public link</Label>
+          {/* Mono because it's a URL — that's what mono means here (doc 08). */}
+          <a
+            href={publicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all font-mono text-xs text-muted transition-colors duration-(--duration-fast) ease-out hover:text-brand"
+            data-testid={TEST_IDS.resumePublicUrl}
+          >
+            {publicUrl}
+          </a>
+          <p className="text-xs text-muted">
+            Shows your published profile. Publish at{" "}
+            <Link href="/profile" className="text-brand hover:underline">
+              /profile
+            </Link>{" "}
+            to update it.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

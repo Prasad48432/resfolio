@@ -2,7 +2,17 @@
   "extends": "@resfolio/typescript-config/react-library.json",
   "compilerOptions": {
     "outDir": "dist",
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    /* Resolves the `@/…` aliases in `components.json` so the shadcn CLI knows
+       where to write. The package's own source deliberately does **not** use
+       them: it ships as source to two apps, each with its own `@/` pointing at
+       its own root, so an `@/` import here would resolve to the *consumer's*
+       tree. Every CLI-added file is rewritten to relative imports on the way
+       in — see packages/ui/CLAUDE.md. */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]

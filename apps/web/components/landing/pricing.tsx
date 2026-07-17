@@ -23,7 +23,7 @@ const tiers: Tier[] = [
     cta: "Start free",
     features: [
       "resfolio.me/handle URL",
-      "2 connected sources",
+      "2 import sources",
       "1 portfolio theme",
       "PDF resume export",
     ],
@@ -37,11 +37,11 @@ const tiers: Tier[] = [
     highlight: true,
     features: [
       "Custom domain + HTTPS",
-      "All 5 sources synced",
+      "All import sources",
       "All themes + custom CSS",
       "ATS-friendly resume variants",
       "Public JSON API",
-      "Priority sync",
+      "Priority refreshes",
     ],
   },
   {
@@ -96,7 +96,7 @@ export default function Pricing() {
               }`}
             >
               {t.highlight && (
-                <span className="absolute -top-3 left-6 inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-white shadow-[0_6px_24px_rgba(240,89,43,0.35)]">
+                <span className="absolute -top-3 left-6 inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-[11px] font-semibold text-white shadow-[0_6px_24px_rgba(240,89,43,0.35)]">
                   <span className="h-1.5 w-1.5 rounded-full bg-white" />
                   most popular
                 </span>
@@ -125,7 +125,7 @@ export default function Pricing() {
                       size={16}
                       strokeWidth={2.5}
                       aria-hidden
-                      className="mt-0.5 shrink-0 text-accent"
+                      className="mt-0.5 shrink-0 text-brand"
                     />
                     {f}
                   </li>
@@ -137,7 +137,7 @@ export default function Pricing() {
                 data-testid={`pricing-cta-${t.name.toLowerCase()}`}
                 className={`mt-8 inline-flex h-11 items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${
                   t.highlight
-                    ? "bg-accent text-white shadow-[0_10px_30px_rgba(240,89,43,0.3)] hover:bg-accent-soft"
+                    ? "bg-brand text-white shadow-[0_10px_30px_rgba(240,89,43,0.3)] hover:bg-brand-soft"
                     : "border border-border bg-surface text-foreground hover:border-foreground/30"
                 }`}
               >

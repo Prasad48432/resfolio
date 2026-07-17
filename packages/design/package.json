@@ -6,6 +6,14 @@
     ".": {
       "style": "./src/index.css",
       "default": "./src/index.css"
+    },
+    "./shadcn": {
+      "style": "./src/shadcn.css",
+      "default": "./src/shadcn.css"
+    },
+    "./dark": {
+      "style": "./src/dark.css",
+      "default": "./src/dark.css"
     }
   },
   "style": "./src/index.css"

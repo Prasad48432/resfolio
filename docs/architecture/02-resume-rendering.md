@@ -27,13 +27,64 @@ consumed by every surface:
   page box (`width: 210mm`), scaled to fit the editor pane with CSS
   `transform: scale()`. The browser _is_ Chromium-class, so what the user
   sees is what Chromium's print engine will produce.
-- **PDF / Download** — headless Chromium (Playwright) loads a private print
-  route that server-renders the same component, then calls `page.pdf()`.
-- **Print** — the same print route with `@media print` styles; users can also
+- **The public resume page** — `/render/resume/[documentId]`, server-rendered.
+- **PDF / Download** — headless Chromium (Playwright) loads the same route
+  (the draft variant, below), then calls `page.pdf()`.
+- **Print** — the same route with `@media print` styles; users can also
   just print the PDF.
 
 Pixel parity comes from one fact: **the same engine (Chromium) lays out the
 same HTML with the same self-hosted fonts in every path.**
+
+### Visibility: two states, no tokens
+
+A resume has a **permanent URL** — `/render/resume/[documentId]` — and the
+document row's own `visibility` decides who may read it:
+
+|                    |                                                                           |
+| ------------------ | ------------------------------------------------------------------------- |
+| `public` (default) | Anyone with the link renders the resume. No sign-in, no token, no expiry. |
+| `private`          | The URL returns a plain "This resume is private." page.                   |
+
+This **replaces the signed print token** the route originally carried. That
+token was a 5-minute HMAC the dashboard minted; it made the URL unshareable
+(its whole purpose was expiry), and it was the cause of every reported "my
+resume 404s" — five of the route's six 404 paths were token paths (expiry, a
+secret mismatch between deployments, a malformed payload, an id cross-check,
+a bad signature). A capability token is the wrong instrument for a document
+whose point is that you send it to people.
+
+Private returns **200 with a notice, not 404**: the URL exists, and 404-ing
+would leak the difference between "no such resume" and "not yours" to anyone
+probing ids. No profile data is loaded on that path at all.
+
+There is deliberately no third "unlisted" state. The id is already
+unguessable; a link-only tier would add ceremony without adding a capability.
+
+**Public is not indexable.** A resume carries an email and a phone number and
+has no `discoverable` toggle to opt in with the way a portfolio does
+([04-deployment](04-deployment.md)), so `/render/*` keeps its `X-Robots-Tag:
+noindex` header and its `robots.txt` disallow. Readable-by-link and crawlable
+are different things, and only one of them was asked for.
+
+### Which snapshot a resume renders
+
+The public URL always projects the owner's **published** profile version.
+Editing a profile can never publish half a thought, and the resume agrees with
+the portfolio, which pins the same way.
+
+The owner's own **Download PDF** renders their **draft** — because it sits
+beside a preview that shows the draft, and because a new user who has filled
+in their profile but not yet published should not be told to go publish before
+they can download their own resume.
+
+The two differing while a profile has unpublished edits is the same publish
+model portfolios already use, not a bug. The resume editor says so in the
+Sharing panel.
+
+Note the asymmetry that makes this coherent: profile **content** is versioned,
+but a document's `config`/`view` are live. So both surfaces render
+`published content × live presentation`.
 
 ### Templates and typography
 
@@ -83,14 +134,39 @@ same HTML with the same self-hosted fonts in every path.**
 ### Where PDFs are generated, and caching
 
 - PDF export runs as a **Trigger.dev task** (already in the stack): it boots
-  Playwright + Chromium, renders the print route with a short-lived signed
-  token, uploads the PDF to R2, and reports completion. The dashboard shows
-  live progress and then the download. Serverless route handlers are the
-  wrong home for a ~50MB Chromium dependency and multi-second renders.
+  Playwright + Chromium, renders the resume route, uploads the PDF to R2, and
+  reports completion. The dashboard shows live progress and then the download.
+  Serverless route handlers are the wrong home for a ~50MB Chromium dependency
+  and multi-second renders.
+- **As built today**, that task's body is
+  `POST /api/export/resume/[documentId]` in `apps/sites`, and it is real: the
+  cache check → `chromium.launch()` → `page.pdf()` → `ExportStore` sequence
+  lives in `lib/pdf.ts`, shared with the `export:pdf` script so the product
+  path and the CI path cannot drift. Playwright is imported **dynamically** and
+  stays a devDependency, so a deployment without it answers `501` instead of
+  shipping Chromium in the bundle — the decision above is preserved, not
+  quietly reversed. Wrapping this in the task and swapping `LocalFsExportStore`
+  for R2 is the remaining cloud work; no route or template changes.
+- **Auth on that seam is server-to-server.** `apps/sites` has no sessions, so
+  the dashboard verifies the caller owns the document
+  (`GET /api/resumes/[id]/pdf`, user-scoped) and then calls the render host
+  with the `RENDER_SECRET` bearer — the same secret guarding `/api/revalidate`.
+  This is not a user-facing token and never appears in a URL. It is also what
+  lets a **private** resume still be exported by its owner: the private draft
+  render (`/render/resume/[documentId]/draft`) sits behind the same bearer.
 - **Cache by content hash.** The render is deterministic, so the R2 key is
-  `hash(profileVersionId, documentConfigHash, templateId@version, pageSize)`.
+  `hash(revision, documentConfigHash, templateId@version, view)` where
+  `revision` identifies the _snapshot_: `draft:<draftRev>` (bumps on every
+  autosave), `version:<profileVersionId>` (immutable), or `fixture:<key>`.
   Cache hit → instant download, no browser boot. Objects are immutable;
   "invalidation" is just a new key. Details in [07-storage](07-storage.md).
+- **`revision` is load-bearing, and getting it wrong is silent.** The first
+  implementation hashed `source` + `ref`, where `ref` was the owner's userId
+  for a draft — a value that never changes when the draft does. Editing a
+  profile and re-exporting therefore served the _old_ PDF from cache. It was
+  invisible while only the fixture path (immutable content) was exercised and
+  became a live bug the moment export ran against a draft. Every input to this
+  hash must actually identify content; a stable-looking id usually doesn't.
 
 ## Tradeoffs
 
@@ -120,15 +196,22 @@ same HTML with the same self-hosted fonts in every path.**
 
 ## Implementation Strategy
 
-1. Build the **print route** in the renderer app (`/render/resume/[documentId]`,
-   token-guarded, Server Component, zero client JS).
-2. Ship one resume template through the Template SDK to prove the contract.
-3. Dashboard preview: same component client-rendered in a scaled page box;
-   add the pagination overlay after the basic editor works.
-4. Trigger.dev export task: Playwright → R2 → signed download URL, with the
-   content-hash cache check _before_ booting Chromium.
-5. CI: Playwright visual regression on the print route per template, plus the
-   ATS text-extraction check.
+1. ✅ Build the **resume route** in the renderer app
+   (`/render/resume/[documentId]`, Server Component, zero client JS). Gated by
+   the document's `visibility`; renders the published version. Its private
+   `/draft` sibling (bearer-guarded) is what the exporter loads, and
+   `/render/resume/fixture/[key]` (dev/CI only) is what the ATS check loads
+   with no database and no account.
+2. ✅ Ship one resume template through the Template SDK to prove the contract.
+3. ✅ Dashboard preview: same component client-rendered in a scaled page box;
+   pagination overlay on top.
+4. 🟡 Trigger.dev export task: Playwright → R2 → signed download URL, with the
+   content-hash cache check _before_ booting Chromium. The body exists
+   (`POST /api/export/resume/[documentId]` + `lib/pdf.ts`, cache-check first);
+   the task wrapper and `R2ExportStore` are the remainder.
+5. ⏳ CI: Playwright visual regression on the resume route per template, plus
+   the ATS text-extraction check (`pnpm --filter sites check:ats` exists and
+   passes locally).
 
 ## Open Questions
 

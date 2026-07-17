@@ -41,17 +41,17 @@ const PRESENTATION: Record<
   invalid: {
     label: "Not saved — check highlighted fields",
     icon: AlertTriangle,
-    tone: "text-accent",
+    tone: "text-brand",
   },
   offline: {
     label: "Offline — will retry when you edit",
     icon: CloudOff,
-    tone: "text-accent",
+    tone: "text-brand",
   },
   conflict: {
     label: "Edited elsewhere — reload to continue",
     icon: RefreshCw,
-    tone: "text-accent",
+    tone: "text-brand",
   },
 };
 

@@ -42,7 +42,7 @@ export default async function PortfolioPreviewPage({
 
   let payload;
   try {
-    payload = verifyPreviewToken(token, env.PRINT_TOKEN_SECRET);
+    payload = verifyPreviewToken(token, env.RENDER_SECRET);
   } catch (error) {
     if (error instanceof InvalidPreviewTokenError) {
       notFound();

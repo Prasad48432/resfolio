@@ -27,10 +27,16 @@ import type { ComponentProps, ReactNode } from "react";
  */
 
 /** Matches `--ease-out` in @resfolio/design. Kept in sync by hand — Framer
- *  cannot read a CSS custom property at config time. */
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+ *  cannot read a CSS custom property at config time.
+ *
+ *  Exported for the rare leaf that animates something this file's three
+ *  components don't cover (a shared-`layoutId` pill, say). Reach for these
+ *  rather than a fresh cubic-bezier: the curve is the decision, and it is made
+ *  here. A component that needs its *own* curve is a component that has left
+ *  the design system. */
+export const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
-const DURATION = 0.2;
+export const DURATION = 0.2;
 const TRAVEL = 8;
 
 /** Delay between consecutive items in a stagger. Short by design: at 80ms+ a

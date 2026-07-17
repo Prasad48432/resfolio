@@ -1,79 +1,80 @@
-import { httpUrlSchema } from "@resfolio/profile";
+import { z } from "zod";
 
-import {
-  candidateItemSchema,
-  type CandidateItem,
-} from "../candidate";
+import { candidateItemSchema, type CandidateItem } from "../candidate";
 import { defineConnector, type FetchContext } from "../contract";
 
 /**
- * GitHub connector (docs/architecture/12-integrations-and-sync.md) — `oauth2`
- * mode, emits `project` candidates from the user's repositories. `fetch` pages
- * `GET /user/repos` sorted by push recency and uses the cursor (the newest
- * `pushed_at` seen) for cheap incremental refreshes; `normalize` is pure.
- * Contributions are a later resource kind.
+ * GitHub connector (docs/architecture/12-integrations-and-sync.md) — `public`
+ * mode, emitting `project` candidates from a user's public repositories.
+ *
+ * **No OAuth, no GitHub App, no user grant** (V1 decision): the user types a
+ * username and `GET /users/{username}/repos` answers. That endpoint returns
+ * everything a portfolio project needs, so the OAuth ceremony bought only
+ * private repos — content nobody puts on a public profile anyway. `fetch`
+ * pages by push recency and uses the cursor (the newest `pushed_at` seen) for
+ * cheap incremental refreshes; `normalize` is pure.
+ *
+ * Anonymous api.github.com is capped at 60 req/hr **per IP** — shared by every
+ * user of a deployment, not per user. The runtime lifts that to 5,000 by
+ * injecting an optional platform `GITHUB_TOKEN` (`server/env.ts`); this
+ * connector neither knows nor cares, per the `FetchContext` contract.
  */
 
-/** The subset of the GitHub REST repo object this connector reads. */
+export const githubInputSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(1)
+    .max(39)
+    // GitHub's own rule: alphanumeric or single hyphens, never leading or
+    // trailing. The lookahead is what forbids a trailing/doubled hyphen.
+    .regex(
+      /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/,
+      "Use your GitHub username.",
+    ),
+});
+
+export type GithubInput = z.infer<typeof githubInputSchema>;
+
+/** The subset of the GitHub REST repo object this connector reads. Deliberately
+ * narrow (doc 12 §5): only what a Profile project needs — no provider payload
+ * tourism. `fork`/`archived` drive the skip, `pushed_at` drives the cursor. */
 export interface GithubRepo {
   id: number;
   name: string;
-  full_name: string;
   description: string | null;
   html_url: string;
-  homepage: string | null;
   language: string | null;
   topics?: string[];
   stargazers_count: number;
   forks_count: number;
   fork: boolean;
   archived: boolean;
-  created_at: string | null;
   pushed_at: string | null;
-  owner: { avatar_url: string | null } | null;
 }
 
-const REPOS_URL = "https://api.github.com/user/repos";
+const API_ORIGIN = "https://api.github.com";
 const PER_PAGE = 100;
 
-/** The originating provider URL, or undefined if it isn't a real http(s) URL
- * (GitHub `homepage` is free text and frequently junk). */
-function safeHttpUrl(value: string | null | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return httpUrlSchema.safeParse(value).success ? value.trim() : undefined;
-}
-
-/** ISO/RFC timestamp → `YYYY-MM-DD` (calendar-date schema), or undefined.
- * Deterministic — no clock. */
-function toCalendarDate(value: string | null | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return undefined;
-  }
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 async function* fetchRepos(
-  ctx: FetchContext<undefined>,
+  ctx: FetchContext<GithubInput>,
 ): AsyncIterable<GithubRepo> {
   const since = ctx.cursor ? Date.parse(ctx.cursor) : Number.NaN;
   const hasWatermark = !Number.isNaN(since);
+  const base = `${API_ORIGIN}/users/${encodeURIComponent(ctx.input.username)}/repos`;
   let newestPushed: string | undefined;
   let page = 1;
 
   while (true) {
-    const url = `${REPOS_URL}?per_page=${PER_PAGE}&sort=pushed&direction=desc&page=${page}`;
+    const url = `${base}?per_page=${PER_PAGE}&sort=pushed&direction=desc&page=${page}`;
     const response = await ctx.fetch(url, { signal: ctx.signal });
+    if (response.status === 404) {
+      throw new Error(`No public GitHub user named "${ctx.input.username}".`);
+    }
     if (!response.ok) {
-      throw new Error(`GitHub /user/repos failed: ${response.status}`);
+      throw new Error(
+        `GitHub /users/:username/repos failed: ${response.status}`,
+      );
     }
     const repos = (await response.json()) as GithubRepo[];
     if (repos.length === 0) {
@@ -122,11 +123,9 @@ function normalizeRepo(raw: GithubRepo): CandidateItem[] {
   const candidate = candidateItemSchema.parse({
     kind: "project",
     externalId: String(raw.id),
-    url: safeHttpUrl(raw.homepage) ?? raw.html_url,
+    url: raw.html_url,
     title: raw.name,
-    media: raw.owner?.avatar_url
-      ? [{ role: "avatar", url: raw.owner.avatar_url }]
-      : [],
+    media: [],
     metrics: [
       { key: "stars", value: raw.stargazers_count },
       { key: "forks", value: raw.forks_count },
@@ -135,9 +134,7 @@ function normalizeRepo(raw: GithubRepo): CandidateItem[] {
     payload: {
       name: raw.name,
       description: raw.description ?? "",
-      url: safeHttpUrl(raw.homepage),
       repoUrl: raw.html_url,
-      startDate: toCalendarDate(raw.created_at),
       technologies,
       highlights: [],
     },
@@ -146,12 +143,12 @@ function normalizeRepo(raw: GithubRepo): CandidateItem[] {
   return [candidate];
 }
 
-export const github = defineConnector<undefined, GithubRepo>({
+export const github = defineConnector<GithubInput, GithubRepo>({
   id: "github",
   name: "GitHub",
-  authMode: "oauth2",
+  authMode: "public",
   tier: "A",
-  auth: { scopes: ["read:user", "public_repo"] },
+  input: githubInputSchema,
   resources: ["project"],
   capabilities: { refreshable: true, incremental: true },
   fetch: fetchRepos,

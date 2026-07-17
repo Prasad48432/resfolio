@@ -144,7 +144,7 @@ export function LinkedAccounts({
       })}
       {error ? (
         <p
-          className="px-5 py-3 text-xs text-accent"
+          className="px-5 py-3 text-xs text-brand"
           role="alert"
           data-testid={TEST_IDS.linkedAccountsError}
         >

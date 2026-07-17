@@ -1,6 +1,5 @@
 import { devto } from "./connectors/devto";
 import { github } from "./connectors/github";
-import { linkedin } from "./connectors/linkedin";
 import { rss } from "./connectors/rss";
 import { stackoverflow } from "./connectors/stackoverflow";
 import type { AnyConnector } from "./contract";
@@ -18,12 +17,17 @@ import type { AnyConnector } from "./contract";
  * happens.
  */
 
+/**
+ * The V1 provider set: GitHub, Dev.to, RSS, Stack Overflow — all `public`,
+ * none requiring OAuth, an app registration, or a user grant. Further
+ * providers are evaluated individually on the availability and quality of
+ * their public API before they are built.
+ */
 export const CONNECTOR_IDS = [
   "github",
   "rss",
   "devto",
   "stackoverflow",
-  "linkedin",
 ] as const;
 
 export type ConnectorId = (typeof CONNECTOR_IDS)[number];
@@ -33,7 +37,6 @@ export const CONNECTORS: Record<ConnectorId, AnyConnector> = {
   rss: rss as unknown as AnyConnector,
   devto: devto as unknown as AnyConnector,
   stackoverflow: stackoverflow as unknown as AnyConnector,
-  linkedin: linkedin as unknown as AnyConnector,
 };
 
 /** The connector for `id`, or undefined for an unknown provider. */

@@ -9,22 +9,22 @@ const steps = [
   {
     n: "01",
     icon: Link2,
-    title: "Connect once",
-    body: "Import your work from GitHub, Dribbble, Behance and Medium. We gather your best projects — no messy spreadsheets.",
+    title: "Import your work",
+    body: "Pull projects and writing in from GitHub, Dev.to, Stack Overflow or any RSS feed. You review every item before it lands.",
     tag: "One-click import",
   },
   {
     n: "02",
     icon: Pencil,
-    title: "Curate the truth",
-    body: "One editor for skills, experience, projects and stories. Change your job title once, and it updates everywhere.",
-    tag: "Single source",
+    title: "Own the profile",
+    body: "One editor for skills, experience, projects and stories. This is the record everything else is generated from.",
+    tag: "Source of truth",
   },
   {
     n: "03",
     icon: Rocket,
-    title: "Ship, then forget",
-    body: "Publish a live portfolio to resfolio.me/you or your own domain, and export a polished resume — always current.",
+    title: "Publish everywhere",
+    body: "Ship a live portfolio to resfolio.me/you or your own domain, and export a polished resume — both always current.",
     tag: "Custom domain",
   },
 ];
@@ -41,8 +41,8 @@ export default function HowItWorks() {
           <div>
             <span className="label-eyebrow">How it works</span>
             <h2 className="mt-4 max-w-3xl font-display text-4xl leading-[1.02] text-foreground md:text-6xl">
-              Three moves. Every surface{" "}
-              <span className="italic text-accent">in sync</span>.
+              Three moves. Then it&apos;s{" "}
+              <span className="italic text-brand">yours</span>.
             </h2>
           </div>
           <p className="max-w-sm text-[15px] text-muted">
@@ -70,7 +70,7 @@ export default function HowItWorks() {
                 {s.n}
               </div>
               <div className="relative">
-                <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-accent">
+                <div className="grid h-10 w-10 place-items-center rounded-lg border border-border bg-surface text-brand">
                   <s.icon size={16} aria-hidden />
                 </div>
                 <h3 className="mt-6 font-display text-3xl text-foreground">
@@ -81,7 +81,7 @@ export default function HowItWorks() {
                 </p>
               </div>
               <div className="relative mt-8 flex items-center justify-between font-mono text-[11px]">
-                <span className="text-accent">{s.tag}</span>
+                <span className="text-brand">{s.tag}</span>
                 <span className="text-muted">STEP {s.n}</span>
               </div>
             </motion.article>

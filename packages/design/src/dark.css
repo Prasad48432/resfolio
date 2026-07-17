@@ -1,0 +1,68 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   The dark theme — dashboard only.
+
+   `apps/web` is a marketing site with a deliberate warm-cream identity and a
+   `card-surface` built around light-only inset highlights; it must never
+   import this file. The dashboard is the productivity surface people keep open
+   all day, which is the only place a dark mode earns its keep.
+
+   ## Why this file is only a palette
+
+   Nothing in `apps/dashboard` or `@resfolio/ui` had a single `dark:` utility
+   or a hard-coded colour before this existed — every surface already went
+   through the semantic tokens in `./index.css`. So the whole theme is those
+   tokens, restated. There is no per-component dark styling to maintain, and a
+   new component gets dark mode for free as long as it keeps using the tokens.
+   That is the payoff of the token discipline, and the reason to protect it.
+
+   ## Why these rules are NOT in a cascade layer
+
+   The opposite of the rule in `./index.css`. Tailwind compiles `@theme` into
+   `@layer theme { :root { … } }`, and *unlayered CSS beats every layer* — so an
+   unlayered `.dark` block reliably overrides the light values no matter where
+   this file is imported. Put these inside `@layer base` and `@theme`'s `:root`
+   would win on layer order alone, and the entire theme would silently no-op.
+
+   ## Why overriding the base tokens is enough
+
+   `./shadcn.css` aliases shadcn's vocabulary onto these names
+   (`--color-card: var(--color-surface)`). A custom property is substituted
+   where it is *declared* — at `:root`, i.e. on `<html>`. next-themes puts
+   `.dark` on `<html>` too, so the alias and the override resolve on the same
+   element: `--color-card` picks up whichever `--color-surface` won the
+   cascade there. Move `.dark` onto `<body>` or any inner element and every
+   alias in the bridge would freeze at its light value while the base tokens
+   went dark — the same footgun as the `--font-*` tokens in `./index.css`.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Bind Tailwind's `dark:` variant to the class, not `prefers-color-scheme`.
+   Without this, `dark:` utilities follow the OS and would ignore an explicit
+   Light choice made while the OS is dark — the toggle would look broken on
+   exactly the components that bothered to style dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  /* Hands scrollbars, form controls, and caret colour to the UA. Cheap, and
+     without it a dark page keeps light native scrollbars. */
+  color-scheme: dark;
+
+  /* ── Dark theme (warm charcoal) ───────────────────────────────────────
+     Warm, not neutral: these are the light theme's cream and ink swapped
+     round the same warm axis, so the product reads as the same product with
+     the lights off. A pure-gray dark mode would make it a different brand. */
+  --color-background: #17120e; /* warm near-black page base */
+  --color-surface: #201a15; /* cards / elevated panels */
+  --color-surface-warm: #2a231d; /* highlighted panels */
+  --color-foreground: #f4efe6; /* warm off-white ink */
+  --color-muted: #a89a89; /* secondary warm-gray text — 6.6:1 on background */
+  --color-border: #362e26; /* warm hairline borders */
+
+  /* The brand does NOT change. #f0592b clears 4.5:1 on both dark surfaces
+     (5.3:1 on background, 4.9:1 on surface), so brightening it would only
+     shift the brand's identity between themes for no accessibility gain —
+     and would make `Button`'s white-on-brand fill worse, not better. */
+
+  /* Green is the one hue that needs a nudge: a mid-saturation green reads
+     muddy against warm charcoal even when the contrast maths passes. */
+  --color-live: #3fb950;
+}

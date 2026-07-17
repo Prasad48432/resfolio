@@ -24,7 +24,7 @@ and tokens safely; survive flaky third-party APIs, rate limits, and revoked
 grants; keep provider-specific junk out of the core Profile schema; and give
 content that can't be confidently mapped a home instead of dropping it.
 
-### What this is *not*
+### What this is _not_
 
 This is explicitly **not a synchronization product**. There is no live
 mirroring, no scheduled auto-applied updates, no conflict-resolution workflow,
@@ -34,16 +34,48 @@ cheap — an optional, user-initiated "check for updates." Freshness machinery
 is a per-provider enhancement (see "Optional refresh"), not the architecture's
 spine.
 
+### V1 provider set
+
+**GitHub, Dev.to, RSS, Stack Overflow — and nothing else yet.** All four are
+`public`: no OAuth, no app registration, no user grant, no credentials at rest.
+A user types a username or a feed URL.
+
+Every other provider named in this document (LinkedIn, Behance, Dribbble,
+Figma, Medium OAuth, YouTube, Kaggle, Hugging Face, X) is **deferred and
+unbuilt**, to be evaluated individually on the availability and quality of its
+public API before anyone writes a connector. The architecture below is what
+makes that evaluation cheap; it is not a commitment to the list.
+
+The tiers, the auth-mode taxonomy, and the provider table are retained because
+they are the _design_ — they say what a connector would cost. They do not say
+what exists.
+
 ### Assumptions challenged first
 
-- **LinkedIn: live sync is not possible.** The API is partner-gated
-  (Sign-In/marketing scopes only; no profile-read for apps like ours) and
-  scraping violates ToS and gets accounts flagged. The honest product answer
-  is a **file import**: LinkedIn's official data export ZIP (Settings → Get a
-  copy of your data) parses cleanly into positions, education, skills, and
-  certifications. One-time import, clearly labeled — and under the import
-  model this is not a degraded fallback, it's the flagship multi-section
-  import.
+- **"Integration" ≠ "OAuth," and GitHub proves it.** GitHub was specified as
+  `oauth2` with `read:user`/`public_repo` scopes and built that way. It didn't
+  ship: `GET /users/{username}/repos` returns everything a portfolio project
+  needs — name, description, URL, stars, forks, language, topics — with no
+  credentials at all. The OAuth ceremony bought only _private_ repos, which is
+  content nobody puts on a public profile. The scopes were paying for
+  something the product doesn't want. Ask what the public API already answers
+  before designing the grant.
+- **Rate limits are the real cost of "public," not auth.** Anonymous
+  api.github.com allows 60 requests/hour **per IP** — shared across every user
+  of a deployment, not per user, so it fails for everyone at once. An optional
+  server-wide `GITHUB_TOKEN` (any scope-less PAT) lifts it to 5,000/hr. That
+  is a rate-limit lever, not authentication: it grants no access to anyone's
+  private data, no user ever sees it, and imports work without it. Auth mode
+  and rate strategy are independent decisions.
+- **LinkedIn: live sync is not possible**, and the file import was cut. The
+  API is partner-gated (Sign-In/marketing scopes only) and scraping violates
+  ToS. The honest answer would be LinkedIn's export ZIP (Settings → Get a copy
+  of your data), parsed into positions/education/skills/certifications — and it
+  was built and worked. It is **removed from V1** as a scope decision, not a
+  technical one: the export is a one-shot import of data users can also just
+  type, and it carried a CSV parser, a ZIP extractor, and a dependency for it.
+  The design below still describes `file` mode because it is the honest answer
+  _if_ LinkedIn returns; nothing in the pipeline assumed it.
 - **Behance is effectively closed too** — Adobe stopped issuing API keys
   years ago. Treat it as a public-page (Tier C) provider or defer; don't
   promise it.
@@ -100,16 +132,18 @@ pattern as templates, [05-template-sdk](05-template-sdk.md)):
 export const github = defineConnector({
   id: "github",
   name: "GitHub",
-  authMode: "oauth2",              // "oauth2" | "token" | "public" | "file"
-  auth: { scopes: ["read:user", "public_repo"] },        // oauth2 only
-  input: undefined,                 // "public": z.object({ username }) ; "file": accepted formats
-  resources: ["project", "contribution"],   // what canonical kinds it emits
+  authMode: "public",              // "oauth2" | "token" | "public" | "file"
+  // oauth2/token declare `auth: { scopes: [...] }`; public/file MUST declare
+  // an input schema. defineConnector enforces the pairing at module load.
+  input: githubInputSchema,        // z.object({ username })
+  tier: "A",
+  resources: ["project"],          // what canonical kinds it emits
   capabilities: { refreshable: true, incremental: true },
   // refreshable: may offer "Check for updates" (file imports declare false);
   // incremental: supports cursor/ETag fetch (else the runtime full-refetches)
 
   // The only two functions a connector must implement:
-  fetch:     (ctx) => AsyncIterable<RawItem>,   // ctx: credentials/input, cursor, rate budget, fetch()
+  fetch:     (ctx) => AsyncIterable<RawItem>,   // ctx: input, cursor, rate budget, fetch()
   normalize: (raw) => CandidateItem[],          // pure: raw → canonical candidates
 });
 ```
@@ -162,11 +196,11 @@ dedupe key. The receipt exists for exactly two purposes:
 
 Classification is therefore three states, all import-shaped:
 
-| Upstream vs. receipts            | State               | What happens                                                       |
-| -------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| new `externalId`                 | `new`               | candidate appears in the workspace for triage                      |
-| same fingerprint as receipt      | `duplicate`         | silently skipped — idempotence                                     |
-| changed fingerprint vs. receipt  | `refresh_available` | badge + re-import button; warns if the user edited their copy      |
+| Upstream vs. receipts           | State               | What happens                                                  |
+| ------------------------------- | ------------------- | ------------------------------------------------------------- |
+| new `externalId`                | `new`               | candidate appears in the workspace for triage                 |
+| same fingerprint as receipt     | `duplicate`         | silently skipped — idempotence                                |
+| changed fingerprint vs. receipt | `refresh_available` | badge + re-import button; warns if the user edited their copy |
 
 **There is no conflict state and no archive suggestion.** Upstream deletion
 produces nothing: the user's imported item does not care that a repo was
@@ -181,18 +215,34 @@ upstream content actually changes.
 
 ### Auth modes and token security
 
-- **`oauth2`** (GitHub, GitLab, Dribbble, Figma, Notion, Product Hunt):
-  integration-scoped OAuth, completely separate from login OAuth (the seam
-  reserved in [10-auth-and-security](10-auth-and-security.md)). Route
-  handlers in `apps/dashboard` run the dance; scopes are minimal and read-only.
+**Every V1 connector is `public`.** Nothing below has shipped except that mode;
+the rest is the design for when a provider needs it.
+
+- **`public`** (GitHub, Dev.to, RSS, Stack Overflow — and later Hashnode,
+  YouTube feed, Hugging Face, Kaggle, CodePen, LeetCode): user supplies a
+  username/URL, validated by the connector's own input schema and then by
+  fetching. **No credentials stored**, which is why `INTEGRATIONS_TOKEN_KEY`
+  is optional and unused today.
+- **`oauth2`** (GitLab, Dribbble, Figma, Notion, Product Hunt — _not_ GitHub,
+  see "Assumptions challenged"): integration-scoped OAuth, completely separate
+  from login OAuth (the seam reserved in
+  [10-auth-and-security](10-auth-and-security.md)). Route handlers in
+  `apps/dashboard` run the dance; scopes are minimal and read-only.
 - **`token`** (providers offering PATs where OAuth is impractical): user
   pastes a token; validated with a test call before storing.
-- **`public`** (Dev.to, Hashnode, Medium/RSS, Stack Overflow, YouTube feed,
-  Hugging Face, Kaggle, CodePen, LeetCode): user supplies a
-  username/URL — validated by fetching the profile. No credentials stored.
-- **`file`** (LinkedIn export ZIP; later resume-PDF import): upload →
-  presigned R2 → parse → same staging pipeline. One-shot by declaration
-  (`refreshable: false`); no connection to keep alive.
+- **`file`** (a LinkedIn export ZIP, if it returns; later resume-PDF import):
+  upload → presigned R2 → parse → same staging pipeline. One-shot by
+  declaration (`refreshable: false`); no connection to keep alive.
+
+**Server tokens are not auth.** A deployment may configure a platform-wide
+credential purely to lift a provider's anonymous rate limit (today:
+`GITHUB_TOKEN`, 60 req/hr per IP → 5,000). It is not per-user, grants no
+private access, and imports work without it. The runtime injects it the same
+way it injects a connection token — connectors never learn either exists
+(`FetchContext`) — with one crucial difference: **only a connection token may
+flip a connection to `needs_reauth`.** A 403 against a server token is the
+provider throttling _us_, which reconnecting cannot fix; reporting that to the
+user as a broken connection would be a lie they can't act on.
 
 Tokens (access + refresh) are **encrypted at rest** (AES-256-GCM,
 per-column, key from validated env with a key-version byte for rotation),
@@ -242,9 +292,11 @@ surface.
 The dashboard's **Sources page is an import workspace**, not an integration
 manager:
 
-- **"Import from…"** — a provider gallery (GitHub, RSS, LinkedIn export
-  upload; more greyed by tier) is the primary surface. Connecting runs the
-  first import immediately.
+- **"Import from…"** — a provider gallery is the primary surface. Connecting
+  runs the first import immediately. In V1 it holds four cards — GitHub, RSS,
+  Dev.to, Stack Overflow — and **no teasers**: a greyed "coming soon" card is
+  an advert for something the user can't have, on the page they came to get
+  work done. A provider appears when it works.
 - **Triage view** — fetched candidates grouped by destination
   ("12 → Projects · 3 → Writing · 2 need a home"), with per-group
   **Import all**, per-item destination override (a Select of compatible
@@ -261,15 +313,29 @@ manager:
 ### Provider mapping declarations
 
 Each connector owns a declared mapping table (in code and in its docs), all
-landing on canonical kinds:
+landing on canonical kinds. **Built** (V1):
 
-| Provider                     | Mapping                                                                                                                                  |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub                       | repos → `project` (topics → technologies, stars/forks → metrics); bio → `profileBasics` (suggested, never auto); extras stay in `raw`     |
-| RSS / Medium / Dev.to / Hashnode | entries → `article` → Writing                                                                                                        |
-| LinkedIn export (file)       | positions → `experience`, education → `education`, skills → `skillGroup`, certifications → `certification` — the multi-section proof      |
-| Stack Overflow               | tags → `skillGroup` (suggested), reputation/badges → metrics on `profileBasics`; anything odd → `unclassified`                            |
-| Dribbble / Behance / Figma   | shots/files → `project` (images pending R2 rehosting)                                                                                     |
+| Provider       | Mode                  | Mapping                                                                                                                                              |
+| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub         | `public` `{username}` | public repos → `project`: name, description, `repoUrl`, language + topics → `technologies`, stars/forks → metrics. Forks and archived repos skipped. |
+| RSS / Atom     | `public` `{feedUrl}`  | entries → `article` → Writing: title, publisher, url, date, HTML-stripped summary                                                                    |
+| Dev.to         | `public` `{username}` | published articles → `article` → Writing; reactions → metric                                                                                         |
+| Stack Overflow | `public` `{userId}`   | top answer tags → `skillGroup` (suggested); reputation → metric on `profileBasics` (location/avatar only — never proposes a display name)            |
+
+**Import only the metadata the Profile needs.** GitHub's `created_at` and the
+owner avatar were both dropped: a repo's creation date is not a project's start
+date in any sense a reader cares about, and an avatar on a project is provider
+furniture. Provider richness stays in `raw` (staging only, never the Profile).
+The test for a field is "would a user have typed this?", not "is it in the
+payload?".
+
+Designed, **not built** — retained because they show what a connector costs:
+
+| Provider                   | Mode     | Mapping                                                                                                                             |
+| -------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Hashnode / Medium          | `public` | entries → `article` → Writing (Medium is just RSS)                                                                                  |
+| LinkedIn export            | `file`   | positions → `experience`, education → `education`, skills → `skillGroup`, certifications → `certification` — the multi-section case |
+| Dribbble / Behance / Figma | `oauth2` | shots/files → `project` (needs R2 media rehosting first)                                                                            |
 
 A connector for a provider with awkward data can ship emitting `unclassified`
 on day one (still useful — content lands in the workspace) and gain typed
@@ -277,13 +343,13 @@ mappings incrementally.
 
 ### Storage split
 
-| Data                                                                                                                          | Store                                       |
-| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| `integration_connections` (provider, authMode, encrypted tokens, input, status, cursor)                                        | Postgres                                    |
-| `integration_items` (staging + receipts: candidate/`raw` JSONB, fingerprint, route, state: new/imported/refresh_available/dismissed) | Postgres                              |
-| `integration_sync_runs` (import-run log)                                                                                        | Postgres                                    |
-| Import locks, per-provider + per-connection rate budgets                                                                         | Redis (expendable, per [07](07-storage.md)) |
-| Rehosted media, uploaded import files (LinkedIn ZIP), oversized raw payloads (pointer from the staging row)                      | R2                                          |
+| Data                                                                                                                                 | Store                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `integration_connections` (provider, authMode, encrypted tokens, input, status, cursor)                                              | Postgres                                    |
+| `integration_items` (staging + receipts: candidate/`raw` JSONB, fingerprint, route, state: new/imported/refresh_available/dismissed) | Postgres                                    |
+| `integration_sync_runs` (import-run log)                                                                                             | Postgres                                    |
+| Import locks, per-provider + per-connection rate budgets                                                                             | Redis (expendable, per [07](07-storage.md)) |
+| Rehosted media, uploaded import files (LinkedIn ZIP), oversized raw payloads (pointer from the staging row)                          | R2                                          |
 
 ### Provider tiers (sets honest expectations)
 
@@ -293,12 +359,15 @@ mappings incrementally.
 - **Tier B — feed/page-based, best-effort**: Medium (RSS), generic RSS,
   CodePen, Kaggle, LeetCode (unofficial GraphQL — fragile; ship behind a
   "beta" label with graceful degradation when it breaks).
-- **Tier C — no viable API**: LinkedIn (file import — under the import
-  model, a first-class citizen), Behance (public page at best; defer).
+- **Tier C — no viable API**: LinkedIn (file import at best; cut from V1),
+  Behance (public page at best; defer).
 
 Generic **RSS is a Tier-A-priority connector** despite being Tier B tech:
 it subsumes Medium, Substack, personal blogs, and podcast feeds in one
 ~50-line connector.
+
+**Tier is not a roadmap.** V1 ships four Tier-A/B connectors; the rest of the
+list is evaluated one at a time, on evidence, when someone asks for it.
 
 ### Optional refresh (future, per-provider)
 
@@ -362,20 +431,22 @@ Everything in this section is an enhancement, never the spine:
 
 ## Implementation Strategy
 
-1. **6R-1 — Architecture**: this document + the pure layer (expanded
+1. ✅ **6R-1 — Architecture**: this document + the pure layer (expanded
    candidate kinds, routing metadata, import-semantics classify) with tests.
    Locks the model.
-2. **6R-2 — Runtime**: additive migration (`route_section_key`,
+2. ✅ **6R-2 — Runtime**: additive migration (`route_section_key`,
    `route_confidence`, state migration), `runImport`,
-   `importItem(itemId, { routeTo?, edits? })`, duplicate-skip. Re-run the
-   live RSS end-to-end proof under import semantics.
-3. **6R-3 — Import workspace UI**: provider gallery, triage-by-destination,
-   needs-a-home bucket, history. RSS + GitHub-fixture flows fully local.
-4. **6R-4 — LinkedIn file import**: the multi-section routing proof
-   (ZIP → experience/education/skills/certifications), no accounts needed.
-5. **6R-5 — Breadth + optional refresh**: Dev.to/Stack Overflow connectors;
-   "Check for updates" for refreshable providers. GitHub OAuth and R2 media
-   rehosting remain account-gated.
+   `importItem(itemId, { routeTo?, edits? })`, duplicate-skip. Live RSS
+   end-to-end proof re-run under import semantics.
+3. ✅ **6R-3 — Import workspace UI**: provider gallery, triage-by-destination,
+   needs-a-home bucket, history.
+4. ✅ **6R-5 — Breadth**: Dev.to + Stack Overflow connectors; "Check for
+   updates" for refreshable providers.
+5. ✅ **V1 provider set closed**: GitHub converted from `oauth2` to `public`
+   (proven live against api.github.com) with an optional server-wide
+   `GITHUB_TOKEN` rate lever; the gallery is four live cards and no teasers.
+   **6R-4 (LinkedIn file import) was built and then removed** — see
+   "Assumptions challenged first". R2 media rehosting remains account-gated.
 
 ## Open Questions
 

@@ -18,7 +18,6 @@
     "@resfolio/profile": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "fast-xml-parser": "^4.5.0",
-    "fflate": "^0.8.3",
     "zod": "^4.1.0"
   },
   "devDependencies": {

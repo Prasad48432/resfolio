@@ -9,7 +9,6 @@
     "start": "next start --port 3002",
     "lint": "eslint --max-warnings 0",
     "typecheck": "next typegen && tsc --noEmit",
-    "dev:url": "tsx scripts/dev-url.mts",
     "export:pdf": "tsx scripts/export-pdf.mts",
     "check:ats": "tsx scripts/ats-check.mts"
   },

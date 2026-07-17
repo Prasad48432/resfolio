@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "visibility" text DEFAULT 'public' NOT NULL;

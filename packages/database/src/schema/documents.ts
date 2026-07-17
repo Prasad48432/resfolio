@@ -38,9 +38,16 @@ export const document = pgTable(
     templateId: text("template_id").notNull(),
     templateMajor: integer("template_major").notNull(),
     config: jsonb("config").notNull(),
-    // Identity view ({}) until per-document section tailoring ships; the column
-    // exists now so tailoring is a data change, not a migration.
+    // The ViewDefinition: which sections/items this document shows, and in what
+    // order. `{}` is the identity view (everything, canonical order) — the
+    // resume config layer writes `include`/`order`/`exclude` here.
     view: jsonb("view").notNull().default({}),
+    // `public` | `private` (doc 02). Public is the default and renders the
+    // owner's **published** profile version at a permanent URL; private renders
+    // a "this resume is private" page. Text + a domain Zod enum rather than a
+    // pg enum: adding a state stays a data change, matching `sites.discoverable`
+    // and the schema-in-code convention (doc 07).
+    visibility: text("visibility").notNull().default("public"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

@@ -5,8 +5,10 @@ The single server-side rendering host for every non-dashboard surface
 same app, bundle, fonts, and CSS," so public pages, draft previews, print
 routes, and screenshots all live here. Port **3002** (web=3000, dashboard=3001).
 
-**Status (Phase 5, product-complete):** the **resume print route** (private,
-token-guarded) + the local PDF spike; the **public portfolio route**
+**Status (Phase 5 + the 4G resume rebuild):** the **public resume route**
+(`/render/resume/[documentId]`, no token — gated by the document's own
+`visibility`), its private `/draft` sibling and `POST /api/export/resume/[id]`
+(the real PDF path); the dev-only fixture route; the **public portfolio route**
 (`/p/[username]/[[...slug]]`, ISR-cached, indexable, DB- **or** fixture-backed);
 the **draft-preview route** (`/preview/portfolio/[[...slug]]`, private,
 token-guarded, iframed by the dashboard); platform **SEO** (`app/sitemap.ts`,
@@ -14,26 +16,56 @@ token-guarded, iframed by the dashboard); platform **SEO** (`app/sitemap.ts`,
 **revalidation endpoint** (`app/api/revalidate`) the dashboard calls on publish.
 The R2 + Trigger.dev delivery adapters are later work.
 
+**This app has no sessions.** That is deliberate, and it shapes everything
+below: ownership is verified in the dashboard, which then calls here with the
+`RENDER_SECRET` bearer. Nothing here trusts a user-supplied capability.
+
 ## The pipeline, as built here
 
 `Resolve → Project → Render → Deliver` (doc 09). Surfaces differ **only** in
 Resolve and Deliver; Project and Render are shared code.
 
-- **Resolve** (`lib/resolve.ts`) — load the profile snapshot (`source`/`ref`)
-  and the render spec (`document`: an **inline** spec carried by the token, or
-  a **stored** `documents` id looked up via `@resfolio/document/server`). The
-  DB-backed sources (`draft` / `version`) and the stored lookup are
-  **dynamically imported**, so the `fixture` + inline path (dev/CI/export
-  script) needs no database or `DATABASE_URL`.
+- **Resolve** (`lib/resolve.ts`) — `resolveResumeRender(documentId, snapshot)`
+  looks the document up via `@resfolio/document/server` and loads the profile
+  snapshot: `published` (what the public URL always shows) or `draft` (the
+  owner's own export, matching the editor preview). It returns a **typed
+  result** — `ok | not-found | private | unpublished` — rather than
+  value-or-throw, because "private" and "unpublished" are ordinary outcomes a
+  caller must render, and making them variants means the compiler asks. The
+  DB-backed path is **dynamically imported**, so `resolveFixtureRender`
+  (dev/CI/the ats-check script) needs no database or `DATABASE_URL`.
+  Visibility gates the **published** path only: exporting a _private_ resume is
+  the whole point of marking one private.
 - **Project** — `buildProfileView` from `@resfolio/profile`, the _same pure
   function_ the dashboard preview runs client-side. Do not re-implement it.
-- **Render** — the template's `document` from `@resfolio/template-sdk`, via
-  the `lib/templates.ts` registry. The host is generic over any registered
-  resume template; config is re-validated with the template's own schema.
-- **Deliver** — two surfaces sharing Resolve/Project/Render:
-  - `app/render/resume/[documentId]` — private HTML/PDF (token-guarded, never
-    cached); the PDF path is `scripts/export-pdf.mts` (Playwright →
-    `LocalFsExportStore`).
+- **Render** — `lib/render-resume.tsx` (`renderResumeDocument`) and
+  `lib/render-portfolio-page.tsx`. Shared by every surface so they cannot
+  drift; the host is generic over any registered template and re-validates
+  config with the template's own schema. An unregistered template or a rejected
+  config throws `UnrenderableDocumentError` → the caller 404s (the _document_
+  is at fault); a ProfileView major mismatch throws `TemplateCompatError` → a
+  real 500 (the _deployment_ is at fault).
+- **Deliver** — the surfaces sharing Resolve/Project/Render:
+  - `app/render/resume/[documentId]` — the **public resume**. No token: the
+    row's `visibility` decides. Renders the **published** version.
+    `force-dynamic` — see "Two route postures" below for why it is not ISR.
+    Private renders a notice at **200**, not a 404: the URL exists, and 404ing
+    would leak "no such resume" vs "not yours".
+  - `app/render/resume/[documentId]/draft` — the **private draft render**,
+    `RENDER_SECRET`-bearer only, `force-dynamic`. This is what Playwright loads
+    at export, so the owner's PDF matches the editor preview beside it.
+  - `app/render/resume/fixture/[key]` — **dev/CI only** (404s in production).
+    `export:pdf` and `check:ats` must run with no DB, no user and no account;
+    they used to reach the print route with an inline token payload, and
+    removing the token took that vehicle away. The fixture path gets its own
+    honest route rather than the product path growing a dev backdoor.
+  - `app/api/export/resume/[documentId]` — **PDF**, bearer-guarded. Cache-check
+    → `chromium.launch()` → `page.pdf()` → `ExportStore`, all in `lib/pdf.ts`
+    (shared with `scripts/export-pdf.mts`, so product and CI cannot drift).
+    Playwright is imported **dynamically** and stays a devDependency: doc 02
+    puts PDFs in a Trigger.dev task, not a serverless route, so a deployment
+    without it answers **501** instead of bundling ~50MB of Chromium. This
+    route is that task's body, reachable today.
   - `app/p/[username]/[[...slug]]` — the **public portfolio route** (doc
     03/04). `lib/resolve-site.ts` resolves `<username>` → **fixture** Sites
     (`ada`/`jun`, dev/CI, no DB) or the **DB** `sites` table
@@ -51,7 +83,7 @@ Resolve and Deliver; Project and Render are shared code.
     as the public route (so preview == live). `force-dynamic`, `noindex`, framed
     only by the dashboard (`frame-ancestors` in `next.config.ts`).
   - `app/api/revalidate` — `POST { siteId }`, bearer-guarded by the shared
-    `PRINT_TOKEN_SECRET`; drops the `site:<id>` tag. The dashboard (a separate
+    `RENDER_SECRET`; drops the `site:<id>` tag. The dashboard (a separate
     deployment) calls this on publish since an in-process `revalidateTag` can't
     reach this app's cache (doc 04).
   - `app/sitemap.ts` / `app/robots.ts` — the platform SEO surface: every
@@ -60,13 +92,24 @@ Resolve and Deliver; Project and Render are shared code.
 
 ## Rules
 
-- **Two route postures.** `/render/*` is **private**: token-guarded (the
-  shared `@resfolio/document/token`, HMAC + short TTL — the dashboard mints,
-  this app verifies), `noindex` (route metadata + `X-Robots-Tag` in
-  `next.config.ts`), `dynamic = "force-dynamic"` — never cached. `/p/*` is
-  **public**: indexable (its own `generateMetadata`, honoring the site's
-  `discoverable` toggle), ISR-cached + `site:<id>`-tagged (doc 04). The app has
-  **no global robots directive** — each surface declares its own.
+- **Three route postures, not two** (doc 09). The old rule — "`/p/*` public,
+  everything else token-guarded" — died when resumes got permanent URLs.
+  - **Public + indexable**: `/p/*`. Its own `generateMetadata` honoring
+    `discoverable`; ISR + `site:<id>` tags (doc 04).
+  - **Public + unlisted**: `/render/resume/[documentId]`. Guarded by the row's
+    `visibility`, **noindex** (`X-Robots-Tag` in `next.config.ts` +
+    `robots.txt`), not cached. Readable-by-link ≠ crawlable: a resume carries
+    an email and a phone number and has no `discoverable` toggle to opt in
+    with. **It is deliberately not ISR** — its render also depends on the
+    document's live `config`/`view`/`visibility`, so it has two invalidation
+    triggers (publish _and_ any editor edit) and `/api/revalidate` only knows
+    `site:<id>`. Caching it before that plumbing exists serves stale content,
+    or a private resume that stays readable. Correctness first.
+  - **Private**: `/preview/portfolio/*` (signed token — it goes in a browser
+    iframe URL), `/render/resume/*/draft` + `/api/export/*` + `/api/revalidate`
+    (`RENDER_SECRET` bearer — server-to-server, never user-facing). All
+    `force-dynamic`, all noindex.
+  - The app has **no global robots directive** — each surface declares its own.
 - **No marketing theme.** This app carries no cream/`@resfolio/design` theme.
   Templates ship their own self-contained styles; `app/globals.css` is only a
   reset. The on-screen paper backdrop for the resume preview lives in
@@ -80,23 +123,45 @@ Resolve and Deliver; Project and Render are shared code.
 - **Determinism** (doc 09): Render must not consult the clock, server locale,
   or randomness — those are client islands layered on top, outside the cached
   render. Content identity is the render hash (`lib/render-key.ts`).
-- **The cloud seam.** `ExportStore` (`lib/export-store.ts`) and the token
-  signer are interfaces; today `LocalFsExportStore` + a stateless HMAC token.
-  Wiring R2 + Trigger.dev + Redis nonces later swaps implementations behind
-  these seams — no route or template changes. (4E is done: the token carries a
-  stored `documents` id and the route looks up config/view via
-  `@resfolio/document/server`, keeping `source`/`ref`.)
+- **Every renderKey input must actually identify content.** The key takes a
+  single `revision` — `draft:<draftRev>` | `version:<id>` | `fixture:<key>` —
+  built in `lib/resolve.ts`, never assembled by callers. It replaced a
+  `source` + `ref` pair where `ref` was the owner's _userId_ for a draft: a
+  value that never changed when the draft did, so editing a profile and
+  re-exporting silently served the old PDF. Invisible while only the fixture
+  path (immutable) was exercised; a live bug the moment export ran on a draft.
+  A stable-looking id is not a content identity.
+- **The cloud seam.** `ExportStore` (`lib/export-store.ts`) and `lib/pdf.ts`
+  are the interfaces; today `LocalFsExportStore` + a dynamically-imported
+  Playwright. Wiring R2 + Trigger.dev later swaps implementations behind these
+  seams — no route or template changes.
 
 ## Local verification
 
+The fixture path needs **no secret and no database** — that is the point of it.
+
 ```bash
-# terminal 1 — dev server (secret must match the export script)
-PRINT_TOKEN_SECRET=<≥16 chars> pnpm --filter sites dev
+# terminal 1
+pnpm --filter sites dev
 # terminal 2
-PRINT_TOKEN_SECRET=<same> pnpm --filter sites export:pdf   # → apps/sites/out/<hash>.pdf
-PRINT_TOKEN_SECRET=<same> pnpm --filter sites export:pdf   # → cache hit, no Chromium boot
-PRINT_TOKEN_SECRET=<same> pnpm --filter sites check:ats    # headings extractable, in order
+pnpm --filter sites export:pdf   # → apps/sites/out/<hash>.pdf
+pnpm --filter sites export:pdf   # → cache hit, no Chromium boot
+pnpm --filter sites check:ats    # headings extractable, in reading order
 ```
+
+The product path needs both (Docker Postgres on host **5433**):
+
+```bash
+RENDER_SECRET=<≥16 chars> DATABASE_URL=<…> pnpm --filter sites dev
+
+curl -i localhost:3002/render/resume/<id>            # public: 200, or the private/unpublished notice
+curl -i -X POST -H "authorization: Bearer <secret>" \
+     localhost:3002/api/export/resume/<id>           # → application/pdf; x-render-cache: miss|hit
+```
+
+Worth re-checking after any change to Resolve or the render key: edit the
+profile draft, export again, and confirm `x-render-key` **changes** and the
+bytes differ. That regression is silent.
 
 Requires Next.js docs discipline: read `node_modules/next/dist/docs/` before
 Next-specific work (see the repo's AGENTS.md convention).

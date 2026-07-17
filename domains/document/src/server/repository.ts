@@ -6,10 +6,12 @@ import { viewDefinitionSchema, type ViewDefinition } from "@resfolio/profile";
 import { DocumentDataError, DocumentNotFoundError } from "../errors";
 import {
   documentConfigSchema,
+  documentVisibilitySchema,
   updateDocumentSchema,
   type DocumentConfig,
   type DocumentKind,
   type DocumentRecord,
+  type DocumentVisibility,
   type NewDocumentInput,
   type UpdateDocumentInput,
 } from "../schema";
@@ -34,6 +36,7 @@ function toRecord(row: typeof schema.document.$inferSelect): DocumentRecord {
     templateMajor: row.templateMajor,
     config: documentConfigSchema.parse(row.config),
     view: viewDefinitionSchema.parse(row.view),
+    visibility: documentVisibilitySchema.parse(row.visibility),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -67,6 +70,7 @@ export async function createDocument(
       templateMajor: input.templateMajor,
       config: documentConfigSchema.parse(input.config),
       view: viewDefinitionSchema.parse(input.view ?? {}),
+      visibility: documentVisibilitySchema.parse(input.visibility ?? "public"),
     })
     .returning();
 
@@ -78,9 +82,7 @@ export async function createDocument(
 }
 
 /** A user's documents, most-recently-updated first. */
-export async function listDocuments(
-  userId: string,
-): Promise<DocumentRecord[]> {
+export async function listDocuments(userId: string): Promise<DocumentRecord[]> {
   const profileId = await requireProfileId(userId);
   const rows = await db.query.document.findMany({
     where: eq(schema.document.profileId, profileId),
@@ -118,10 +120,7 @@ export async function updateDocument(
     .update(schema.document)
     .set(validated)
     .where(
-      and(
-        eq(schema.document.id, id),
-        eq(schema.document.profileId, profileId),
-      ),
+      and(eq(schema.document.id, id), eq(schema.document.profileId, profileId)),
     )
     .returning();
 
@@ -132,15 +131,15 @@ export async function updateDocument(
   return toRecord(row);
 }
 
-export async function deleteDocument(userId: string, id: string): Promise<void> {
+export async function deleteDocument(
+  userId: string,
+  id: string,
+): Promise<void> {
   const profileId = await requireProfileId(userId);
   const deleted = await db
     .delete(schema.document)
     .where(
-      and(
-        eq(schema.document.id, id),
-        eq(schema.document.profileId, profileId),
-      ),
+      and(eq(schema.document.id, id), eq(schema.document.profileId, profileId)),
     )
     .returning({ id: schema.document.id });
   if (deleted.length === 0) {
@@ -152,18 +151,32 @@ export interface DocumentRenderSpec {
   templateId: string;
   config: DocumentConfig;
   view: ViewDefinition;
+  /** `private` → the host renders "this resume is private" and no profile data
+   * is ever loaded. The check belongs to the caller, but the answer belongs to
+   * the row, so it travels with the spec and cannot be forgotten. */
+  visibility: DocumentVisibility;
+  /** The owning user, so the host can resolve *whose* published profile version
+   * to project. Not a secret — it never leaves the server (doc 02: the public
+   * page renders the published snapshot, never the draft). */
+  ownerUserId: string;
 }
 
 /**
- * The render inputs for a document, resolved by id for the render host. Not
- * user-scoped: the short-TTL signed token that carries this id is the
- * capability (the dashboard mints it only for the owner's own documents).
+ * The render inputs for a document, resolved by id for the render host.
+ *
+ * Deliberately **not** user-scoped, and no longer token-guarded: a resume's
+ * permanent URL is public by design (doc 02), so the row's own `visibility` is
+ * the access decision and this returns it rather than assuming a caller
+ * checked. A private document still resolves here — the host needs the row to
+ * know it must say "private" instead of 404, and a 404 would leak the
+ * difference between "no such resume" and "not yours".
  */
 export async function getDocumentForRender(
   id: string,
 ): Promise<DocumentRenderSpec> {
   const row = await db.query.document.findFirst({
     where: eq(schema.document.id, id),
+    with: { profile: { columns: { userId: true } } },
   });
   if (!row) {
     throw new DocumentNotFoundError();
@@ -172,5 +185,7 @@ export async function getDocumentForRender(
     templateId: row.templateId,
     config: documentConfigSchema.parse(row.config),
     view: viewDefinitionSchema.parse(row.view),
+    visibility: documentVisibilitySchema.parse(row.visibility),
+    ownerUserId: row.profile.userId,
   };
 }

@@ -27,8 +27,8 @@ export default function Footer() {
           <div className="md:col-span-2">
             <ResfolioLogo size={32} className="text-foreground" />
             <p className="mt-4 max-w-sm text-[14px] text-muted">
-              A career OS for people who make things. One source. Every surface.
-              Ship once, everywhere follows.
+              A career OS for people who make things. One profile you own —
+              resume, portfolio and API generated from it.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function Footer() {
 
         <div className="mt-14 flex flex-col justify-between gap-4 border-t border-border pt-6 md:flex-row md:items-center">
           <p className="font-mono text-[12px] text-muted">
-            © {new Date().getFullYear()} resfolio — synced by humans, for
+            © {new Date().getFullYear()} resfolio — built by humans, for
             humans.
           </p>
           <div className="flex items-center gap-4 text-muted">

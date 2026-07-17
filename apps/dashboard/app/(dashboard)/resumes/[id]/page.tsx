@@ -6,7 +6,7 @@ import { resumeClassicConfigSchema } from "@resfolio/template-resume-classic";
 import { notFound } from "next/navigation";
 
 import { ResumeEditor } from "@/components/resume/resume-editor";
-import { env } from "@/lib/env";
+import { resumeExportEnabled, resumePublicUrl } from "@/lib/resume-url";
 
 /**
  * The resume document editor (docs/architecture/08-dashboard-ux.md — the split
@@ -48,9 +48,11 @@ export default async function ResumeEditorPage({
       documentId={document.id}
       initialName={document.name}
       initialConfig={config}
+      initialView={document.view}
+      initialVisibility={document.visibility}
       profile={draft.data}
-      view={document.view}
-      printEnabled={Boolean(env.PRINT_TOKEN_SECRET && env.SITES_URL)}
+      publicUrl={resumePublicUrl(document.id)}
+      exportEnabled={resumeExportEnabled()}
     />
   );
 }

@@ -9,13 +9,26 @@ import type { ViewDefinition } from "@resfolio/profile";
  * unchanged export is a cache hit (no Chromium boot) and stale output is
  * structurally impossible — a change yields a new key, never an in-place
  * mutation. Template version is part of the key so a template bump busts it.
+ *
+ * **Every input must actually identify content.** This previously hashed
+ * `source` + `ref`, where `ref` was the owner's userId for a draft — a stable
+ * value that never changed when the draft did, so editing a profile and
+ * re-exporting served the old PDF from cache. Invisible while only the fixture
+ * path (immutable content) was exercised; a live bug the moment export ran
+ * against a draft. `revision` replaces both: it is the *snapshot's* identity,
+ * and it is the caller's job to make it change whenever the content does.
  */
 
 /** The identity inputs of a render: which profile snapshot, and how it is
  * projected + presented. */
 export interface RenderKeyInput {
-  source: string;
-  ref: string;
+  /**
+   * The profile snapshot's identity — `draft:<draftRev>` (bumps on every
+   * autosave), `version:<profileVersionId>` (immutable by construction), or
+   * `fixture:<key>` (immutable, ships with the repo). Built by
+   * `lib/resolve.ts`, never assembled by callers.
+   */
+  revision: string;
   templateId: string;
   config: DocumentConfig;
   view: ViewDefinition | undefined;
@@ -42,8 +55,7 @@ export function renderKey(
   templateVersion: string,
 ): string {
   const material = stableStringify({
-    source: input.source,
-    ref: input.ref,
+    revision: input.revision,
     template: `${input.templateId}@${templateVersion}`,
     view: input.view ?? null,
     config: input.config,

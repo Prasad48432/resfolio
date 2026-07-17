@@ -4,15 +4,15 @@ import { TEST_IDS } from "@/lib/testids";
 const faqs: Faq[] = [
   {
     q: "How does the single source of truth actually work?",
-    a: "You edit your profile once — role, projects, bio, skills. Resfolio publishes it to your portfolio, generates a fresh resume PDF, and exposes a JSON API. Change your job title and every surface updates within seconds.",
+    a: "You maintain one profile — role, projects, bio, skills. Your portfolio site, your resume PDF, and your JSON API are not copies of it; they are generated from it, on demand. So there is only ever one version of your career to keep accurate, and it is the one you edit.",
   },
   {
     q: "Can I use my own domain?",
     a: "Yes. Every paid plan supports custom domains with automatic HTTPS. Point your DNS once, we handle certificates, redirects, and SEO metadata forever.",
   },
   {
-    q: "How does GitHub / Dribbble / Behance sync work?",
-    a: "Connect via OAuth. You choose exactly which repos, shots, or projects to feature. We pull metadata (stars, thumbnails, descriptions) and let you enrich each with a case study.",
+    q: "How does importing from GitHub, Dev.to or Stack Overflow work?",
+    a: "No OAuth, no passwords, nothing stored. Every source reads public data, so you give us a username or a feed URL and we fetch your work. We show you what we found, you pick what to keep, and nothing reaches your profile until you click Import. Imported items are then ordinary profile content — edit them, reorder them, delete them.",
   },
   {
     q: "Do I own my content and can I export it?",
@@ -20,7 +20,7 @@ const faqs: Faq[] = [
   },
   {
     q: "Is there a free plan?",
-    a: "Yes — Solo is free forever. You get a resfolio.me/handle URL, 2 sources, one theme, and PDF resume export. Perfect for students, early-career folks and side-projects.",
+    a: "Yes — Solo is free forever. You get a resfolio.me/handle URL, 2 import sources, one theme, and PDF resume export. Perfect for students, early-career folks and side-projects.",
   },
   {
     q: "When does it launch?",

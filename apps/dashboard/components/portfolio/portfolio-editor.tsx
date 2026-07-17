@@ -345,12 +345,12 @@ function PublishButton({
         </Button>
       </div>
       {!profilePublished ? (
-        <span className="text-xs text-accent" role="note">
+        <span className="text-xs text-brand" role="note">
           Publish your profile first
         </span>
       ) : null}
       {error ? (
-        <span className="text-xs text-accent" role="alert">
+        <span className="text-xs text-brand" role="alert">
           {error}
         </span>
       ) : null}
@@ -373,7 +373,7 @@ function PreviewFrame({
           href={publicUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-muted transition-colors duration-(--duration-fast) ease-out hover:text-accent"
+          className="flex items-center gap-1 text-xs text-muted transition-colors duration-(--duration-fast) ease-out hover:text-brand"
           data-testid={TEST_IDS.portfolioPublicUrl}
         >
           Open live site
@@ -412,7 +412,7 @@ function SiteCard({
           href={publicUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 font-mono text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:text-accent"
+          className="flex items-center justify-center gap-1.5 font-mono text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:text-brand"
           data-testid={TEST_IDS.portfolioPublicUrl}
         >
           {publicUrl.replace(/^https?:\/\//, "")}

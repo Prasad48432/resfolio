@@ -23,7 +23,7 @@ export const cardVariants = cva(
        * flat and the list calm; the press scale matches `Button`.
        */
       interactive: {
-        true: "cursor-pointer transition-[transform,border-color,background-color] duration-(--duration-press) ease-out hover:border-accent/40 active:scale-[0.995]",
+        true: "cursor-pointer transition-[transform,border-color,background-color] duration-(--duration-press) ease-out hover:border-brand/40 active:scale-[0.995]",
         false: "",
       },
     },

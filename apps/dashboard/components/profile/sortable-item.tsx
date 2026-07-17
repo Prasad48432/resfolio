@@ -55,7 +55,7 @@ export function SortableItem({
       className={cn(
         "overflow-hidden",
         isDragging &&
-          "relative z-10 border-accent/40 shadow-[0_8px_24px_rgba(38,32,25,0.10)]",
+          "relative z-10 border-brand/40 shadow-[0_8px_24px_rgba(38,32,25,0.10)]",
       )}
       data-testid={testId}
     >

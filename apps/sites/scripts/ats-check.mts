@@ -20,10 +20,10 @@ import { renderKey } from "../lib/render-key.ts";
 
 const fixtureKey = process.argv[2] ?? "ada";
 
+// Must match `export:pdf`'s key exactly — same inputs, same hash, same file.
 const key = renderKey(
   {
-    source: "fixture",
-    ref: fixtureKey,
+    revision: `fixture:${fixtureKey}`,
     templateId: resumeClassic.id,
     config: { ...resumeClassic.defaultConfig },
     view: undefined,
@@ -48,9 +48,8 @@ for (let p = 1; p <= doc.numPages; p++) {
   const page = await doc.getPage(p);
   const content = await page.getTextContent();
   text +=
-    content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ") + "\n";
+    content.items.map((item) => ("str" in item ? item.str : "")).join(" ") +
+    "\n";
 }
 // Case-insensitive: headings are uppercased by CSS `text-transform`, so the
 // text layer reads "EXPERIENCE" — still ATS-legible, order still preserved.

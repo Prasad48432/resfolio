@@ -5,10 +5,14 @@ import { SITE_ORIGIN } from "@/lib/portfolio-seo";
 /**
  * Platform robots (docs/architecture/04-deployment.md, 09-rendering-pipeline.md).
  * Public portfolios (`/p/*`) are crawlable — a non-discoverable *site* opts out
- * via its own per-page `noindex` (generateMetadata), not here. The private
- * render surface (`/p/*` aside) is `/render/*`: never indexed (also carries
- * `X-Robots-Tag` + is token-guarded), and the on-demand revalidation API is
- * disallowed too. The sitemap enumerates every discoverable published site.
+ * via its own per-page `noindex` (generateMetadata), not here.
+ *
+ * `/render/*` stays disallowed even though the resume route there is now
+ * publicly readable (doc 02). Readable-by-link and crawlable are different
+ * things: a resume carries an email and a phone number, and it has no
+ * `discoverable` toggle to opt in with, so it is shared by link and kept out
+ * of search. `X-Robots-Tag` on the same paths is the authoritative signal.
+ * The on-demand revalidation + export APIs are disallowed too.
  */
 export default function robots(): MetadataRoute.Robots {
   return {

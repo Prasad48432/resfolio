@@ -17,7 +17,7 @@ export function Checkbox({ className, ...props }: ComponentProps<"input">) {
         className={cn(
           // Focus is the platform halo from @resfolio/design, matching every
           // other control — not a bespoke ring.
-          "peer size-4 cursor-pointer appearance-none rounded border border-border bg-surface transition-colors duration-(--duration-press) ease-out checked:border-accent checked:bg-accent disabled:cursor-not-allowed disabled:opacity-50",
+          "peer size-4 cursor-pointer appearance-none rounded border border-border bg-surface transition-colors duration-(--duration-press) ease-out checked:border-brand checked:bg-brand disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}

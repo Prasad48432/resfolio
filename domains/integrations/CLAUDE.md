@@ -34,7 +34,7 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     load (throws `ConnectorDefinitionError`) — loud in CI, never mid-run.
   - **`candidate.ts`** — `candidateItemSchema`, the canonical staging shape.
     Kinds cover the whole Profile: `project | contribution | article | talk |
-    experience | education | skillGroup | certification | profileBasics`
+experience | education | skillGroup | certification | profileBasics`
     plus **`unclassified`** — the escape hatch (loose `title/text/url/date`
     payload, no automatic destination) that keeps canonical-kinds-only from
     silently dropping data. Typed payloads **reuse the profile item schemas**
@@ -50,7 +50,7 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     `resolveRoute` (connector declaration sanitized: incompatible → unrouted,
     never guessed), `assertRouteTarget`. Routes are
     `{ sectionKey: SectionKey | "basics" | null, confidence: "certain" |
-    "suggested" }`; `null` = "needs a home", waits for the user.
+"suggested" }`; `null` = "needs a home", waits for the user.
   - **`fingerprint.ts`** — `computeFingerprint`, a deterministic,
     dependency-free content hash (FNV-1a, no `node:crypto`) over the content
     that would land in the Profile — **never `raw`**, so provider churn can't
@@ -62,9 +62,23 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     The never-overwrite invariant is **structural** — nothing auto-applies.
   - **`registry.ts`** — the static connector registry (code + PR + deploy,
     like templates): `CONNECTORS`, `getConnector`, `listConnectors`.
-  - **`connectors/`** — `github` (`oauth2`, emits `project`) and `rss`
-    (`public`, emits `article`). Each is `fetch` + pure `normalize` +
-    recorded fixtures + a declared mapping (doc 12's provider table).
+  - **`connectors/`** — the **V1 set, all `public`**: `github`
+    (`{username}` → `project`), `rss` (`{feedUrl}` → `article`), `devto`
+    (`{username}` → `article`), `stackoverflow` (`{userId}` → `skillGroup`
+    and `profileBasics`). Each is `fetch` + pure `normalize` + recorded
+    fixtures + a declared mapping (doc 12's provider table).
+    **No connector stores a credential**, which is why
+    `INTEGRATIONS_TOKEN_KEY` is optional and currently unused.
+    GitHub is `public`, not `oauth2`: `GET /users/{username}/repos` answers
+    everything a project needs, and the scopes only bought private repos —
+    content nobody puts on a public profile. It imports **only** name,
+    description, `repoUrl`, stars, forks, language and topics; `created_at`
+    and the owner avatar were deliberately dropped (doc 12 §5 — the test is
+    "would a user have typed this?", not "is it in the payload?").
+    **Adding a fifth provider is a deliberate decision, not a backlog item**
+    (doc 12, V1 provider set). LinkedIn's file import was built and removed;
+    `ITEM_SOURCES` still carries `"linkedin"` because that enum is
+    additive-only.
   - **`apply.ts`** — the pure half of Import: `buildProfileItem` (candidate →
     canonical item, provenance stamped; converts `unclassified` → custom-item
     content), `buildBasicsPatch`, `sectionForKind`, and the re-import
@@ -82,7 +96,20 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     inside the import runtime; no exported record carries token material.
   - **`import-run.ts`** — `runImport`: builds the `FetchContext` (token-
     injecting, per-run-budgeted fetch that also spots 401/403 →
-    `needs_reauth`), drives `fetch` → `normalize`, resolves each candidate's
+    `needs_reauth`). Two token sources, and the difference is load-bearing:
+    a **connection** token is the user's own grant, so a 401/403 against it
+    means the grant is gone and only they can fix it → `needs_reauth`. A
+    **server** token (`serverTokenFor()` in `server/env.ts` — today
+    `GITHUB_TOKEN`) is a platform-wide _rate-limit lever_ nobody granted, so a
+    403 there is the provider throttling us; reporting that as a broken
+    connection would be a lie the user can't act on. **Only a connection token
+    may raise the auth alarm.** `serverTokenFor` is an explicit map rather than
+    an env name declared on the connector: `@resfolio/env` is the only
+    sanctioned reader of `process.env` (doc 11), so a `process.env[name]`
+    lookup would break that rule _and_ leak an env var name into the pure
+    root — and a connector should not know the token exists anyway
+    (`FetchContext` already promises a pre-authenticated fetch).
+    It then drives `fetch` → `normalize`, resolves each candidate's
     route, upserts staging rows on `(connectionId, externalId)`, classifies
     against the stored `baseFingerprint` (duplicate → silently skipped;
     dismissals stick until content changes), and after full refetches prunes
@@ -92,7 +119,7 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     at the caller. Runs on user action (connect runs the first import inline;
     "Check for updates" re-runs it).
   - **`import.ts`** — `importItem(userId, itemId, { routeTo?,
-    customSectionTitle?, edits? })`: an **ordinary `@resfolio/profile` draft
+customSectionTitle?, edits? })`: an **ordinary `@resfolio/profile` draft
     mutation** via the pure edit helpers. Route = user override → staged
     route (unrouted without an override is refused; every target validated).
     Custom-routed items land in a titled custom section (`talk` → "Talks",
@@ -110,8 +137,9 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     changes), `routeItem` (give a pending item a destination without
     importing), `listImportRuns`. `auto_accept` exists as a column but is
     **dormant** — the domain never reads it.
-  - GitHub OAuth routes, Trigger.dev (only ever for refresh badges), Redis
-    rate budgets, and R2 media rehosting are account-gated and later.
+  - Trigger.dev (only ever for refresh badges), Redis rate budgets, and R2
+    media rehosting are account-gated and later. **GitHub OAuth routes are not
+    on this list any more** — they were never needed (see `connectors/`).
 
 ## Rules
 

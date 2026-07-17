@@ -1,13 +1,16 @@
 "use server";
 
-import { newResumeDocumentInput } from "@resfolio/document";
+import {
+  documentVisibilitySchema,
+  newResumeDocumentInput,
+} from "@resfolio/document";
 import {
   createDocument,
   deleteDocument,
   updateDocument,
 } from "@resfolio/document/server";
-import { mintRenderToken } from "@resfolio/document/token";
 import { getOrCreateProfile } from "@resfolio/profile/server";
+import { viewDefinitionSchema } from "@resfolio/profile";
 import {
   defaultResumeClassicConfig,
   resumeClassic,
@@ -16,14 +19,14 @@ import {
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { ActionError, createAction } from "@/lib/actions";
-import { env } from "@/lib/env";
+import { createAction } from "@/lib/actions";
 
 /**
  * Resume document mutations (docs/architecture/06-api-architecture.md): thin
  * adapters over `@resfolio/document/server`. Only `resume-classic` exists, so
  * template choice is fixed here; the config is validated with the template's
- * own schema before it is stored (doc 05).
+ * own schema before it is stored (doc 05), and the `view` with the profile
+ * engine's `viewDefinitionSchema`.
  */
 
 const TEMPLATE_MAJOR = Number.parseInt(
@@ -59,10 +62,27 @@ export const updateResumeAction = createAction({
   input: z.object({
     id: z.string().min(1),
     name: z.string().trim().min(1).max(120).optional(),
+    /** Presentation: page size, margins, accent, icons (doc 05). */
     config: resumeClassicConfigSchema.optional(),
+    /**
+     * What this resume *shows*: section visibility, item selection and order
+     * (doc 01's ViewDefinition). Content itself is never here — it stays in the
+     * Profile, and this only projects it.
+     */
+    view: viewDefinitionSchema.optional(),
+    visibility: documentVisibilitySchema.optional(),
   }),
-  handler: async ({ id, name, config }, ctx) => {
-    const updated = await updateDocument(ctx.userId, id, { name, config });
+  handler: async ({ id, name, config, view, visibility }, ctx) => {
+    const updated = await updateDocument(ctx.userId, id, {
+      name,
+      config,
+      view,
+      visibility,
+    });
+    if (visibility !== undefined) {
+      // The list shows each resume's visibility.
+      revalidatePath("/resumes");
+    }
     return { updatedAt: updated.updatedAt.toISOString() };
   },
 });
@@ -74,31 +94,5 @@ export const deleteResumeAction = createAction({
     await deleteDocument(ctx.userId, id);
     revalidatePath("/resumes");
     return { deleted: true as const };
-  },
-});
-
-/**
- * Mint a short-lived signed URL to the `apps/sites` print route for this
- * document, rendering the user's current **draft** (4E: the print route looks
- * the document up by id). Optional — requires `PRINT_TOKEN_SECRET` + `SITES_URL`;
- * absent, the UI hides the affordance and this returns a friendly error.
- */
-export const mintResumePrintUrlAction = createAction({
-  name: "resume.mintPrintUrl",
-  input: z.object({ id: z.string().min(1) }),
-  handler: async ({ id }, ctx) => {
-    const secret = env.PRINT_TOKEN_SECRET;
-    const sitesUrl = env.SITES_URL;
-    if (!secret || !sitesUrl) {
-      throw new ActionError("Print export isn't configured in this environment.");
-    }
-    const token = mintRenderToken(
-      { source: "draft", ref: ctx.userId, document: { kind: "stored", id } },
-      secret,
-    );
-    const url = `${sitesUrl.replace(/\/$/, "")}/render/resume/${encodeURIComponent(
-      id,
-    )}?token=${encodeURIComponent(token)}`;
-    return { url };
   },
 });

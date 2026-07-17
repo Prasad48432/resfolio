@@ -9,7 +9,8 @@ import {
  * Dashboard app env — only the slices this app reads directly.
  * Auth/database vars are validated by @resfolio/auth and
  * @resfolio/database on their own import. `render.dashboard` (optional) powers
- * the "Open print view" affordance on resumes — absent, it's simply hidden.
+ * the calls into `apps/sites`: the portfolio preview iframe and the resume PDF
+ * download — absent, those affordances are simply hidden.
  */
 export const env = createAppEnv({
   server: {

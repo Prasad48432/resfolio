@@ -10,6 +10,18 @@ import { TEST_IDS } from "@/lib/testids";
  * object is rendered through three different template layouts (light and
  * dark). Auto-rotates, and users can pick a template. All rendered as real
  * DOM, no images.
+ *
+ * Switching a template must not move the page. All three canvases are
+ * therefore rendered at once, stacked into a *single CSS grid cell* — the
+ * cell resolves to the tallest of them, so the frame is sized for the
+ * worst case at every breakpoint and simply never changes. This is why there
+ * is no hard-coded height here: a magic number would have to be re-guessed
+ * for each breakpoint and would silently clip whichever template outgrew it.
+ * Switching then only crossfades opacity — no reflow, no CLS.
+ *
+ * Each canvas is `h-full` so it paints the whole frame. Without it the
+ * shorter templates end early and leak the page background below them —
+ * very visible under Terminal, which is dark.
  */
 
 const profile = {
@@ -27,9 +39,24 @@ const profile = {
 };
 
 const templates = [
-  { id: "editorial", label: "Editorial", tone: "light" as const },
-  { id: "terminal", label: "Terminal", tone: "dark" as const },
-  { id: "minimal", label: "Minimal", tone: "light" as const },
+  {
+    id: "editorial",
+    label: "Editorial",
+    tone: "light" as const,
+    Canvas: EditorialTemplate,
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    tone: "dark" as const,
+    Canvas: TerminalTemplate,
+  },
+  {
+    id: "minimal",
+    label: "Minimal",
+    tone: "light" as const,
+    Canvas: MinimalTemplate,
+  },
 ];
 
 export default function Preview() {
@@ -76,7 +103,9 @@ export default function Preview() {
                 key={t.id}
                 type="button"
                 role="tab"
+                id={`preview-tab-${t.id}`}
                 aria-selected={active === i}
+                aria-controls={`preview-panel-${t.id}`}
                 data-testid={`preview-template-${t.id}`}
                 onClick={() => setActive(i)}
                 className={`rounded-full border px-4 py-1.5 text-[13px] font-medium transition ${
@@ -122,11 +151,34 @@ export default function Preview() {
               <div className="w-16" />
             </div>
 
-            {/* Template canvas */}
-            <div key={current.id} className="animate-focus-in">
-              {current.id === "editorial" && <EditorialTemplate />}
-              {current.id === "terminal" && <TerminalTemplate />}
-              {current.id === "minimal" && <MinimalTemplate />}
+            {/* Template canvas — one grid cell, three stacked panels. Every
+                panel stays in the layout (that is what pins the height); only
+                opacity changes, so nothing reflows on a switch. The panels are
+                presentational and hold nothing focusable, so `aria-hidden` +
+                `pointer-events-none` is enough to keep the inactive ones out
+                of reach. */}
+            <div className="grid">
+              {templates.map((t, i) => {
+                const isActive = active === i;
+                return (
+                  <div
+                    key={t.id}
+                    id={`preview-panel-${t.id}`}
+                    role="tabpanel"
+                    aria-labelledby={`preview-tab-${t.id}`}
+                    aria-hidden={!isActive}
+                    data-testid={`preview-panel-${t.id}`}
+                    data-active={isActive}
+                    className={`col-start-1 row-start-1 transition-opacity duration-(--duration-slow) ease-out ${
+                      isActive
+                        ? "opacity-100"
+                        : "pointer-events-none opacity-0 select-none"
+                    }`}
+                  >
+                    <t.Canvas />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </motion.div>
@@ -138,7 +190,7 @@ export default function Preview() {
 /* ── Template 1: Editorial (light, serif) ─────────────────────────────── */
 function EditorialTemplate() {
   return (
-    <div className="min-h-[420px] bg-[#f7f2e9] p-6 md:p-12">
+    <div className="h-full min-h-[420px] bg-[#f7f2e9] p-6 md:p-12">
       <div className="mx-auto max-w-2xl">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
           {profile.name} · {profile.location}
@@ -173,7 +225,7 @@ function EditorialTemplate() {
 /* ── Template 2: Terminal (dark, mono) ────────────────────────────────── */
 function TerminalTemplate() {
   return (
-    <div className="grid min-h-[420px] gap-6 bg-[#131211] p-6 text-white md:grid-cols-12 md:p-10">
+    <div className="grid h-full min-h-[420px] gap-6 bg-[#131211] p-6 text-white md:grid-cols-12 md:p-10">
       <div className="md:col-span-8">
         <p className="font-mono text-[12px] text-white/50">$ whoami</p>
         <h3 className="mt-3 font-mono text-2xl font-semibold text-white md:text-3xl">
@@ -189,7 +241,7 @@ function TerminalTemplate() {
               className="flex items-center justify-between rounded-md border border-white/10 bg-white/3 px-3 py-2 font-mono text-[12px]"
             >
               <span className="text-white/85">
-                <span className="text-accent">
+                <span className="text-brand">
                   {String(i + 1).padStart(2, "0")}
                 </span>{" "}
                 {p.name}
@@ -218,7 +270,7 @@ function TerminalTemplate() {
 /* ── Template 3: Minimal (light, sans) ────────────────────────────────── */
 function MinimalTemplate() {
   return (
-    <div className="min-h-[420px] bg-surface p-6 md:p-12">
+    <div className="h-full min-h-[420px] bg-surface p-6 md:p-12">
       <div className="flex flex-col gap-2">
         <h3 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           {profile.name}
@@ -241,7 +293,7 @@ function MinimalTemplate() {
         {profile.projects.map((p) => (
           <div
             key={p.name}
-            className="rounded-xl border border-border bg-background/50 p-4 transition hover:border-accent/40"
+            className="rounded-xl border border-border bg-background/50 p-4 transition hover:border-brand/40"
           >
             <div className="text-[15px] font-medium text-foreground">
               {p.name}

@@ -1,25 +1,33 @@
 import { describe, expect, it } from "vitest";
 
 import type { FetchContext } from "../contract";
-import { github, type GithubRepo } from "./github";
+import {
+  github,
+  githubInputSchema,
+  type GithubInput,
+  type GithubRepo,
+} from "./github";
 import {
   archivedRepo,
+  bareRepo,
   forkRepo,
-  junkHomepageRepo,
   normalRepo,
 } from "./github.fixtures";
 
 /** Minimal fake `ctx`: a `fetch` that serves recorded pages keyed by the
- * `page=` query param, plus a captured cursor. No network. */
-function makeCtx(pages: GithubRepo[][], cursor?: string) {
+ * `page=` query param, plus a captured cursor and the requested URLs. No
+ * network. */
+function makeCtx(pages: GithubRepo[][], cursor?: string, username = "ada") {
   let saved = cursor;
-  const ctx: FetchContext<undefined> = {
-    input: undefined,
+  const urls: string[] = [];
+  const ctx: FetchContext<GithubInput> = {
+    input: { username },
     cursor,
     setCursor: (value) => {
       saved = value;
     },
     fetch: ((url: string) => {
+      urls.push(String(url));
       const match = /[?&]page=(\d+)/.exec(String(url));
       const page = match ? Number(match[1]) : 1;
       const data = pages[page - 1] ?? [];
@@ -30,7 +38,7 @@ function makeCtx(pages: GithubRepo[][], cursor?: string) {
       } as Response);
     }) as unknown as typeof fetch,
   };
-  return { ctx, getCursor: () => saved };
+  return { ctx, getCursor: () => saved, urls };
 }
 
 async function collect(iter: AsyncIterable<GithubRepo>): Promise<GithubRepo[]> {
@@ -41,6 +49,28 @@ async function collect(iter: AsyncIterable<GithubRepo>): Promise<GithubRepo[]> {
   return out;
 }
 
+describe("github.input", () => {
+  it("accepts real GitHub usernames", () => {
+    for (const username of ["ada", "a", "torvalds", "my-org-1", "a1-b2-c3"]) {
+      expect(githubInputSchema.safeParse({ username }).success).toBe(true);
+    }
+  });
+
+  it("rejects usernames GitHub itself would reject", () => {
+    for (const username of [
+      "", // empty
+      "-leading", // leading hyphen
+      "trailing-", // trailing hyphen
+      "double--hyphen", // consecutive hyphens
+      "has space",
+      "has_underscore",
+      "a".repeat(40), // over 39 chars
+    ]) {
+      expect(githubInputSchema.safeParse({ username }).success).toBe(false);
+    }
+  });
+});
+
 describe("github.normalize", () => {
   it("maps a repo to a project candidate", () => {
     const [candidate] = github.normalize(normalRepo);
@@ -48,14 +78,13 @@ describe("github.normalize", () => {
     expect(candidate?.kind).toBe("project");
     expect(candidate?.externalId).toBe("1001");
     expect(candidate?.title).toBe("fluxlog");
-    // homepage is the canonical link when valid; repoUrl is the repo itself.
-    expect(candidate?.url).toBe("https://fluxlog.dev");
+    expect(candidate?.url).toBe("https://github.com/ada/fluxlog");
     if (candidate?.kind === "project") {
       expect(candidate.payload.name).toBe("fluxlog");
-      expect(candidate.payload.description).toBe("Structured logging for Flux.");
-      expect(candidate.payload.url).toBe("https://fluxlog.dev");
+      expect(candidate.payload.description).toBe(
+        "Structured logging for Flux.",
+      );
       expect(candidate.payload.repoUrl).toBe("https://github.com/ada/fluxlog");
-      expect(candidate.payload.startDate).toBe("2021-03-04");
       // language + topics, de-duplicated (typescript appears in both).
       expect(candidate.payload.technologies).toEqual([
         "TypeScript",
@@ -66,26 +95,32 @@ describe("github.normalize", () => {
     }
   });
 
-  it("carries star/fork metrics and the owner avatar as media", () => {
+  it("carries star/fork metrics", () => {
     const [candidate] = github.normalize(normalRepo);
     expect(candidate?.metrics).toEqual([
       { key: "stars", value: 2312 },
       { key: "forks", value: 88 },
     ]);
-    expect(candidate?.media).toEqual([
-      { role: "avatar", url: "https://avatars.githubusercontent.com/u/42" },
-    ]);
   });
 
-  it("drops a junk homepage and falls back to the repo URL", () => {
-    const [candidate] = github.normalize(junkHomepageRepo);
+  it("imports only the named fields — no dates, no avatar, no homepage", () => {
+    const [candidate] = github.normalize(normalRepo);
+    // Doc 12 §5: only the metadata the Profile needs. A repo carries no
+    // startDate and no media, so imported projects stay free of provider junk.
+    expect(candidate?.media).toEqual([]);
+    if (candidate?.kind === "project") {
+      expect(candidate.payload.startDate).toBeUndefined();
+      expect(candidate.payload.url).toBeUndefined();
+    }
+  });
+
+  it("tolerates a repo with nothing optional set", () => {
+    const [candidate] = github.normalize(bareRepo);
     expect(candidate?.url).toBe("https://github.com/ada/dotfiles");
     if (candidate?.kind === "project") {
-      expect(candidate.payload.url).toBeUndefined();
       expect(candidate.payload.description).toBe("");
       expect(candidate.payload.technologies).toEqual([]);
     }
-    expect(candidate?.media).toEqual([]);
   });
 
   it("skips forks and archived repos", () => {
@@ -95,13 +130,28 @@ describe("github.normalize", () => {
 });
 
 describe("github.fetch", () => {
+  it("reads the public per-user endpoint, not the authenticated one", async () => {
+    const { ctx, urls } = makeCtx([[normalRepo]], undefined, "ada");
+    await collect(github.fetch(ctx));
+    expect(urls[0]).toContain("https://api.github.com/users/ada/repos");
+    expect(urls[0]).not.toContain("/user/repos");
+  });
+
+  it("escapes the username into the path", async () => {
+    const { ctx, urls } = makeCtx([[]], undefined, "a-b");
+    await collect(github.fetch(ctx));
+    expect(urls[0]).toContain("/users/a-b/repos");
+  });
+
   it("pages until a short page and sets the cursor to the newest push", async () => {
     const page1 = Array.from({ length: 100 }, (_, i) => ({
       ...normalRepo,
       id: 2000 + i,
       pushed_at: `2024-06-${String((i % 28) + 1).padStart(2, "0")}T00:00:00Z`,
     }));
-    const page2 = [{ ...normalRepo, id: 2999, pushed_at: "2020-01-01T00:00:00Z" }];
+    const page2 = [
+      { ...normalRepo, id: 2999, pushed_at: "2020-01-01T00:00:00Z" },
+    ];
     const { ctx, getCursor } = makeCtx([page1, page2]);
 
     const repos = await collect(github.fetch(ctx));
@@ -124,14 +174,33 @@ describe("github.fetch", () => {
     expect(getCursor()).toBe("2024-06-10T00:00:00Z");
   });
 
-  it("throws on a non-ok response", async () => {
-    const ctx: FetchContext<undefined> = {
-      input: undefined,
+  it("names the user on a 404 rather than leaking the status", async () => {
+    const ctx: FetchContext<GithubInput> = {
+      input: { username: "nobody" },
       cursor: undefined,
       setCursor: () => {},
       fetch: (() =>
-        Promise.resolve({ ok: false, status: 401 } as Response)) as unknown as typeof fetch,
+        Promise.resolve({
+          ok: false,
+          status: 404,
+        } as Response)) as unknown as typeof fetch,
     };
-    await expect(collect(github.fetch(ctx))).rejects.toThrow(/401/);
+    await expect(collect(github.fetch(ctx))).rejects.toThrow(
+      /No public GitHub user named "nobody"/,
+    );
+  });
+
+  it("throws on a non-ok response", async () => {
+    const ctx: FetchContext<GithubInput> = {
+      input: { username: "ada" },
+      cursor: undefined,
+      setCursor: () => {},
+      fetch: (() =>
+        Promise.resolve({
+          ok: false,
+          status: 403,
+        } as Response)) as unknown as typeof fetch,
+    };
+    await expect(collect(github.fetch(ctx))).rejects.toThrow(/403/);
   });
 });

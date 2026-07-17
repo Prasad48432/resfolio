@@ -82,7 +82,12 @@ export {
   type ConnectorId,
 } from "./registry";
 
-export { github, type GithubRepo } from "./connectors/github";
+export {
+  github,
+  githubInputSchema,
+  type GithubInput,
+  type GithubRepo,
+} from "./connectors/github";
 export {
   rss,
   rssInputSchema,
@@ -90,7 +95,12 @@ export {
   type RssInput,
   type RssRawEntry,
 } from "./connectors/rss";
-export { devto, devtoInputSchema, type DevtoArticle, type DevtoInput } from "./connectors/devto";
+export {
+  devto,
+  devtoInputSchema,
+  type DevtoArticle,
+  type DevtoInput,
+} from "./connectors/devto";
 export {
   stackoverflow,
   stackoverflowInputSchema,
@@ -99,14 +109,5 @@ export {
   type StackoverflowTag,
   type StackoverflowUser,
 } from "./connectors/stackoverflow";
-export {
-  extractLinkedinExportFiles,
-  linkedin,
-  linkedinInputSchema,
-  type LinkedinFiles,
-  type LinkedinInput,
-  type LinkedinRaw,
-} from "./connectors/linkedin";
-export { csvRecords, parseCsv } from "./connectors/csv";
 
 export { CandidateApplyError, ConnectorDefinitionError } from "./errors";

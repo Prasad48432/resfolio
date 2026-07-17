@@ -37,7 +37,7 @@ const EXPERIENCE = [
   { role: "Product Designer", org: "Stripe", period: "2019 — 22" },
 ];
 const PROJECTS = [
-  { name: "Fjord", grad: "from-accent/30 to-accent/5" },
+  { name: "Fjord", grad: "from-brand/30 to-brand/5" },
   { name: "Pulse", grad: "from-[#7d8fc9]/30 to-[#7d8fc9]/5" },
   { name: "Halo", grad: "from-live/30 to-live/5" },
 ];
@@ -75,7 +75,7 @@ export default function HeroGraphic() {
   const role = ROLES[tick % ROLES.length]!;
   const image = IMAGES[tick % ROLES.length]!;
   const theme = tick % 3;
-  const synced = (tick % 9) + 1;
+  const updatedAgo = (tick % 9) + 1;
 
   return (
     <div
@@ -103,7 +103,7 @@ export default function HeroGraphic() {
             <path
               d={d}
               fill="none"
-              stroke="var(--color-accent)"
+              stroke="var(--color-brand)"
               strokeWidth="1.4"
               strokeDasharray="2 7"
               strokeLinecap="round"
@@ -129,7 +129,7 @@ export default function HeroGraphic() {
             <path
               d={w.d}
               fill="none"
-              stroke="var(--color-accent)"
+              stroke="var(--color-brand)"
               strokeWidth="1.1"
               vectorEffect="non-scaling-stroke"
               opacity="0.32"
@@ -137,7 +137,7 @@ export default function HeroGraphic() {
             <path
               d={w.d}
               fill="none"
-              stroke="var(--color-accent)"
+              stroke="var(--color-brand)"
               strokeWidth="1.5"
               strokeDasharray="2 6"
               strokeLinecap="round"
@@ -154,7 +154,7 @@ export default function HeroGraphic() {
         <span
           key={`${n.x}-${n.y}`}
           aria-hidden
-          className="absolute z-20 hidden h-[1.5cqi] w-[1.5cqi] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_0_2.5px_var(--color-background)] lg:block"
+          className="absolute z-20 hidden h-[1.5cqi] w-[1.5cqi] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand shadow-[0_0_0_2.5px_var(--color-background)] lg:block"
           style={{ left: `${n.x}%`, top: `${n.y}%` }}
         />
       ))}
@@ -163,7 +163,7 @@ export default function HeroGraphic() {
         {/* ── Source: profile hub (top-left) ─────────────────────────── */}
         <div className="col-start-1 row-start-1 flex min-w-0 flex-col justify-between gap-[2cqi] rounded-[2cqi] border border-border bg-surface p-[2.6cqi] shadow-[0_6px_18px_rgba(38,32,25,0.06)] lg:absolute lg:left-[5%] lg:top-[2%] lg:w-[35%] lg:-rotate-1">
           <div className="flex items-center gap-[1.6cqi]">
-            <div className="relative h-[7cqi] w-[7cqi] shrink-0 overflow-hidden rounded-full border border-border bg-accent/12">
+            <div className="relative h-[7cqi] w-[7cqi] shrink-0 overflow-hidden rounded-full border border-border bg-brand/12">
               <Image
                 src={image}
                 alt={NAME}
@@ -186,14 +186,14 @@ export default function HeroGraphic() {
               className="animate-focus-in truncate font-medium text-foreground"
             >
               {role}
-              <span className="rf-caret ml-[0.4cqi] inline-block h-[2.2cqi] w-px translate-y-[0.3cqi] bg-accent align-middle" />
+              <span className="rf-caret ml-[0.4cqi] inline-block h-[2.2cqi] w-px translate-y-[0.3cqi] bg-brand align-middle" />
             </span>
           </div>
           <div className="flex items-center justify-between border-t border-border pt-[1.6cqi] text-[1.9cqi]">
-            <span className="text-muted">single source</span>
+            <span className="text-muted">source of truth</span>
             <span className="inline-flex items-center gap-[1cqi] text-live">
               <span className="h-[1.5cqi] w-[1.5cqi] rounded-full bg-live rf-pulse-soft" />
-              synced
+              live
             </span>
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function HeroGraphic() {
           </p>
 
           <div className="mt-[2.2cqi] border-t border-border pt-[1.8cqi]">
-            <p className="text-[1.8cqi] font-semibold uppercase tracking-[0.18em] text-accent">
+            <p className="text-[1.8cqi] font-semibold uppercase tracking-[0.18em] text-brand">
               Experience
             </p>
             <div className="mt-[1.6cqi] flex flex-col gap-[2cqi]">
@@ -261,17 +261,17 @@ export default function HeroGraphic() {
           <pre className="whitespace-pre-wrap break-all font-mono text-[1.9cqi] leading-[1.6] text-muted">
             <span className="text-foreground/50">{"{"}</span>
             {"\n  "}
-            <span className="text-accent">&quot;name&quot;</span>:{" "}
+            <span className="text-brand">&quot;name&quot;</span>:{" "}
             <span className="text-live">&quot;{NAME}&quot;</span>,{"\n  "}
-            <span className="text-accent">&quot;age&quot;</span>:{" "}
+            <span className="text-brand">&quot;age&quot;</span>:{" "}
             <span className="text-foreground/70">{AGE}</span>,{"\n  "}
-            <span className="text-accent">&quot;role&quot;</span>:{" "}
+            <span className="text-brand">&quot;role&quot;</span>:{" "}
             <span key={role} className="animate-focus-in text-live">
               &quot;{role}&quot;
             </span>
             ,{"\n  "}
-            <span className="text-accent">&quot;synced&quot;</span>:{" "}
-            <span className="text-foreground/70">{synced}s ago</span>
+            <span className="text-brand">&quot;updated&quot;</span>:{" "}
+            <span className="text-foreground/70">&quot;{updatedAgo}s ago&quot;</span>
             {"\n"}
             <span className="text-foreground/50">{"}"}</span>
           </pre>
@@ -297,7 +297,7 @@ const Template1 = ({ role, image }: { role: string; image: string }) => {
         </span>
       </div>
       {/* hero band */}
-      <div className="relative bg-linear-to-br from-accent/12 to-transparent px-[2.6cqi] pb-[2.4cqi] pt-[2.8cqi]">
+      <div className="relative bg-linear-to-br from-brand/12 to-transparent px-[2.6cqi] pb-[2.4cqi] pt-[2.8cqi]">
         <span className="relative grid h-[9cqi] w-[9cqi] overflow-hidden rounded-full border border-border bg-surface">
           <Image
             src={image}
@@ -424,7 +424,7 @@ const Template3 = ({ role, image }: { role: string; image: string }) => {
             Portfolio
           </span>
 
-          <span className="rounded-[0.4cqi] bg-accent/10 px-[1.2cqi] py-[0.4cqi] font-mono text-[1.6cqi] text-accent">
+          <span className="rounded-[0.4cqi] bg-brand/10 px-[1.2cqi] py-[0.4cqi] font-mono text-[1.6cqi] text-brand">
             v3
           </span>
         </div>
@@ -450,7 +450,7 @@ const Template3 = ({ role, image }: { role: string; image: string }) => {
             </p>
           </div>
 
-          <span className="grid h-[9cqi] w-[9cqi] place-items-center rounded-[0.8cqi] border border-border bg-white/70 font-display text-[4.2cqi] text-accent">
+          <span className="grid h-[9cqi] w-[9cqi] place-items-center rounded-[0.8cqi] border border-border bg-white/70 font-display text-[4.2cqi] text-brand">
             <Image
               src={image}
               width={50}
@@ -469,7 +469,7 @@ const Template3 = ({ role, image }: { role: string; image: string }) => {
             Featured Work
           </p>
 
-          <div className="h-[0.8cqi] w-[8cqi] rounded-full bg-accent/20" />
+          <div className="h-[0.8cqi] w-[8cqi] rounded-full bg-brand/20" />
         </div>
 
         {/* Bottom cards */}

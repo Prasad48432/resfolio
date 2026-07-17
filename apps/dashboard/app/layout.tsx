@@ -39,13 +39,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        suppressHydrationWarning
-        className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
-      >
-        {children}
-      </body>
+    // The font variables must land on <html>, not <body>. @resfolio/design
+    // declares `--font-display: var(--font-instrument-serif), …` on `:root`,
+    // and a custom property is substituted where it is *declared*. Declared on
+    // :root while --font-instrument-serif only existed on <body>, --font-display
+    // resolved to nothing and was inherited as nothing — so `font-display`,
+    // `font-sans` and `font-mono` all silently fell back to system fonts.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
+    >
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

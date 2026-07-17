@@ -52,12 +52,13 @@ export function CommandPalette({
       open={open}
       onOpenChange={onOpenChange}
       data-testid={TEST_IDS.commandPalette}
+      className="w-[calc(100vw-2rem)] max-w-md"
     >
       <CommandInput
         placeholder="Type a command or search…"
         data-testid={TEST_IDS.commandPaletteInput}
       />
-      <CommandList>
+      <CommandList className="thin-scrollbar">
         <CommandEmpty>No results.</CommandEmpty>
         <CommandGroup heading="Go to">
           {NAV_ITEMS.map((item) => {

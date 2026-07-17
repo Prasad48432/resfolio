@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-// Importing env validates it at config-load time — a missing PRINT_TOKEN_SECRET
+// Importing env validates it at config-load time — a missing RENDER_SECRET
 // fails the build, not a request (doc 11).
 import { env } from "./lib/env";
 
@@ -14,7 +14,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Every render surface is private and must never be indexed (doc 09).
+        // The resume route here is publicly readable (doc 02) but must never be
+        // indexed: it is shared by link, and it carries contact details with no
+        // `discoverable` toggle to opt in with. This header is the
+        // authoritative crawler signal; `robots.ts` disallows the same paths.
         source: "/render/:path*",
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow" },

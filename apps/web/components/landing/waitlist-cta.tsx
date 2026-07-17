@@ -14,9 +14,9 @@ export default function WaitlistCta() {
       />
 
       <div className="relative mx-auto max-w-4xl px-6 text-center lg:px-8">
-        <span className="label-eyebrow">Ready to sync?</span>
+        <span className="label-eyebrow">Claim your name</span>
         <h2 className="mt-6 font-display text-5xl leading-[0.98] tracking-tight text-foreground md:text-7xl lg:text-8xl">
-          Reserve <em className="italic text-accent">your handle</em>
+          Reserve <em className="italic text-brand">your handle</em>
           <br />
           before someone else does.
         </h2>

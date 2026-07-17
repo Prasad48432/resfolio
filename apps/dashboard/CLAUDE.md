@@ -10,9 +10,10 @@ This application is responsible for
 
 - Authentication (sign in / sign up / session)
 - Profile editor (the single source of truth: role, projects, bio, skills)
-- Connected sources (GitHub, Dribbble, Behance, LinkedIn, Medium)
+- Sources — the import workspace (GitHub, Dev.to, RSS, Stack Overflow)
 - Portfolio theme + custom domain configuration
-- Resume export
+- Resume configuration, sharing, and PDF export
+- Blog (reserved; Phase 8)
 - Account & billing
 
 This application is NOT the public marketing site.
@@ -38,22 +39,59 @@ the settings editor (schema-driven config form, discoverable toggle, template
 switch, publish) with the `apps/sites` draft-preview iframe. **Phase 6 (revised to import-first, "6R")**: the
 **Sources** section at `/sources` — an **import workspace** (provider
 gallery, triage-by-destination, needs-a-home bucket, import history):
-import from external sources (RSS live, GitHub pending its OAuth app,
-LinkedIn export next) into the profile draft; nothing lands without an
-explicit Import click. `/domains` remains a `ComingSoon`
-placeholder until Phase 7. The **design-system pass** (doc 08)
+import from external sources into the profile draft; nothing lands without an
+explicit Import click. All four V1 providers are live and public — **no OAuth,
+no teasers**. `/domains` remains a `ComingSoon` placeholder until Phase 7, and
+`/blog` is the same until Phase 8. The **design-system pass** (doc 08)
 then made the app a coherent product rather than a set of screens: shared
 `Page`/`PageHeader`/`EmptyState`/`SaveIndicator` primitives, the product `Card`
 surface replacing the landing page's `card-surface`, motion tokens + a Framer
 Motion vocabulary in `components/motion/`, and a palette that no longer
-animates. Use current Next.js best practices from
-`node_modules/next/dist/docs/` when adding features.
+animates. **The 2026-07-17 revision** then: renamed the brand token
+`accent` → `brand` and adopted **shadcn/ui as the UI foundation** (the shell is
+now shadcn's `Sidebar`); rebuilt the resume experience (public/private
+visibility, no tokens, Download PDF, a Sections config layer). Use current
+Next.js best practices from `node_modules/next/dist/docs/` when adding
+features.
 
 ## Established conventions (follow these)
 
 - **Design system** (doc 08 → "Design system: extract, then extend"). The
   dashboard is a productivity app; the landing page is not. Where they differ,
   the dashboard is always denser, quieter, faster.
+  - **shadcn/ui is this app's UI foundation** — and only this app's
+    (`apps/web` stays fully custom). Components come from the registry into
+    `packages/ui`; read `packages/ui/CLAUDE.md` before adding one. They are
+    themed by the **token bridge** `@resfolio/design/shadcn` (imported by
+    `app/globals.css`, dashboard-only), never by editing the component.
+  - **The brand colour is `brand`, not `accent`**: `text-brand`, `bg-brand`.
+    `accent` now means shadcn's neutral hover surface — using it for the brand
+    would turn every menu and sidebar hover orange. (Templates' `--rf-accent`
+    and `resume-classic`'s `accent` _config field_ are unrelated namespaces.)
+  - **Dark mode is dashboard-only** (doc 08, Open Question now settled):
+    light / dark / system via `next-themes`, mounted as `ThemeProvider` in the
+    **`(dashboard)` layout — not the root layout**, so `/login` keeps its
+    light-only `card-surface` brand moment and `apps/web` is untouched. The
+    switch lives in the user menu (`components/shell/theme-toggle.tsx`), a
+    segmented control rather than menu items so choosing a theme doesn't close
+    the menu you're comparing from. **Only the active option shows its label**;
+    the other two are icons with tooltips — three labels crammed into a 224px
+    menu was noise, and only one of them answers "which theme am I on". The
+    active pill is a shared Framer `layoutId` so it slides rather than
+    cross-fades; icon-only options keep an `aria-label`, because a tooltip is
+    not an accessible name.
+    `e2e/shell.spec.ts` guards the two behaviours CSS precedence would break
+    silently: **explicit Light must beat a dark OS** (this is what regresses if
+    the `dark` variant ever falls back to `prefers-color-scheme`) and **System
+    must follow the OS with no click**. A "system → light" pass on a light OS
+    proves nothing — light is also the fallback.
+    **The whole theme is `@resfolio/design/dark`, a palette** — restated token
+    values. Do not add a `dark:` variant to a component to "fix" it in dark:
+    if something looks wrong, it is either a hard-coded colour that should be
+    a token, or a token whose dark value needs tuning. The two deliberate
+    hard-coded exceptions are the resume/portfolio previews
+    (`bg-[#f4f1ea]`, `bg-white`) — paper and a rendered site stay light in
+    both themes, because that is what they actually are.
   - **Surfaces**: use `Card` from `@resfolio/ui` (hairline border, no shadow).
     **Never `card-surface`** — that's the landing page's surface (20px radius,
     ambient glow) and is confined to `apps/web` plus `/login`, the one brand
@@ -87,10 +125,49 @@ animates. Use current Next.js best practices from
     are `apps/web`'s. Product overlays use `animate-overlay-in`/`modal-in`/
     `popover-in` (150–200ms).
 - **CSS layering**: base rules in `@resfolio/design` live inside `@layer base`.
-  Unlayered CSS beats *every* cascade layer, so an unlayered rule there would
+  Unlayered CSS beats _every_ cascade layer, so an unlayered rule there would
   override Tailwind utilities app-wide with no way to opt out (this is what made
   the focus ring un-suppressible on the palette input). Keep new global rules in
   a layer.
+- **The app shell** (`components/shell/`) is composed from shadcn's `Sidebar`:
+  `AppShell` = `TooltipProvider` → `SidebarProvider` → `AppSidebar` +
+  `SidebarInset`. That is where the responsive/a11y posture comes from — mobile
+  `Sheet` with a focus trap, icon rail with tooltips, `cmd+b`. Two things not
+  to break:
+  - `defaultOpen` comes from the **`sidebar_state` cookie read server-side** in
+    the `(dashboard)` layout. Drop that and a collapsed sidebar renders
+    expanded, then snaps shut on hydration.
+  - **Inactive nav items are `text-muted`**; only the current page earns full
+    contrast (doc 08). shadcn's default gives every item full
+    `sidebar-foreground`, which makes the column shout.
+    The palette stays `cmd+k` (no clash), and `lib/navigation.ts` is still the
+    single IA source for both the sidebar and the palette.
+  - **The collapsed icon rail is 3rem, and things break in it, not in the
+    expanded sidebar.** Two traps, both now covered by `e2e/shell.spec.ts`:
+    - The header carries `px-4`, which leaves a **16px** content box in the
+      rail — so it drops its padding and centres when collapsed. It shows
+      `ResfolioLogo variant="mark"` there and the wordmark when expanded (the
+      whole link used to hide, leaving no brand at all). Put the visibility
+      classes on **wrapper spans**: `ResfolioLogo` concatenates `className` onto
+      its own `inline-flex` with no tailwind-merge, so `hidden` would tie with
+      it and the winner would be Tailwind's emit order.
+    - **Tailwind preflight's `img { max-width: 100% }` beats `width`**, so an
+      `<img>` avatar in a narrow box renders as a vertical *ellipse* (13×28)
+      while `size-7` holds the height — and `shrink-0` can't stop it, since
+      that's flex shrink. Hiding the identity block and chevron is the fix;
+      `max-w-none` pins the invariant. Note the fallback `<span>` avatar is
+      immune, so **the bug is invisible to any test user without a picture** —
+      the spec forces the `<img>` branch via the DB.
+  - **The nav's active and hover states are overridden in `sidebar.tsx`, and
+    both must stay overridden.** The registry spends one token on both
+    (`hover:bg-sidebar-accent` *and* `data-active:bg-sidebar-accent`), which
+    made the current page indistinguishable from whatever the mouse was over —
+    and that token bridges to `surface-warm`, 2% off the sidebar's own
+    background. Active is now a **brand** wash, hover a **neutral ink** wash:
+    different hue, so they can't be confused. Note tailwind-merge only drops
+    the registry class whose modifier set matches yours exactly — override
+    `hover:` on the active branch too, or it survives at equal specificity and
+    the active item flickers back on hover.
 - **Route groups**: `(auth)` = minimal-chrome public screens (`/login`);
   `(dashboard)` = everything behind `requireSession` (its layout verifies
   the session server-side and renders `AppShell`).
@@ -139,12 +216,34 @@ animates. Use current Next.js best practices from
   future editor. The preview renders the **real** `resume-classic` template
   in-browser via the pure `buildProfileView` (same function the print route
   runs — that's the parity guarantee), scaled to fit with advisory page-break
-  guides (`lib/resume-preview.ts`, pure + unit-tested). A resume edits
-  **presentation only** (template config); content stays at `/profile`.
-  Mutations go through `app/(dashboard)/resumes/actions.ts` (thin `createAction`
-  adapters over `@resfolio/document/server`). "Print view" is env-gated
-  (`render.dashboard`: `PRINT_TOKEN_SECRET` + `SITES_URL`) — it mints a stored
-  render token and opens the `apps/sites` print route.
+  guides (`lib/resume-preview.ts`, pure + unit-tested). A resume **presents**
+  a profile, it never contains one — nothing in this editor edits content; that
+  is `/profile`, one click from every empty state. The left pane is three
+  groups:
+  - **Sections** — the configuration layer (`components/resume/resume-sections.tsx`
+    over the pure, tested `lib/resume-sections.ts`). It writes a
+    **`ViewDefinition`** (`include` / `order` / `exclude`) — the exact thing
+    `buildProfileView` already read, which is why this needed no migration and
+    no domain change. Name/headline/contact/links/summary have **no controls**
+    (they're `basics`); Experience and Education are shown but locked. The
+    default view is `{}` — everything on, empty sections auto-dropped — so the
+    toggles exist to _hide_ content you have.
+  - **Layout** — the template's own config schema (page size, margins, accent,
+    icons). Presentation only.
+  - **Sharing** — `visibility` (public/private) + the permanent public URL.
+    Mutations go through `app/(dashboard)/resumes/actions.ts` (thin `createAction`
+    adapters over `@resfolio/document/server`); `updateResumeAction` takes
+    `name`/`config`/`view`/`visibility`.
+    **Download PDF** is `GET /api/resumes/[id]/pdf` — a route handler, not an
+    action, because the product need is a real browser download
+    (`Content-Disposition: attachment`). **This is the trust boundary**:
+    `apps/sites` has no sessions, so this route verifies the session, verifies it
+    owns the document (`getDocument` is user-scoped), and only then calls the
+    render host with the `RENDER_SECRET` bearer. Env-gated on
+    `render.dashboard` (`RENDER_SECRET` + `SITES_URL`); absent, the button hides.
+    It renders the **draft** (matching the preview); the public URL renders the
+    **published** version — the Sharing panel says so, because people get this
+    wrong.
 - **Portfolio section** (doc 03/04, Phase 5): `/portfolio` reads the user's Site
   via `@resfolio/portfolio/server` (`getSiteForOwner`). No site → `PortfolioClaim`
   (slug input with live availability via `checkSlugAvailabilityAction`, template
@@ -166,8 +265,10 @@ animates. Use current Next.js best practices from
   preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
   gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
 - **Sources section** (doc 12 import-first, Phase 6R): `/sources` is the
-  **import workspace** — "Import from…" provider gallery on top (RSS live;
-  GitHub + LinkedIn export teasers), then triage (pending items grouped by
+  **import workspace** — "Import from…" provider gallery on top (**four live
+  `PublicConnectCard`s: GitHub, RSS, Dev.to, Stack Overflow — no teasers**; a
+  greyed "coming soon" card is an advert for something the user can't have, on
+  a page they came to work on), then triage (pending items grouped by
   destination with per-group Import all, a destination Select for unrouted
   "needs a home" items, inline edit-before-import, Skip), import history
   (receipts with a "Newer version available" badge and a **warned** re-import
@@ -177,11 +278,12 @@ animates. Use current Next.js best practices from
   `listImportReceipts`), mapped to plain DTOs in `lib/sources.ts` (display
   strings only — no `raw` provider payloads ever reach the client), rendered
   by the `SourcesView` island (`components/sources/`). Mutations go through
-  `app/(dashboard)/sources/actions.ts`: connect-RSS runs the first import
-  inline; `importItemAction` takes `routeTo`/`edits` and revalidates
-  `/profile` too because the import mutates the profile draft. Nothing
-  reaches the profile without an explicit Import click; imported items are
-  ordinary profile content, and publish stays at `/profile`.
+  `app/(dashboard)/sources/actions.ts`: `connectPublicSourceAction`
+  (`PUBLIC_CONNECTOR_IDS` — in V1 that's every connector there is) runs the
+  first import inline; `importItemAction` takes `routeTo`/`edits` and
+  revalidates `/profile` too because the import mutates the profile draft.
+  Nothing reaches the profile without an explicit Import click; imported items
+  are ordinary profile content, and publish stays at `/profile`.
 - **String arrays** (skills, technologies) are edited with `TagsField`
   (`components/profile/tags-field.tsx`), the RHF binding over `@resfolio/ui`'s
   `TagInput` chip editor — never a comma-separated text input. Enter (and
@@ -237,20 +339,24 @@ Language
 Shared packages
 
 - `@resfolio/design` — the shared design system (warm-cream light theme,
-  Instrument Serif / Manrope / JetBrains Mono, semantic tokens, motion tokens
-  `--ease-*`/`--duration-*`, `card-surface` classes). Imported in
-  `app/globals.css` after `tailwindcss`; fonts are loaded in `app/layout.tsx`
-  via `next/font` with the CSS variables the tokens expect. `app/globals.css`
-  then **extends** the layer with dashboard-only tokens (`--spacing-sidebar`,
+  Instrument Serif / Manrope / JetBrains Mono, semantic tokens incl. the
+  **`brand`** colour, motion tokens `--ease-*`/`--duration-*`, `card-surface`
+  classes). Imported in `app/globals.css` after `tailwindcss`, followed by
+  **`@resfolio/design/shadcn`** — the shadcn token bridge, imported here and
+  nowhere else (`apps/web` stays custom). Fonts load in `app/layout.tsx` via
+  `next/font` with the CSS variables the tokens expect. `app/globals.css` then
+  **extends** the layer with dashboard-only tokens (`--spacing-sidebar`,
   `--spacing-topbar`, `--spacing-page`, `.label-section`) — extend it there,
   never fork a shared value.
-- `@resfolio/ui` — cross-app UI primitives (shadcn/ui pattern: cva variants
-  themed by design tokens). `Button`, `Input`, `Textarea`, `Label`, `Select`,
-  `Checkbox`, `Switch`, `Card`, plus `Dialog`/`Command`/`DropdownMenu`. **Prefer
-  a primitive over a raw HTML control** — the editors use these, not bare
-  `<select>`/`<input>`. Import from `"@resfolio/ui"` only — never internal
+- `@resfolio/ui` — this app's shadcn/ui foundation. Hand-authored primitives
+  (`Button`, `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`,
+  `TagInput`) plus registry components (`Sidebar`, `Sheet`, `Tooltip`,
+  `Separator`, `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`).
+  **Prefer a primitive over a raw HTML control** — the editors use these, not
+  bare `<select>`/`<input>`. Import from `"@resfolio/ui"` only — never internal
   paths. `app/globals.css` carries `@source "../../../packages/ui/src";` so
   Tailwind scans the package's classes; keep it if you move the CSS file.
+  **Adding a component has a procedure** — `packages/ui/CLAUDE.md`.
 - `@resfolio/env` — the only sanctioned reader of `process.env`
 - `@resfolio/auth` — Better Auth server instance + `requireSession`;
   client components import `@resfolio/auth/client`; the proxy imports

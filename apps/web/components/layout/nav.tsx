@@ -71,7 +71,7 @@ export default function Nav() {
           <a
             href="#waitlist"
             data-testid={TEST_IDS.navCtaGetStarted}
-            className="hidden h-9 items-center gap-2 rounded-full bg-accent px-5 text-[13px] font-semibold text-white shadow-[0_6px_20px_rgba(240,89,43,0.28)] transition hover:bg-accent-soft sm:inline-flex"
+            className="hidden h-9 items-center gap-2 rounded-full bg-brand px-5 text-[13px] font-semibold text-white shadow-[0_6px_20px_rgba(240,89,43,0.28)] transition hover:bg-brand-soft sm:inline-flex"
           >
             Join Waitlist
             <span aria-hidden>→</span>
@@ -110,7 +110,7 @@ export default function Nav() {
             <a
               href="#waitlist"
               onClick={() => setOpen(false)}
-              className="mt-2 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-white"
+              className="mt-2 inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-[13px] font-semibold text-white"
             >
               Join Waitlist →
             </a>

@@ -16,7 +16,6 @@ import {
   ArrowDownToLine,
   ExternalLink,
   FileText,
-  FileUp,
   Github,
   Inbox,
   Layers,
@@ -29,16 +28,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
-
-import { extractLinkedinExportFiles } from "@resfolio/integrations";
+import { useMemo, useState } from "react";
 
 import {
   checkForUpdatesAction,
   connectPublicSourceAction,
   dismissItemAction,
   importItemAction,
-  importLinkedinAction,
   removeConnectionAction,
 } from "@/app/(dashboard)/sources/actions";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -114,7 +110,29 @@ function ProviderGallery() {
       data-testid={TEST_IDS.sourcesGallery}
     >
       <p className="label-section">Import from…</p>
-      <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* No `items-start`: that pinned each card to its own content height, so
+          a two-line note (RSS) sat visibly shorter than a three-line one
+          (Stack Overflow) and the Import buttons landed at four different
+          heights. Grid's default `stretch` makes every card in a row match the
+          tallest, and each card pushes its form to the bottom with `mt-auto`,
+          which is what actually lines the actions up.
+
+          `auto-rows-fr` is what carries that ACROSS rows. Stretch alone only
+          equalizes within a row, so with four connectors in a three-up grid the
+          orphan on row two kept its own (taller) height — the one card with
+          nothing beside it was the one that didn't match. Equal-height rows fix
+          that no matter how the count and the breakpoint divide. */}
+      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <PublicConnectCard
+          connectorId="github"
+          icon={Github}
+          name="GitHub"
+          note="Public repositories become project suggestions, with stars, language and topics."
+          inputKey="username"
+          inputLabel="GitHub username"
+          placeholder="your-username"
+          inputType="text"
+        />
         <PublicConnectCard
           connectorId="rss"
           icon={Rss}
@@ -142,14 +160,12 @@ function ProviderGallery() {
           note="Top answer tags as a skills suggestion, reputation on your profile — you pick what lands."
           inputKey="userId"
           inputLabel="Stack Overflow user id"
-          placeholder="user id (the number in your profile URL)"
+          // The old placeholder spelled out "user id (the number in your
+          // profile URL)" and truncated mid-word in the card's narrow input,
+          // which taught the user nothing. The number's shape says it faster,
+          // and the label carries the meaning for screen readers.
+          placeholder="1234567"
           inputType="text"
-        />
-        <LinkedinImportCard />
-        <TeaserCard
-          icon={Github}
-          name="GitHub"
-          note="Repositories become project suggestions. Needs the OAuth app — coming soon."
         />
       </div>
     </section>
@@ -166,7 +182,7 @@ function PublicConnectCard({
   placeholder,
   inputType,
 }: {
-  connectorId: "rss" | "devto" | "stackoverflow";
+  connectorId: "github" | "rss" | "devto" | "stackoverflow";
   icon: typeof Rss;
   name: string;
   note: string;
@@ -213,14 +229,16 @@ function PublicConnectCard({
 
   const inputId = `sources-connect-${connectorId}`;
   return (
-    <Card className="flex flex-col gap-3 p-4">
+    <Card className="flex h-full flex-col gap-3 p-4">
       <div className="flex items-center gap-2.5">
-        <Icon className="size-4 text-muted" aria-hidden />
+        <Icon className="size-4 shrink-0 text-muted" aria-hidden />
         <span className="text-sm font-medium text-foreground">{name}</span>
       </div>
       <p className="text-[13px] leading-relaxed text-muted">{note}</p>
       <form
-        className="flex flex-col gap-1.5"
+        // `mt-auto` collects the slack a shorter note leaves behind, so the
+        // input row sits on the same baseline across the whole grid.
+        className="mt-auto flex flex-col gap-1.5"
         onSubmit={(event) => {
           event.preventDefault();
           void connect();
@@ -250,152 +268,11 @@ function PublicConnectCard({
           </Button>
         </div>
         {error ? (
-          <span className="text-xs text-accent" role="alert">
+          <span className="text-xs text-brand" role="alert">
             {error}
           </span>
         ) : null}
       </form>
-    </Card>
-  );
-}
-
-const LINKEDIN_ZIP_MAX_BYTES = 50 * 1024 * 1024;
-
-function LinkedinImportCard() {
-  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-
-  async function handleFile(file: File) {
-    setPending(true);
-    setError(null);
-    setNote(null);
-    try {
-      if (file.size > LINKEDIN_ZIP_MAX_BYTES) {
-        setError("That file is too large — upload the LinkedIn export ZIP.");
-        return;
-      }
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      // Extracted in the browser: only the CSVs Resfolio reads leave your
-      // machine — never the whole export.
-      let files: ReturnType<typeof extractLinkedinExportFiles>;
-      try {
-        files = extractLinkedinExportFiles(bytes);
-      } catch {
-        setError("That doesn't look like a ZIP file.");
-        return;
-      }
-      if (!Object.values(files).some(Boolean)) {
-        setError(
-          "No importable sections found — upload the full LinkedIn data export ZIP.",
-        );
-        return;
-      }
-      const result = await importLinkedinAction({ files });
-      if (result.ok) {
-        if (result.data.runStatus === "failed") {
-          setError(result.data.runError ?? "The import failed — try again.");
-        } else {
-          setNote(
-            `${result.data.counts.new} ${
-              result.data.counts.new === 1 ? "item" : "items"
-            } ready to review below.`,
-          );
-        }
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-    } catch {
-      setError("Import failed. Please try again.");
-    } finally {
-      setPending(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  }
-
-  return (
-    <Card className="flex flex-col gap-3 p-4">
-      <div className="flex items-center gap-2.5">
-        <FileUp className="size-4 text-muted" aria-hidden />
-        <span className="text-sm font-medium text-foreground">
-          LinkedIn export
-        </span>
-      </div>
-      <p className="text-[13px] leading-relaxed text-muted">
-        Experience, education, skills and certifications in one import.
-        LinkedIn → Settings → Get a copy of your data.
-      </p>
-      <div className="flex flex-col gap-1.5">
-        <input
-          ref={fileInputRef}
-          id="sources-linkedin-file"
-          type="file"
-          accept=".zip,application/zip"
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              void handleFile(file);
-            }
-          }}
-          data-testid={TEST_IDS.sourcesLinkedinUpload}
-        />
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={pending}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {pending ? (
-              <Loader2 className="animate-spin" aria-hidden />
-            ) : (
-              <FileUp aria-hidden />
-            )}
-            Upload export ZIP
-          </Button>
-        </div>
-        {error ? (
-          <span className="text-xs text-accent" role="alert">
-            {error}
-          </span>
-        ) : null}
-        {note ? (
-          <span className="text-xs text-muted" role="status">
-            {note}
-          </span>
-        ) : null}
-      </div>
-    </Card>
-  );
-}
-
-function TeaserCard({
-  icon: Icon,
-  name,
-  note,
-}: {
-  icon: typeof Github;
-  name: string;
-  note: string;
-}) {
-  return (
-    <Card className="flex flex-col gap-3 p-4 opacity-70">
-      <div className="flex items-center gap-2.5">
-        <Icon className="size-4 text-muted" aria-hidden />
-        <span className="text-sm font-medium text-foreground">{name}</span>
-      </div>
-      <p className="text-[13px] leading-relaxed text-muted">{note}</p>
-      <div>
-        <Button type="button" size="sm" variant="ghost" disabled>
-          Coming soon
-        </Button>
-      </div>
     </Card>
   );
 }
@@ -408,7 +285,8 @@ function TriageBoard({ items }: { items: PendingItemView[] }) {
   const groups = useMemo(() => {
     const byLabel = new Map<string, PendingItemView[]>();
     for (const item of items) {
-      const key = item.destination === null ? NEEDS_A_HOME : item.destinationLabel;
+      const key =
+        item.destination === null ? NEEDS_A_HOME : item.destinationLabel;
       byLabel.set(key, [...(byLabel.get(key) ?? []), item]);
     }
     // Routed groups first, the unrouted bucket always last.
@@ -595,7 +473,7 @@ function TriageRow({ item }: { item: PendingItemView }) {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-muted transition-colors duration-(--duration-fast) ease-out hover:text-accent"
+                className="shrink-0 text-muted transition-colors duration-(--duration-fast) ease-out hover:text-brand"
                 aria-label={`Open ${item.title}`}
               >
                 <ExternalLink className="size-3.5" aria-hidden />
@@ -728,7 +606,7 @@ function TriageRow({ item }: { item: PendingItemView }) {
         </div>
       ) : null}
       {error ? (
-        <span className="text-xs text-accent" role="alert">
+        <span className="text-xs text-brand" role="alert">
           {error}
         </span>
       ) : null}
@@ -759,8 +637,8 @@ function ImportHistory({ receipts }: { receipts: ReceiptView[] }) {
       </div>
       {receipts.length === 0 ? (
         <p className="text-[13px] text-muted">
-          Nothing imported yet. Imported items become ordinary profile content
-          — edit them at{" "}
+          Nothing imported yet. Imported items become ordinary profile content —
+          edit them at{" "}
           <Link href="/profile" className="underline underline-offset-2">
             /profile
           </Link>
@@ -820,7 +698,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
                 href={receipt.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 text-muted transition-colors duration-(--duration-fast) ease-out hover:text-accent"
+                className="shrink-0 text-muted transition-colors duration-(--duration-fast) ease-out hover:text-brand"
                 aria-label={`Open ${receipt.title}`}
               >
                 <ExternalLink className="size-3.5" aria-hidden />
@@ -832,7 +710,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
             {new Date(receipt.lastChangedAt).toLocaleDateString()} ·{" "}
             <Link
               href="/profile"
-              className="underline underline-offset-2 hover:text-accent"
+              className="underline underline-offset-2 hover:text-brand"
             >
               View in profile
             </Link>
@@ -841,7 +719,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
         <div className="flex shrink-0 items-center gap-2">
           {receipt.refreshAvailable ? (
             <>
-              <span className="rounded-full border border-accent/40 px-2 py-0.5 text-[11px] text-accent">
+              <span className="rounded-full border border-brand/40 px-2 py-0.5 text-[11px] text-brand">
                 Newer version available
               </span>
               <Button
@@ -864,13 +742,13 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
         </div>
       </div>
       {confirming ? (
-        <span className="text-xs text-accent" role="alert">
+        <span className="text-xs text-brand" role="alert">
           You&apos;ve edited this item since importing it — re-importing will
           replace your edited copy.
         </span>
       ) : null}
       {error ? (
-        <span className="text-xs text-accent" role="alert">
+        <span className="text-xs text-brand" role="alert">
           {error}
         </span>
       ) : null}

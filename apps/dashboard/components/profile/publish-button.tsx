@@ -87,7 +87,7 @@ export function PublishButton({
         Publish
       </Button>
       {error ? (
-        <span className="text-xs text-accent" role="alert">
+        <span className="text-xs text-brand" role="alert">
           {error}
         </span>
       ) : null}

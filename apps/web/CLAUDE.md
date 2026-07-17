@@ -44,7 +44,7 @@ Portfolio
 
 Personal Website
 
-Everything stays synchronized.
+All generated from that one profile, and always up to date.
 
 The landing page should communicate this visually before users begin reading.
 
@@ -66,7 +66,20 @@ Everything else is generated from that profile.
 
 Never market Resfolio as a template marketplace.
 
-Always communicate synchronization first.
+Always communicate the single source of truth first: one profile the user
+owns, from which every other surface is generated.
+
+**Do not market Resfolio around "sync".** The earlier branding revolved
+around "sync everything" ("Your Career, Synced.", "Update once. Everywhere
+follows."); the product has moved on, and that copy was deliberately
+removed. Avoid "sync", "synced", "in sync", "keep everything in sync", and
+"one update, everywhere follows". The ideas that replace them: one
+professional profile; resume and portfolio generated from one source;
+publish everywhere; always up to date; your career represented
+consistently; own your professional identity.
+
+The voice is confident, not marketing-heavy — premium, clear within a few
+seconds, developer-friendly without being overly technical.
 
 ---
 
@@ -153,10 +166,15 @@ scroll behavior). Components consume the tokens (never hard-code hex or
 
 - `background` (cream page), `surface` / `surface-warm` (cards),
   `foreground` (warm-near-black ink), `muted` (secondary text), `border`
-  (warm hairline), `accent` / `accent-soft` (burnt orange), `live` (green).
-- Body text is `text-muted`; headings `text-foreground`; the orange `accent`
+  (warm hairline), `brand` / `brand-2` / `brand-3` / `brand-soft` (burnt
+  orange), `live` (green).
+- The brand colour is **`brand`**, not `accent` — it was renamed so that
+  `accent` could mean shadcn's neutral hover surface in the dashboard. This
+  app has no shadcn, but the token lives in the shared package, so use
+  `text-brand` / `bg-brand` here too.
+- Body text is `text-muted`; headings `text-foreground`; the orange `brand`
   is used sparingly (eyebrows, italic emphasis, primary CTAs, active states).
-- Primary CTAs are solid `bg-accent text-white`; secondary actions are
+- Primary CTAs are solid `bg-brand text-white`; secondary actions are
   `border-border bg-surface`. Cards use the `.card-surface` /
   `.card-surface-warm` component classes (soft shadows, not glows).
 - `text-white` / dark backgrounds appear only inside the deliberately-dark
@@ -260,7 +278,7 @@ Portfolio
 
 Website
 
-Everything stays synchronized.
+All generated from that one profile, and always up to date.
 
 The hero should tell this story visually.
 

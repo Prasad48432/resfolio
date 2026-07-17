@@ -93,7 +93,7 @@ export function TagInput({
     // real input, which flows inline after the chips like a continued line.
     <div
       className={cn(
-        "flex min-h-10 w-full cursor-text flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1.5 text-sm transition-colors duration-(--duration-fast) ease-out focus-within:border-accent/50 hover:border-accent/30",
+        "flex min-h-10 w-full cursor-text flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface px-2.5 py-1.5 text-sm transition-colors duration-(--duration-fast) ease-out focus-within:border-brand/50 hover:border-brand/30",
         disabled && "cursor-not-allowed opacity-50",
         className,
       )}

@@ -19,7 +19,10 @@ export default async function AccountSettingsPage() {
 
   return (
     <Page>
-      <PageHeader title="Account" description="Your identity and sign-in methods." />
+      <PageHeader
+        title="Account"
+        description="Your identity and sign-in methods."
+      />
 
       <Card
         asChild
@@ -38,7 +41,7 @@ export default async function AccountSettingsPage() {
           ) : (
             <span
               aria-hidden
-              className="flex size-10 items-center justify-center rounded-full bg-surface-warm text-sm font-semibold text-accent"
+              className="flex size-10 items-center justify-center rounded-full bg-surface-warm text-sm font-semibold text-brand"
             >
               {user.name.charAt(0).toUpperCase() || "?"}
             </span>

@@ -116,10 +116,10 @@ export function ResumePreview({
                 <div
                   key={i}
                   aria-hidden
-                  className="pointer-events-none absolute inset-x-0 border-t border-dashed border-accent/50"
+                  className="pointer-events-none absolute inset-x-0 border-t border-dashed border-brand/50"
                   style={{ top: (i + 1) * heightPx }}
                 >
-                  <span className="absolute right-1 top-1 rounded bg-accent/80 px-1 py-0.5 text-[9px] font-medium text-white">
+                  <span className="absolute right-1 top-1 rounded bg-brand/80 px-1 py-0.5 text-[9px] font-medium text-white">
                     Page {i + 2}
                   </span>
                 </div>

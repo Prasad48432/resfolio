@@ -35,7 +35,7 @@ const items: FeatureItem[] = [
     span: "md:col-span-2 md:row-span-2",
     Icon: Database,
     title: "One source. Every surface.",
-    body: "Edit your role, projects, or bio in a single place. Your resume, portfolio site, and public API stay perfectly in sync — no copy-pasting between five different profiles.",
+    body: "Edit your role, projects, or bio in a single place. Your resume, portfolio site, and public API are all generated from it — no copy-pasting between five different profiles that slowly drift apart.",
     demo: "source-of-truth",
   },
   {
@@ -77,7 +77,7 @@ function Demo({ kind }: { kind: DemoKind }) {
         <div className="mt-6 rounded-xl border border-border bg-background/70 p-4 font-mono text-[11px] leading-relaxed">
           <div className="text-muted">{"// resfolio.profile"}</div>
           <div className="text-foreground/80">
-            <span className="text-accent">title</span>
+            <span className="text-brand">title</span>
             <span className="text-muted">:</span>{" "}
             <span className="text-live">
               &quot;Senior Product Designer&quot;
@@ -112,7 +112,7 @@ function Demo({ kind }: { kind: DemoKind }) {
               </div>
 
               {/* Hero */}
-              <div className="bg-linear-to-br from-accent/12 to-transparent px-5 py-5">
+              <div className="bg-linear-to-br from-brand/12 to-transparent px-5 py-5">
                 <div className="h-14 w-14 rounded-full border border-border bg-foreground/8" />
                 <div className="mt-4 h-3 w-36 rounded-full bg-foreground/10" />
               </div>
@@ -180,19 +180,19 @@ function Demo({ kind }: { kind: DemoKind }) {
                 </div>
 
                 <div className="flex items-center gap-2 pl-4">
-                  <span className="text-accent">{'"name"'}</span>
+                  <span className="text-brand">{'"name"'}</span>
                   <span>:</span>
                   <div className="h-3 w-24 rounded-full bg-live/25" />
                 </div>
 
                 <div className="flex items-center gap-2 pl-4">
-                  <span className="text-accent">{'"age"'}</span>
+                  <span className="text-brand">{'"age"'}</span>
                   <span>:</span>
                   <div className="h-3 w-8 rounded-full bg-foreground/10" />
                 </div>
 
                 <div className="flex items-center gap-2 pl-4">
-                  <span className="text-accent">{'"role"'}</span>
+                  <span className="text-brand">{'"role"'}</span>
                   <span>:</span>
                   <div className="h-3 w-32 rounded-full bg-live/25" />
                 </div>
@@ -242,7 +242,7 @@ function Demo({ kind }: { kind: DemoKind }) {
       return (
         <div className="mt-5 flex gap-2">
           {[
-            { tone: "light", accent: "bg-accent/70" },
+            { tone: "light", accent: "bg-brand/70" },
             { tone: "light", accent: "bg-foreground/40" },
             { tone: "dark", accent: "bg-white/70" },
           ].map((t, i) => (
@@ -260,7 +260,7 @@ function Demo({ kind }: { kind: DemoKind }) {
                   className={`h-4 w-4 shrink-0 rounded-full ${
                     t.tone === "dark"
                       ? "bg-white/20"
-                      : "border border-accent/20 bg-accent/15"
+                      : "border border-brand/20 bg-brand/15"
                   }`}
                 />
 
@@ -323,7 +323,7 @@ export default function Features() {
           <span className="label-eyebrow">Why Resfolio</span>
           <h2 className="mt-4 font-display text-4xl leading-[1.05] text-foreground md:text-6xl">
             Not another site builder.{" "}
-            <span className="whitespace-nowrap italic text-accent">
+            <span className="whitespace-nowrap italic text-brand">
               A career OS.
             </span>
           </h2>
@@ -345,7 +345,7 @@ export default function Features() {
               className={`card-surface relative overflow-hidden p-6 transition hover:-translate-y-0.5 md:p-7 ${it.span ?? ""}`}
             >
               <div className="flex items-start justify-between">
-                <div className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-accent">
+                <div className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-brand">
                   <it.Icon size={16} aria-hidden />
                 </div>
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted">

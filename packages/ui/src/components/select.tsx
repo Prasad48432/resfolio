@@ -28,7 +28,7 @@ export function SelectTrigger({
       className={cn(
         // Mirrors Input/native-control chrome; focus is the platform halo
         // from @resfolio/design, not a bespoke ring.
-        "flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-surface pr-3 pl-3.5 text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:border-accent/30 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted/70 [&>span]:truncate",
+        "flex h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-xl border border-border bg-surface pr-3 pl-3.5 text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:border-brand/30 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted/70 [&>span]:truncate",
         className,
       )}
       {...props}
@@ -92,7 +92,7 @@ export function SelectItem({
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <span className="absolute right-2.5 flex size-4 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Check className="size-4 text-accent" aria-hidden />
+          <Check className="size-4 text-brand" aria-hidden />
         </SelectPrimitive.ItemIndicator>
       </span>
     </SelectPrimitive.Item>

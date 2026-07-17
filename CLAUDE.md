@@ -60,22 +60,34 @@ Example
 
 All workspace packages use the `@resfolio/*` scope. Current packages:
 
-- `@resfolio/ui` — shared UI primitives (shadcn/ui pattern; import from the
-  package root only). Form controls (`Button`, `Input`, `Textarea`, `Label`,
-  `Checkbox`, `Switch`, `Card`) are token-styled native elements; `Select`
-  (full shadcn API: `SelectTrigger`/`SelectContent`/`SelectItem`/…) and the
-  overlays (`Dialog`, `Command`, `DropdownMenu`) use Radix; `TagInput` is the
-  chip editor for `string[]` values (Enter/comma commits, dedup, per-chip
-  remove). Prefer a primitive over a raw HTML control. These render inside
-  Server Components, so they carry **no `"use client"` unless the behavior
-  forces it** (Radix, or `TagInput`'s pending-text state) — keep interaction
-  feedback in CSS rather than reaching for a motion library
+- `@resfolio/ui` — shared UI primitives (import from the package root only).
+  **The dashboard's shadcn/ui foundation lives here**: it has a
+  `components.json`, and components come from the registry
+  (`pnpm dlx shadcn@latest add … -c packages/ui`) — see `packages/ui/CLAUDE.md`
+  before adding any. Some primitives are hand-authored to the same pattern
+  (`Button`, `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`,
+  `TagInput`); the rest are registry components (`Sidebar`, `Sheet`, `Tooltip`,
+  `Separator`, `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`).
+  Prefer a primitive over a raw HTML control. These render inside Server
+  Components, so they carry **no `"use client"` unless the behavior forces it**
+  (Radix, or `TagInput`'s pending-text state) — keep interaction feedback in
+  CSS rather than reaching for a motion library
 - `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens (colour,
   type, and the `--ease-*` / `--duration-*` motion scale), base styles, shared
   component classes (CSS-only package). Global rules belong in `@layer base` —
   unlayered CSS outranks every cascade layer, including Tailwind's utilities.
+  The `./dark` subpath is the **dashboard-only** dark palette and inverts that
+  rule on purpose: it is unlayered precisely _so_ it outranks `@theme`'s
+  `:root`. It restates token values and nothing else — no component carries a
+  `dark:` variant — and it only works because `.dark` lands on `<html>`, the
+  same element the `./shadcn` aliases resolve against. See the file's header.
   It carries **two surface systems**: `card-surface` (marketing) and, in
-  `@resfolio/ui`, `Card` (product) — see `docs/architecture/08-dashboard-ux.md`
+  `@resfolio/ui`, `Card` (product) — see `docs/architecture/08-dashboard-ux.md`.
+  The brand colour is **`--color-brand`** (`text-brand`, `bg-brand`), _not_
+  `accent`: shadcn spends `accent` on its neutral hover surface, and the
+  `./shadcn` subpath (dashboard-only) bridges its vocabulary onto these tokens
+  so registry components ship unmodified. Templates' `--rf-*` tokens are a
+  separate namespace
 - `@resfolio/env` — validated environment access; the **only** code allowed
   to read `process.env` (ESLint-enforced everywhere else). One schema slice
   per concern; apps _and_ packages compose the slices they need into their
@@ -117,11 +129,12 @@ Business-logic packages live under `domains/`:
   `domains/portfolio/CLAUDE.md`
 - `@resfolio/document` (`domains/document`) — the document engine: a document
   is `Profile × config` (template + presentation `config` + a `view`
-  ViewDefinition), never a copy of content. Pure root (schema, types,
-  `newResumeDocumentInput`), the shared signed render token
-  (`@resfolio/document/token`, server-only), and the DB surface
+  ViewDefinition + `visibility`), never a copy of content. Pure root (schema,
+  types, `newResumeDocumentInput`) and the DB surface
   (`@resfolio/document/server`, the only code that touches the `documents`
-  table). See `domains/document/CLAUDE.md`
+  table). **There is no `./token` subpath**: a resume has a permanent URL
+  gated by its own `visibility`, so nothing needs an expiring capability to
+  read one (doc 02). See `domains/document/CLAUDE.md`
 - `@resfolio/integrations` (`domains/integrations`) — the imports domain
   (doc 12, **import-first**): one pipeline (**Connect → Fetch → Normalize →
   Route → Stage → Review → Import**) with providers as small connectors
@@ -134,12 +147,14 @@ Business-logic packages live under `domains/`:
   (per-kind defaults, user override, unrouted = "needs a home"), the
   deterministic `computeFingerprint` (dedupe/idempotence), the import
   classification (`new | duplicate | refresh_available`), the registry, and
-  the first two connectors (`github` oauth2, `rss` public). The `./server`
-  runtime: staging tables (migrations `0005`+`0006`), key-versioned
-  AES-256-GCM token storage, `runImport` (route + stage + duplicate-skip +
-  run log), and `importItem` (route-validated apply-to-draft; a warned
-  re-import is the only path over a user edit) — the dashboard's `/sources`
-  import workspace drives it. See `domains/integrations/CLAUDE.md`
+  the **four V1 connectors — `github`, `rss`, `devto`, `stackoverflow`, all
+  `public`** (no OAuth, no credentials at rest). The `./server` runtime:
+  staging tables (migrations `0005`+`0006`), key-versioned AES-256-GCM token
+  storage (unused in V1 — nothing stores a credential), `runImport` (route +
+  stage + duplicate-skip + run log), and `importItem` (route-validated
+  apply-to-draft; a warned re-import is the only path over a user edit) — the
+  dashboard's `/sources` import workspace drives it. Adding a fifth provider is
+  a deliberate decision, not a backlog item. See `domains/integrations/CLAUDE.md`
 
 Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 
@@ -167,7 +182,8 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 - `docs/architecture/01`–`12` are Accepted decisions: profile engine, resume
   and portfolio rendering, deployment, template SDK, API, storage, dashboard
   UX, the unified rendering pipeline, auth & security, engineering
-  foundation, and integrations & sync.
+  foundation, and data imports & sources (doc 12 — the filename still says
+  "integrations-and-sync"; the import-first revision superseded that title).
 - `docs/DEVELOPMENT-PLAN.md` sequences implementation into phases; build in
   phase order.
 - Implementation must follow these documents. If an implementation choice
@@ -190,13 +206,18 @@ Examples
 
 - web — public marketing site (resfolio.me)
 - dashboard — authenticated dashboard (app.resfolio.me)
-- sites — the rendering host (port 3002, docs 04 and 09): the resume **print
-  route** (private, token-guarded) + local PDF spike, the **public portfolio
-  route** `/p/[username]/[[...slug]]` (ISR-cached, indexable, DB- or
-  fixture-backed), the **draft-preview route** `/preview/portfolio` (private,
-  token-guarded, iframed by the dashboard), platform SEO (`sitemap.xml`,
-  `robots.txt`, JSON-LD), and `POST /api/revalidate` (publish invalidation).
-  Cloud (R2/Trigger.dev) delivery is later. See `apps/sites/CLAUDE.md`
+- sites — the rendering host (port 3002, docs 04 and 09). **Three route
+  postures, not two**: the **public portfolio route**
+  `/p/[username]/[[...slug]]` (ISR-cached, indexable); the **public resume
+  route** `/render/resume/[documentId]` (permanent URL, gated by the document's
+  own `visibility`, noindex, not cached); and the **private** surfaces — the
+  portfolio draft preview `/preview/portfolio` (signed token, iframed by the
+  dashboard), the resume draft render + `POST /api/export/resume/[id]` (PDF)
+  and `POST /api/revalidate`, all bearer-guarded server-to-server with
+  `RENDER_SECRET`. This app has **no sessions**: ownership is checked in the
+  dashboard before it calls here. Plus platform SEO (`sitemap.xml`,
+  `robots.txt`, JSON-LD). Cloud (R2/Trigger.dev) delivery is later. See
+  `apps/sites/CLAUDE.md`
 
 ## packages/
 

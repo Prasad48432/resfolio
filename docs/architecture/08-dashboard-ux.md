@@ -29,11 +29,26 @@ app.resfolio.me/
     settings/{account,billing,sources}
 ```
 
-Shell: a **narrow fixed left sidebar** (nav + user menu), content area with a
-slim top bar (breadcrumb, publish state, primary action). No dashboard-widget
+Shell: a **narrow left sidebar** (nav + user menu), content area with a slim
+top bar (section title, publish state, primary action). No dashboard-widget
 home page in V1 — the app opens into the profile editor, because that _is_
 the product. A command palette (`cmd+k`, cmdk) ships early: it's cheap,
 matches the Linear/Raycast bar, and becomes the keyboard-first backbone.
+
+The shell is composed from **shadcn/ui's `Sidebar`** (`SidebarProvider` /
+`Sidebar` / `SidebarInset` / `SidebarRail` / `SidebarTrigger`), not a
+hand-rolled `<aside>`. That is where the responsive and accessibility posture
+comes from and why it's worth the dependency: below `md` the sidebar becomes a
+`Sheet` with a focus trap and `Escape` handling; it collapses to an icon rail
+with automatic tooltips; the open/closed choice persists in a `sidebar_state`
+cookie **read server-side** in the `(dashboard)` layout, so a collapsed
+sidebar never renders expanded and snaps shut on hydration.
+
+What stays ours: `lib/navigation.ts` remains the single IA source (the sidebar
+and the palette both read it), the Instrument Serif wordmark, and the quiet
+nav rule — **inactive items are `text-muted`; only the current page earns full
+contrast**. shadcn's default gives every item full `sidebar-foreground`, which
+makes the column shout; the nav is furniture you look past all day.
 
 ### Design system: extract, then extend
 
@@ -51,20 +66,65 @@ token block, fonts, and CSS component classes — CSS-first, no
   package's public API. Apps never own one-off copies of primitives.
 - Dashboard styling rules follow the established philosophy: hairline
   `border-border` separators over shadows, `text-muted` body / `foreground`
-  headings, accent used only for primary actions and active states, motion
-  limited to purposeful 150–200ms transforms/opacity (Framer Motion only in
-  client leaves).
+  headings, brand colour used only for primary actions and active states,
+  motion limited to purposeful 150–200ms transforms/opacity (Framer Motion
+  only in client leaves).
+
+#### shadcn/ui is the dashboard's UI foundation — and only the dashboard's
+
+`apps/dashboard` adopts shadcn/ui properly: `packages/ui` carries a
+`components.json`, and components are **added from the registry**
+(`pnpm dlx shadcn@latest add … -c packages/ui`) rather than hand-copied.
+`apps/web` stays fully custom and imports none of it.
+
+The adoption is a **token bridge, not a re-theme**. `@resfolio/design/shadcn`
+(dashboard-only) maps shadcn's fixed vocabulary (`bg-primary`, `bg-card`,
+`hover:bg-accent`, `bg-sidebar`…) onto the Resfolio tokens, declaring no
+colours of its own. That is what lets a registry component ship _unmodified_
+and stay updatable with `shadcn diff` — the alternative, editing every added
+file, is a cost paid forever on every component and every upgrade.
+
+It works because four of shadcn's names already match ours exactly:
+`background`, `foreground`, `border`, `muted`. Three didn't, and the
+resolutions are the interesting part:
+
+- **`accent` → the brand token was renamed.** shadcn spends `accent` on its
+  _neutral hover surface_ (menu rows, sidebar buttons, command items).
+  Resfolio's brand orange held that name, so unmodified components would have
+  turned every hover state in the product bright orange. The brand token is
+  now **`--color-brand`** (`text-brand`, `bg-brand`, …) across
+  `@resfolio/design`, `@resfolio/ui`, and both apps; `accent` is bridged to
+  `--color-surface-warm`. Templates' `--rf-accent` is a separate namespace and
+  is untouched, as is `resume-classic`'s user-facing `accent` config field.
+- **`primary` → ink, not brand.** shadcn's `primary` is its high-contrast
+  fill (Button's default, Tooltip's background). It maps to `--color-foreground`,
+  because in a productivity surface the loud fill is the exception, not the
+  default. Brand orange stays deliberate: `Button`'s `primary` variant reaches
+  for `bg-brand` by name.
+- **`muted` → not renamed, patched at the point of use.** shadcn's `muted` is
+  a pale _surface_ with the text colour on `muted-foreground`; ours is the
+  secondary **text** colour, at 212 call sites. Tailwind generates `bg-muted`
+  and `text-muted` from one token, so they cannot both be right. Renaming ours
+  would align the vocabularies completely — but that is 212 edits to fix the
+  **one** registry component that wants a muted surface (`Skeleton`), because
+  shadcn overwhelmingly uses `muted-foreground`. So: patch the rare case
+  (`bg-muted` → `bg-surface-warm`, commented in the component), keep the
+  ergonomic name. `accent` earned its rename by colliding everywhere; `muted`
+  did not.
+
+The rule this leaves: **theme through the bridge; edit an added component only
+when the bridge provably cannot express it, and say why in the file.**
 
 #### Two surfaces, and which is which
 
 `@resfolio/design` carries both systems; picking the wrong one is the single
 easiest way to make the product look like a marketing page.
 
-| | `card-surface` (@resfolio/design) | `Card` (@resfolio/ui) |
-| --- | --- | --- |
-| Radius | 20px | 16px |
-| Depth | inset highlight + 32px ambient glow | 1px border, no shadow |
-| Use for | `apps/web`, the login screen | **everything in the dashboard** |
+|         | `card-surface` (@resfolio/design)   | `Card` (@resfolio/ui)           |
+| ------- | ----------------------------------- | ------------------------------- |
+| Radius  | 20px                                | 16px                            |
+| Depth   | inset highlight + 32px ambient glow | 1px border, no shadow           |
+| Use for | `apps/web`, the login screen        | **everything in the dashboard** |
 
 The dashboard uses `Card`. A shadow is permitted only where the element is
 genuinely elevated — a modal, a menu, a row lifted mid-drag — never as
@@ -178,32 +238,65 @@ once as a layout primitive and reused three times.
 
 ## Implementation Strategy
 
-1. Extract `packages/design` from `apps/web` tokens; wire both apps
-   (verify `apps/web` is visually unchanged via its build + eyeball/CI).
-2. Set up `@resfolio/ui` with shadcn/ui primitives on those tokens.
-3. Build the `(dashboard)` shell: sidebar, top bar, command palette, route
+1. ✅ Extract `packages/design` from `apps/web` tokens; wire both apps.
+2. ✅ Set up `@resfolio/ui` with shadcn/ui primitives on those tokens —
+   initially hand-authored to the pattern, then wired to the real registry
+   (`components.json` + the token bridge) once the dashboard needed
+   components worth not hand-rolling.
+3. ✅ Build the `(dashboard)` shell: sidebar, top bar, command palette, route
    groups, auth guard.
-4. Build the split-workspace layout primitive (resizable panes, preview
-   tabs, save indicator).
-5. Ship the profile editor as the first full vertical slice (form → domain
-   action → autosave → live resume preview), then the portfolio preview
-   iframe once `apps/sites` has its draft route.
+4. ✅ Build the split-workspace layout primitive.
+5. ✅ Ship the profile editor as the first full vertical slice, then the
+   portfolio preview iframe once `apps/sites` had its draft route.
 
 ## Open Questions
 
 - Resizable vs. fixed-ratio split panes, and preview collapse behavior on
-  small laptops — prototype during step 4.
-- Whether the dashboard keeps the warm-cream light theme only or ships
-  dark mode at launch (`next-themes` is in the stack; tokens make it a
-  values problem, but it doubles visual QA) — recommend light-only V1,
-  tokens structured for dark from day one.
-- Mobile dashboard posture: read-mostly responsive shell vs. full editing —
-  recommend responsive shell with editing optimized for ≥1024px in V1.
+  small laptops.
+- ~~Whether the dashboard keeps the warm-cream light theme only or ships
+  dark mode at launch.~~ **Settled: dark mode ships**, light / dark / system
+  via `next-themes`. The prediction above held exactly — it was a values
+  problem, not a second bridge. `@resfolio/design/dark` is a palette and
+  nothing else: an unlayered `.dark` block restating the `@theme` tokens, plus
+  a `destructive` override (the bridge's one literal colour, too dark for
+  charcoal at 2.8:1). **No component needed a `dark:` variant**, because none
+  had a hard-coded colour to begin with — the token discipline is what made
+  this cheap, and is the thing to protect.
+  Three constraints worth keeping:
+  - **The `.dark` class must land on `<html>`**, and the rules must stay
+    **unlayered**. The bridge aliases (`--color-card: var(--color-surface)`)
+    are declared at `:root` and substitute *there*, so the override only
+    reaches them by winning the cascade on that same element. Layer it and
+    `@theme`'s `:root` wins on layer order alone; move the class to `<body>`
+    and every alias freezes at its light value while the base tokens go dark.
+  - **Dashboard only.** The provider is mounted in the `(dashboard)` layout,
+    not the root layout: `apps/web` keeps the warm-cream identity, and
+    `/login` keeps `card-surface`, a light-only surface built on inset white
+    highlights.
+  - The visual-QA cost is real and was the original objection; it is paid per
+    *token*, not per screen, as long as new work keeps using the tokens.
+- ~~Mobile dashboard posture.~~ **Partly settled**: the shell is genuinely
+  responsive (the sidebar becomes a Sheet below `md`) because adopting
+  shadcn's `Sidebar` made that free. Editing remains optimized for ≥1024px.
 
 ## Alternatives Considered
 
 - **Admin-panel kit (Refine/Tremor/template)** — fast scaffolding, permanent
-  template feel; contradicts the product bar. Rejected.
+  template feel; contradicts the product bar. Rejected. Note this is _not_ a
+  rejection of shadcn/ui, which is the opposite kind of thing: unstyled source
+  you own, themed by our tokens, with no opinion about what the product looks
+  like. The rejection is of kits that bring a _look_.
+- **shadcn's `dashboard-01` block as the shell, adopted wholesale** — it is the
+  natural starting point and was pulled down and read. Most of it is demo:
+  charts (recharts), a data table (@tanstack/react-table), section cards, and
+  fabricated nav. Adding it and deleting 80% would have meant inheriting those
+  dependencies to keep its `Sidebar` composition. Rejected in favour of taking
+  the composition and adding only the primitives that survive.
+- **Re-theming each added shadcn component to Resfolio's vocabulary**
+  (instead of the token bridge) — no repo-wide churn, but it breaks
+  `shadcn diff`, and every future component and upgrade pays the same manual
+  pass forever. Rejected; the one place it was cheaper than the alternative
+  (`Skeleton`'s `bg-muted`) is documented in the file itself.
 - **Preview as static mock images** — cheap, but "never edit blindly" becomes
   marketing fiction the first time mock ≠ output. Rejected.
 - **WYSIWYG in-place editing on the rendered site** (Framer-style) — a

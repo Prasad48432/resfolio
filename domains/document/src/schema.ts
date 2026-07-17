@@ -17,6 +17,18 @@ export const DOCUMENT_KINDS = ["resume"] as const;
 export const documentKindSchema = z.enum(DOCUMENT_KINDS);
 export type DocumentKind = z.infer<typeof documentKindSchema>;
 
+/**
+ * Who can read a document at its permanent URL (doc 02). Exactly two states,
+ * on purpose: `public` (the default — the URL renders the owner's **published**
+ * profile version to anyone) and `private` (the URL says so and renders
+ * nothing). There is deliberately no third "unlisted"/"link-only" state — the
+ * id is already unguessable, so a token tier would add ceremony without adding
+ * a capability anyone asked for.
+ */
+export const DOCUMENT_VISIBILITIES = ["public", "private"] as const;
+export const documentVisibilitySchema = z.enum(DOCUMENT_VISIBILITIES);
+export type DocumentVisibility = z.infer<typeof documentVisibilitySchema>;
+
 export const documentConfigSchema = z.record(z.string(), z.unknown());
 export type DocumentConfig = z.infer<typeof documentConfigSchema>;
 
@@ -30,6 +42,7 @@ export interface DocumentRecord {
   templateMajor: number;
   config: DocumentConfig;
   view: ViewDefinition;
+  visibility: DocumentVisibility;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +54,7 @@ export interface NewDocumentInput {
   templateMajor: number;
   config: DocumentConfig;
   view?: ViewDefinition;
+  visibility?: DocumentVisibility;
 }
 
 /**
@@ -61,7 +75,13 @@ export function newResumeDocumentInput(params: {
     templateId: params.templateId,
     templateMajor: params.templateMajor,
     config: params.config,
+    // Identity view: every section on, empty ones dropped by `buildProfileView`
+    // — the toggles at /resumes/[id] exist to *hide* content you have.
     view: {},
+    // Public by default (doc 02): a resume you can't link to isn't a resume.
+    // It renders the published profile version, so a new user with nothing
+    // published is not exposed by this default.
+    visibility: "public",
   };
 }
 
@@ -72,5 +92,6 @@ export const updateDocumentSchema = z.object({
   templateId: z.string().min(1).optional(),
   templateMajor: z.number().int().positive().optional(),
   view: viewDefinitionSchema.optional(),
+  visibility: documentVisibilitySchema.optional(),
 });
 export type UpdateDocumentInput = z.infer<typeof updateDocumentSchema>;

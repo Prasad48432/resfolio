@@ -34,7 +34,7 @@ export default async function LoginPage({
       <div className="flex flex-col items-center gap-3 text-center">
         <p className="label-eyebrow">Resfolio</p>
         <h1 className="font-display text-4xl text-foreground">
-          Sign in to your <em className="text-accent">Career OS</em>
+          Sign in to your <em className="text-brand">Career OS</em>
         </h1>
         <p className="max-w-xs text-sm leading-relaxed text-muted">
           One profile that powers your resume, portfolio, and personal site.
@@ -45,7 +45,7 @@ export default async function LoginPage({
         <LoginButtons providers={providers} />
         {error ? (
           <p
-            className="text-center text-xs text-accent"
+            className="text-center text-xs text-brand"
             role="alert"
             data-testid={TEST_IDS.loginError}
           >

@@ -34,9 +34,7 @@ function toActionError(error: unknown): never {
     throw new ActionError(`The name "${error.slug}" is already taken.`);
   }
   if (error instanceof ProfileNotPublishedError) {
-    throw new ActionError(
-      "Publish your profile before publishing your site.",
-    );
+    throw new ActionError("Publish your profile before publishing your site.");
   }
   throw error;
 }
@@ -50,7 +48,7 @@ function toActionError(error: unknown): never {
  */
 async function revalidatePublishedSite(siteId: string): Promise<void> {
   const sitesUrl = env.SITES_URL;
-  const secret = env.PRINT_TOKEN_SECRET;
+  const secret = env.RENDER_SECRET;
   if (!sitesUrl || !secret) {
     return;
   }
@@ -181,7 +179,7 @@ export const publishPortfolioSiteAction = createAction({
 /**
  * Mint a short-lived signed URL to the `apps/sites` portfolio **draft-preview**
  * route (doc 08), rendering the user's current draft through their site's
- * template — the editor iframes this. Optional: requires `PRINT_TOKEN_SECRET` +
+ * template — the editor iframes this. Optional: requires `RENDER_SECRET` +
  * `SITES_URL`; absent, the UI hides the preview and this returns a friendly
  * error.
  */
@@ -189,7 +187,7 @@ export const mintPortfolioPreviewUrlAction = createAction({
   name: "portfolio.mintPreviewUrl",
   input: z.object({}),
   handler: async (_input, ctx) => {
-    const secret = env.PRINT_TOKEN_SECRET;
+    const secret = env.RENDER_SECRET;
     const sitesUrl = env.SITES_URL;
     if (!secret || !sitesUrl) {
       throw new ActionError("Preview isn't configured in this environment.");
@@ -199,7 +197,10 @@ export const mintPortfolioPreviewUrlAction = createAction({
     if (!site) {
       throw new ActionError("You don't have a site yet.");
     }
-    const token = mintPreviewToken({ source: "draft", ref: ctx.userId }, secret);
+    const token = mintPreviewToken(
+      { source: "draft", ref: ctx.userId },
+      secret,
+    );
     const url = `${sitesUrl.replace(/\/$/, "")}/preview/portfolio?token=${encodeURIComponent(
       token,
     )}`;

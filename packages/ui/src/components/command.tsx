@@ -37,6 +37,7 @@ export function CommandDialog({
   onOpenChange,
   title = "Command palette",
   children,
+  className,
   ...props
 }: ComponentProps<typeof CommandPrimitive> & {
   open: boolean;
@@ -46,7 +47,7 @@ export function CommandDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="overflow-hidden"
+        className={cn("overflow-hidden", className)}
         animated={false}
         aria-describedby={undefined}
       >

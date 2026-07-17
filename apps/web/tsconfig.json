@@ -16,7 +16,8 @@
     "**/*.tsx",
     "next-env.d.ts",
     "next.config.ts",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "../dashboard/components/brand/resfolio-mark.tsx"
   ],
   "exclude": ["node_modules"]
 }

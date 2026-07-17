@@ -1,5 +1,6 @@
 "use client";
 
+import { Separator, SidebarTrigger } from "@resfolio/ui";
 import { Search } from "lucide-react";
 import { usePathname } from "next/navigation";
 
@@ -14,12 +15,25 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
       className="sticky top-0 z-10 flex h-(--spacing-topbar) shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur-md"
       data-testid={TEST_IDS.topBar}
     >
-      <h1
-        className="truncate text-[13px] font-medium text-foreground"
-        data-testid={TEST_IDS.topBarTitle}
-      >
-        {sectionLabelFor(pathname)}
-      </h1>
+      <div className="flex min-w-0 items-center gap-2">
+        {/* The only way to reach the nav on a phone, where the sidebar is a
+            Sheet — and the collapse control everywhere else. */}
+        <SidebarTrigger
+          className="-ml-1.5"
+          data-testid={TEST_IDS.sidebarTrigger}
+        />
+        <Separator
+          orientation="vertical"
+          className="mr-1 data-vertical:h-4"
+          aria-hidden
+        />
+        <h1
+          className="truncate text-[13px] font-medium text-foreground"
+          data-testid={TEST_IDS.topBarTitle}
+        >
+          {sectionLabelFor(pathname)}
+        </h1>
+      </div>
 
       {/* Deliberately not a <Button>. That primitive is a pill built for
           actions; this is a search affordance and should read as a field —
@@ -30,7 +44,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         type="button"
         onClick={onOpenPalette}
         aria-label="Open command palette"
-        className="flex h-8 w-56 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface/60 px-2.5 text-left transition-colors duration-(--duration-press) ease-out hover:border-accent/30 hover:bg-surface"
+        className="flex h-8 w-56 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-border bg-surface/60 px-2.5 text-left transition-colors duration-(--duration-press) ease-out hover:border-brand/30 hover:bg-surface"
         data-testid={TEST_IDS.commandPaletteTrigger}
       >
         <Search className="size-3.5 shrink-0 text-muted" aria-hidden />

@@ -12,7 +12,7 @@ import { env } from "@/lib/env";
  * else stays cached; renders stay proportional to publishes (doc 04). The 24h
  * route `revalidate` is the fallback if this call is ever missed.
  *
- * Guarded by the shared render secret (`PRINT_TOKEN_SECRET`) — the same
+ * Guarded by the shared render secret (`RENDER_SECRET`) — the same
  * dashboard↔sites secret that signs print tokens. A bad/missing bearer is a
  * 401; this route is never cached and never indexed.
  */
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<NextResponse> {
   const auth = request.headers.get("authorization");
-  const expected = `Bearer ${env.PRINT_TOKEN_SECRET}`;
+  const expected = `Bearer ${env.RENDER_SECRET}`;
   if (!auth || auth !== expected) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
