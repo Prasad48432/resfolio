@@ -26,6 +26,16 @@ table.
 - **Ordering: write object → write row; delete row → delete object.** Both
   leave the recoverable failure (an unreferenced object the sweep collects)
   rather than the unrecoverable one (a row pointing at nothing).
+- **An asset may only be deleted once no live content references it — and
+  "live" includes every published version.** Replacing a singleton
+  (avatar, banner) therefore only **supersedes**: it clears `referenced_at` and
+  deletes nothing. `profile_versions` are immutable snapshots that keep
+  rendering the URL they were published with, so eagerly deleting the previous
+  avatar broke the _published_ site while the draft looked perfect — a 404 for
+  the portrait that nothing reported (found in live data, 2026-07-18). For the
+  same reason `collectOrphanedAssets` takes a **required** `protectedKeys` set
+  with no default: an optional one would make the dangerous call the short one.
+  `referenced_at` is a hint; the live key set is the authority.
 - **Uploads are proxied, never presigned.** The server must see the bytes:
   re-encoding is what strips EXIF/GPS, discards appended payloads and polyglot
   files, and verifies the file is the type it claims. A content-type header is

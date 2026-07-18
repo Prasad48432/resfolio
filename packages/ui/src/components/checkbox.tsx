@@ -1,31 +1,57 @@
-import { Check } from "lucide-react";
+"use client";
+
+import { CheckIcon } from "lucide-react";
+import { Checkbox as CheckboxPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
 import { cn } from "../lib/cn";
 
 /**
- * A styled checkbox (shadcn/ui look) built on a native `<input type="checkbox">`
- * so it stays form-associated and accessible. The box and its check are a
- * sibling pair driven by `peer-checked`. Wrap with a `<label>` for a clickable
- * caption.
+ * Upstream shadcn `Checkbox`, on Radix's primitive.
+ *
+ * This replaced a hand-rolled `<input type="checkbox">` styled with
+ * `peer-checked`. That version looked right and behaved almost right — but the
+ * indeterminate state was unreachable, and the check mark was a sibling the
+ * control itself didn't own. Radix ships the state machine and the ARIA; we
+ * ship the palette.
+ *
+ * **The API changed with it**: `onCheckedChange(checked)` replaces the native
+ * `onChange(event)`. Reading `event.target.checked` is a call-site error now,
+ * not a styling difference.
+ *
+ * Resfolio's fill is `brand`, not shadcn's `primary` (which the bridge maps to
+ * ink): a ticked box is one of the few places the product spends brand colour,
+ * because it reports a user's own choice back to them.
  */
-export function Checkbox({ className, ...props }: ComponentProps<"input">) {
+function Checkbox({
+  className,
+  ...props
+}: ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
-    <span className="relative inline-flex shrink-0 items-center justify-center">
-      <input
-        type="checkbox"
-        className={cn(
-          // Focus is the platform halo from @resfolio/design, matching every
-          // other control — not a bespoke ring.
-          "peer size-4 cursor-pointer appearance-none rounded border border-border bg-surface transition-colors duration-(--duration-press) ease-out checked:border-brand checked:bg-brand disabled:cursor-not-allowed disabled:opacity-50",
-          className,
-        )}
-        {...props}
-      />
-      <Check
-        className="pointer-events-none absolute size-3 scale-90 text-white opacity-0 transition-[opacity,transform] duration-(--duration-press) ease-out peer-checked:scale-100 peer-checked:opacity-100"
-        aria-hidden
-      />
-    </span>
+    <CheckboxPrimitive.Root
+      data-slot="checkbox"
+      className={cn(
+        "peer size-4 shrink-0 cursor-pointer rounded-[4px] border border-border bg-surface outline-none transition-[color,background-color,border-color] duration-(--duration-press) ease-out",
+        "data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-white",
+        "data-[state=indeterminate]:border-brand data-[state=indeterminate]:bg-brand data-[state=indeterminate]:text-white",
+        // The platform focus halo from @resfolio/design — `outline`, not a
+        // ring, so it follows this element's own radius like every other
+        // control in the product.
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+        "aria-invalid:border-destructive",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      <CheckboxPrimitive.Indicator
+        data-slot="checkbox-indicator"
+        className="flex items-center justify-center text-current transition-none"
+      >
+        <CheckIcon className="size-3.5" />
+      </CheckboxPrimitive.Indicator>
+    </CheckboxPrimitive.Root>
   );
 }
+
+export { Checkbox };

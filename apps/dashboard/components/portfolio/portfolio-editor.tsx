@@ -243,7 +243,7 @@ export function PortfolioEditor({
                 </span>
                 <Switch
                   checked={discoverable}
-                  onChange={(event) => setDiscoverable(event.target.checked)}
+                  onCheckedChange={setDiscoverable}
                   data-testid={TEST_IDS.portfolioDiscoverable}
                 />
               </label>

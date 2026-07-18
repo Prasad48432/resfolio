@@ -1,28 +1,51 @@
+"use client";
+
+import { Switch as SwitchPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
 import { cn } from "../lib/cn";
 
 /**
- * A toggle switch (shadcn/ui look) built on a native `<input type="checkbox">`
- * — form-associated and keyboard-toggleable, styled as a sliding track. Use for
- * a single on/off setting where the state reads as "enabled/disabled"; use
+ * Upstream shadcn `Switch`, on Radix's primitive.
+ *
+ * This replaced a `<label>` wrapping an `sr-only` checkbox with two sibling
+ * spans. That construction had a real cost: because the focusable element was
+ * invisible, the focus ring had to be re-drawn by a sibling via
+ * `peer-focus-visible`, and the whole control announced itself as a checkbox
+ * rather than a switch. Radix renders a real `role="switch"` button and owns
+ * its own focus.
+ *
+ * **The API changed with it**: `onCheckedChange(checked)` replaces the native
+ * `onChange(event)`.
+ *
+ * Use for a single on/off setting that reads as enabled/disabled; use
  * `Checkbox` for list-style selection.
  */
-export function Switch({ className, ...props }: ComponentProps<"input">) {
+function Switch({
+  className,
+  ...props
+}: ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
-    <label
+    <SwitchPrimitive.Root
+      data-slot="switch"
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center",
+        "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent outline-none transition-colors duration-(--duration-fast) ease-out",
+        "data-[state=checked]:bg-brand data-[state=unchecked]:bg-border",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+        "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
+      {...props}
     >
-      <input type="checkbox" className="peer sr-only" {...props} />
-      {/* The real input is sr-only, so the platform focus halo has nothing
-          visible to draw on. The track mirrors it instead — same outline,
-          width, and offset — so this reads identically to every other
-          control despite being drawn by a sibling. */}
-      <span className="h-5 w-9 rounded-full bg-border transition-colors duration-(--duration-fast) ease-out peer-checked:bg-brand peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand peer-disabled:cursor-not-allowed peer-disabled:opacity-50" />
-      <span className="pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-(--duration-fast) ease-out peer-checked:translate-x-4" />
-    </label>
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
+        className={cn(
+          "pointer-events-none block size-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-(--duration-fast) ease-out",
+          "data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5",
+        )}
+      />
+    </SwitchPrimitive.Root>
   );
 }
+
+export { Switch };

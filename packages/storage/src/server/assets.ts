@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, ne } from "drizzle-orm";
 
 import { db, schema } from "@resfolio/database";
 
@@ -79,7 +79,7 @@ export async function storeImageAsset({
     .onConflictDoNothing({ target: schema.asset.key });
 
   if (ASSET_KIND_SPECS[kind].singleton) {
-    await pruneSingletonSlot({ ownerId, kind, keepKey: key });
+    await supersedeSingletonSlot({ ownerId, kind, keepKey: key });
   }
 
   return {
@@ -92,14 +92,27 @@ export async function storeImageAsset({
 }
 
 /**
- * Drop every object in a singleton slot except the one just written.
+ * Mark the other objects in a singleton slot as superseded — **without
+ * deleting them.**
  *
- * Scoped to the slot rather than "delete the key I remember replacing":
- * self-healing, so a slot that already accumulated strays (an interrupted
- * upload, a bug we since fixed) converges to one object on the next upload
- * instead of carrying its history forever.
+ * This used to delete them outright, and that was wrong in a way only live
+ * data revealed. `profile_versions` are *immutable published snapshots*: a
+ * published portfolio renders the avatar URL that was current when it was
+ * published, forever. Deleting the previous avatar the moment a new one was
+ * uploaded therefore broke the **live** site — the draft looked perfect while
+ * the published page served a 404 for its portrait, and nothing anywhere
+ * reported it.
+ *
+ * The invariant this restores: **an asset may only be deleted once no live
+ * content references it**, where live content includes every published
+ * version, not just the draft. Clearing `referenced_at` makes the old object a
+ * *candidate* for collection; `collectOrphanedAssets` decides, and it can only
+ * do that safely with the set of keys live content still points at.
+ *
+ * Scoped to the slot rather than "the key I replaced" so it stays self-healing:
+ * a slot that accumulated strays converges on the next upload.
  */
-async function pruneSingletonSlot({
+async function supersedeSingletonSlot({
   ownerId,
   kind,
   keepKey,
@@ -108,18 +121,16 @@ async function pruneSingletonSlot({
   kind: AssetKind;
   keepKey: string;
 }): Promise<void> {
-  const stale = await db
-    .select({ key: schema.asset.key })
-    .from(schema.asset)
-    .where(and(eq(schema.asset.ownerId, ownerId), eq(schema.asset.kind, kind)));
-
-  const keys = stale.map((row) => row.key).filter((key) => key !== keepKey);
-  if (keys.length === 0) {
-    return;
-  }
-
-  await db.delete(schema.asset).where(inArray(schema.asset.key, keys));
-  await deleteObjects(keys);
+  await db
+    .update(schema.asset)
+    .set({ referencedAt: null })
+    .where(
+      and(
+        eq(schema.asset.ownerId, ownerId),
+        eq(schema.asset.kind, kind),
+        ne(schema.asset.key, keepKey),
+      ),
+    );
 }
 
 /**
@@ -155,23 +166,40 @@ export async function deleteAllAssetsForOwner(
 }
 
 /**
- * Collect uploads that were never committed to content.
+ * Collect uploads that no live content references.
  *
- * The grace period is load-bearing. There is a real window between "the upload
- * finished" and "the debounced autosave wrote the key into the profile", and a
- * sweep with no grace would delete live assets out from under users mid-edit.
- * 24 hours is far longer than that window and still bounded.
+ * **`protectedKeys` is required, and has no default, on purpose.** Deleting a
+ * still-referenced asset is silent and unrecoverable — the draft looks fine
+ * while a published page serves a broken image — so the API refuses to let a
+ * caller sweep without first stating what is live. An optional parameter would
+ * make the dangerous call the short one.
+ *
+ * The caller assembles that set (the app layer, via `collectAssetKeys` over the
+ * profile draft, **every published version**, and each site's config). Published
+ * versions matter most: they are immutable snapshots that keep rendering the
+ * URL they were published with, so an asset one of them points at is live
+ * whether or not the draft still uses it — that is precisely the case that got
+ * this wrong before.
+ *
+ * The grace period is the second guard. There is a real window between an
+ * upload finishing and the debounced autosave that references it; a sweep with
+ * no grace deletes assets out from under a user mid-edit. 24 hours is far
+ * longer than that window and still bounded.
  */
 export async function collectOrphanedAssets({
+  protectedKeys,
   olderThanMs = 24 * 60 * 60 * 1000,
   limit = 500,
 }: {
+  /** Every key live content still points at. Pass an explicit empty set only
+   * when you have genuinely established that nothing references anything. */
+  protectedKeys: ReadonlySet<string>;
   olderThanMs?: number;
   limit?: number;
-} = {}): Promise<number> {
+}): Promise<number> {
   const cutoff = new Date(Date.now() - olderThanMs);
 
-  const orphans = await db
+  const candidates = await db
     .select({ key: schema.asset.key })
     .from(schema.asset)
     .where(
@@ -182,11 +210,16 @@ export async function collectOrphanedAssets({
     )
     .limit(limit);
 
-  if (orphans.length === 0) {
+  // `referenced_at` is a hint, not the authority: it is best-effort, cleared on
+  // supersede, and can lag. The live key set is the authority, and it wins.
+  const keys = candidates
+    .map((row) => row.key)
+    .filter((key) => !protectedKeys.has(key));
+
+  if (keys.length === 0) {
     return 0;
   }
 
-  const keys = orphans.map((row) => row.key);
   await db.delete(schema.asset).where(inArray(schema.asset.key, keys));
   await deleteObjects(keys);
   return keys.length;

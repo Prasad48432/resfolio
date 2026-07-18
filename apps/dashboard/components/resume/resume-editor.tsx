@@ -450,7 +450,7 @@ function ConfigForm({
         <span>Show contact icons</span>
         <Switch
           checked={config.showIcons}
-          onChange={(event) => onChange("showIcons", event.target.checked)}
+          onCheckedChange={(checked) => onChange("showIcons", checked)}
           data-testid={TEST_IDS.resumeShowIcons}
         />
       </label>
@@ -520,9 +520,9 @@ function LinkVisibility({
             </span>
             <Switch
               checked={shown}
-              onChange={(event) =>
+              onCheckedChange={(checked) =>
                 onChange(
-                  event.target.checked
+                  checked
                     ? hiddenLinkIds.filter((id) => id !== link.id)
                     : [...hiddenLinkIds, link.id],
                 )

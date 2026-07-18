@@ -228,10 +228,8 @@ function SectionRow({
           <Switch
             checked={included && !empty}
             disabled={empty}
-            onChange={(event) =>
-              onChange(
-                setSectionIncluded(view, sectionKey, event.target.checked),
-              )
+            onCheckedChange={(checked) =>
+              onChange(setSectionIncluded(view, sectionKey, checked))
             }
             aria-label={`Show ${label}`}
             data-testid={resumeSectionToggleTestId(sectionKey)}
@@ -318,7 +316,7 @@ function ItemRow({
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1 transition-colors duration-(--duration-press) ease-out hover:bg-surface-warm">
         <Checkbox
           checked={shown}
-          onChange={(event) => onToggle(event.target.checked)}
+          onCheckedChange={(checked) => onToggle(checked === true)}
         />
         <span className="min-w-0">
           <span

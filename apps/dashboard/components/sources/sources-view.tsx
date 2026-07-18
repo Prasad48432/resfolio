@@ -725,7 +725,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
               <Button
                 type="button"
                 size="sm"
-                variant={confirming ? "primary" : "ghost"}
+                variant={confirming ? "default" : "ghost"}
                 disabled={pending}
                 onClick={() => void reimport()}
                 data-testid={receiptReimportTestId(receipt.id)}

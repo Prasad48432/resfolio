@@ -36,6 +36,7 @@ export { Checkbox } from "./components/checkbox";
 export { Switch } from "./components/switch";
 export {
   Card,
+  CardAction,
   cardVariants,
   CardHeader,
   CardTitle,

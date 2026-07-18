@@ -8,15 +8,34 @@ The package ships **source**, not a build (`exports: { ".": "./src/index.ts" }`)
 so consuming apps must scan it for Tailwind classes:
 `@source "../../../packages/ui/src";` in their `globals.css`.
 
-## Two kinds of component, one bar
+## The bar: upstream shadcn, restyled — never reinvented
 
-- **Hand-authored to the shadcn pattern** (cva + tokens + `cn`): `Button`,
-  `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`, `TagInput`,
-  `Spinner`.
-  These predate the CLI wiring and carry Resfolio's own variant vocabulary
-  (`Button` is `primary | secondary | ghost`, not shadcn's `default |
-destructive | outline`). **Do not let the CLI overwrite them** — see below.
-- **From the registry**: `Sidebar`, `Sheet`, `Tooltip`, `Separator`,
+**Start from the official implementation and customise on top of it.** A
+component written from scratch to _look_ like shadcn will drift on behaviour,
+and the divergence surfaces as accessibility and state bugs long after the
+visual match is accepted. Three components learned this the hard way
+(2026-07-18): `Label`, `Checkbox` and `Switch` were native elements styled with
+`peer-*`, and each lost something real — `Checkbox` had no reachable
+indeterminate state, `Switch` announced itself as a checkbox and had to
+re-draw its own focus ring from a sibling because the focusable element was
+`sr-only`, `Label` didn't suppress double-click text selection. All three are
+now on Radix, and **their API changed with them**: `onCheckedChange(checked)`,
+not `onChange(event)`.
+
+- **Upstream shadcn, Resfolio tokens**: `Button`, `Input`, `Textarea`, `Label`,
+  `Checkbox`, `Switch`, `Card`. Upstream's structure, `data-slot`, variant
+  vocabulary and behaviour; our palette, radii and type ramp. `Button` uses
+  shadcn's own names (`default | destructive | outline | secondary | ghost |
+link`, `default | sm | lg | icon`) plus an `icon-sm` addition the registry
+  asks for by name. Documented divergences are commented **in the file** with
+  the reason — `rounded-full` (Resfolio's button shape), `default` mapping to
+  `bg-brand` rather than the bridge's ink `primary`, `Card` carrying no root
+  padding (13 call sites already pass their own), and no shadow on `Card`
+  (doc 08: hairline borders over shadows).
+- **Genuinely ours** (no upstream equivalent): `TagInput`, `Spinner`,
+  `MonthYearPicker`.
+- **Do not let the CLI overwrite the customised files** — see below.
+- **Straight from the registry**: `Sidebar`, `Sheet`, `Tooltip`, `Separator`,
   `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`, `Popover`
   (restyled onto this app's surface + `animate-popover-in` motion, since the
   registry's `tailwindcss-animate` classes don't exist here).
@@ -55,12 +74,13 @@ yes n | pnpm dlx shadcn@latest add <name> -c packages/ui
 
 Then, **every time**:
 
-1. **Verify the hand-authored files survived.** The CLI prompts
+1. **Verify the customised files survived.** The CLI prompts
    `"<file> already exists. Would you like to overwrite?"` for `button.tsx` /
    `input.tsx`. `-y` does **not** suppress it and the prompt cannot be answered
-   from a non-TTY — the run just aborts. `yes n |` answers no. If one is
-   overwritten, restore it: shadcn's Button would break every
-   `variant="primary"` in the app.
+   from a non-TTY — the run just aborts. `yes n |` answers no. Since the
+   variant vocabulary now matches upstream (2026-07-18), an overwrite costs the
+   Resfolio styling rather than the API — it shows up as square grey buttons,
+   not a type error, so check visually and not just with `tsc`.
 2. **Rewrite `@/` imports to relative.** `components.json` declares `@/…`
    aliases so the CLI knows where to write, and `tsconfig.json` resolves them —
    but this package's source must not use them: it ships to apps whose own `@/`

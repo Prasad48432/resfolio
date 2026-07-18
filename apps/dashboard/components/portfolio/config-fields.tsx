@@ -97,7 +97,7 @@ function ConfigField({
           </span>
           <Switch
             checked={Boolean(value ?? field.defaultValue)}
-            onChange={(event) => onChange(field.key, event.target.checked)}
+            onCheckedChange={(checked) => onChange(field.key, checked)}
             data-testid={testId}
           />
         </label>

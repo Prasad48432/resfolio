@@ -94,7 +94,6 @@ revisit only if session reads show up in p99s).
   previously specified presigned URLs, `uploads/{userId}/{ulid}` keys, and
   "never proxied through the app". All three were revised, and the reasoning
   is worth keeping:
-
   - **Proxied, not presigned.** A presigned PUT means the server never sees
     the bytes — and every property that makes an upload safe needs the bytes.
     We decode and re-encode each image (`sharp`), which strips EXIF including
@@ -111,14 +110,23 @@ revisit only if session reads show up in p99s).
     content, forfeiting both dedupe and the `immutable` cache header while
     buying only creation-ordering the `assets` row already carries.
 
-- **Asset lifecycle** is part of the architecture, not a cleanup script:
-  singleton slots (avatar, banner) delete the previous object on replace;
-  `assets.referenced_at` marks a key as live when it is written into profile
-  or site content, so an upload never committed to anything is collectable;
-  profile deletion is a prefix delete. The orphan sweep runs with a **24-hour
-  grace period**, because there is a real window between an upload finishing
-  and the autosave that references it, and a sweep with no grace deletes live
-  assets mid-edit.
+- **Asset lifecycle** is part of the architecture, not a cleanup script.
+  `assets.referenced_at` marks a key as live when it is written into profile or
+  site content, so an upload never committed to anything is collectable;
+  profile deletion is a prefix delete. Two guards on deletion, both learned
+  from live data (2026-07-18):
+  - **An asset may only be deleted once no live content references it, and
+    "live" includes every published version.** Replacing a singleton slot
+    (avatar, banner) therefore only _supersedes_ the previous object — clears
+    `referenced_at`, deletes nothing. Deleting eagerly broke the **published**
+    site: `profile_versions` are immutable snapshots that keep rendering the
+    URL they were published with, so a new avatar 404'd the old one on the live
+    page while the draft looked perfect, silently. `collectOrphanedAssets`
+    consequently takes a **required** set of live keys rather than an optional
+    one — the dangerous call must not be the short one.
+  - A **24-hour grace period**, because there is a real window between an
+    upload finishing and the autosave that references it, and a sweep with no
+    grace deletes assets out from under a user mid-edit.
 - **Content stores absolute URLs; `assets` stores the key.** `basics.avatarUrl`
   flows through the pure `buildProfileView`, and `config.bannerImage` is read
   by templates — neither may know what R2 is, so threading a delivery origin

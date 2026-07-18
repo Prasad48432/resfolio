@@ -16,6 +16,7 @@
     "@resfolio/document": "workspace:*",
     "@resfolio/env": "workspace:*",
     "@resfolio/fixtures": "workspace:*",
+    "@resfolio/observability": "workspace:*",
     "@resfolio/portfolio": "workspace:*",
     "@resfolio/profile": "workspace:*",
     "@resfolio/template-dark-anime": "workspace:*",

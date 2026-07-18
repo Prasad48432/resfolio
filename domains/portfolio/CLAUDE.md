@@ -20,7 +20,16 @@ of `@resfolio/profile` and `@resfolio/document`.
   descriptor + the **pinned** published Profile, loaded via
   `@resfolio/profile/server`'s `getProfileVersionById` — never the draft) and
   `getSiteIdBySlug` (the cheap `slug → site:<id>` lookup the host runs to derive
-  the cache tag). `listDiscoverableSites` feeds the platform sitemap.
+  the cache tag). **`getSiteIdBySlug` answers for any _claimed_ slug, published
+  or not, and that is a correctness requirement, not a convenience.** It used to
+  return null for an unpublished site, so the render host 404'd _before_ it had
+  a tag to cache that answer under — Next cached the 404 for the full
+  `revalidate` window with no tag on it, and `publishSite`'s
+  `revalidateTag('site:<id>')` could not reach it. A freshly published site kept
+  serving "not found" for up to 24 hours, and the gap between claiming a slug
+  and publishing it is exactly when someone loads their own URL to look. Publish
+  state is decided by `getSiteForRender`, _inside_ the cache.
+  `listDiscoverableSites` feeds the platform sitemap.
   `publishSite(userId)` pins the profile's currently published version into the
   site (throws `ProfileNotPublishedError` if the profile was never published) and
   returns the `siteId`; **the app layer owns cache invalidation** (calls
@@ -36,7 +45,7 @@ of `@resfolio/profile` and `@resfolio/document`.
   route, removed because re-rendering the whole portfolio app on every save was
   the wrong cost to keep paying while templates are still moving. Kept because
   the replacement preview will need it: any owner-only draft surface a
-  *browser* must load needs a capability in the URL, and this one is written
+  _browser_ must load needs a capability in the URL, and this one is written
   and tested. Server-to-server calls (`/api/revalidate`, PDF export) use the
   plain `RENDER_SECRET` bearer — no token when no browser is involved. **If the
   new preview lands without needing it, delete it** rather than letting it sit.

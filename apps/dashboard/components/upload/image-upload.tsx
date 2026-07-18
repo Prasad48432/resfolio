@@ -46,6 +46,9 @@ export function ImageUpload({
 
   const size = recommended ?? spec.maxDimensions;
   const maxMb = Math.round(spec.maxBytes / (1024 * 1024));
+  // A square slot (an avatar) is a portrait, not a banner — it should read as a
+  // thumbnail rather than stretching the full width of the form column.
+  const isSquare = size.width === size.height;
 
   async function upload(file: File) {
     // Check the size before spending the round trip — the server enforces the
@@ -104,13 +107,28 @@ export function ImageUpload({
       />
 
       {value ? (
-        <div className="p-2 border border-border rounded-lg h-25 w-25">
+        /**
+         * The preview mirrors the slot's own shape. A fixed square would show a
+         * 1200×260 banner as a centre crop — the one part of it the user can't
+         * judge the framing from — so the box takes its aspect ratio from the
+         * same `recommended`/spec dimensions the server resizes to. Avatars
+         * stay square because their spec is square.
+         */
+        <div
+          className="relative w-full overflow-hidden rounded-lg border border-border bg-surface-warm"
+          style={{
+            aspectRatio: `${size.width} / ${size.height}`,
+            maxWidth: isSquare ? "10rem" : undefined,
+          }}
+        >
           <Image
             src={value}
-            width={500}
-            height={500}
-            className="w-full h-full rounded-lg object-cover"
-            alt={"UserImage"}
+            alt=""
+            fill
+            // The pane is never wider than the editor column; this keeps the
+            // optimizer from generating desktop-width variants of a thumbnail.
+            sizes="(max-width: 768px) 100vw, 480px"
+            className="object-cover"
           />
         </div>
       ) : (

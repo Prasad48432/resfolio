@@ -7,7 +7,11 @@ import {
 import { notFound } from "next/navigation";
 import type { ReactElement } from "react";
 
+import { createLogger } from "@resfolio/observability";
+
 import { getPortfolioTemplate } from "@/lib/portfolio-templates";
+
+const log = createLogger("sites:render-portfolio");
 
 /**
  * The shared Render stage for a portfolio page (docs/architecture/09-rendering-pipeline.md):
@@ -28,11 +32,19 @@ export function renderPortfolioPage(input: {
 }): ReactElement {
   const route = resolvePortfolioRoute(input.slug);
   if (!route) {
+    log.debug({ slug: input.slug }, "render 404: no route matches this path");
     notFound();
   }
 
   const template = getPortfolioTemplate(input.templateId);
   if (!template) {
+    // A `sites` row pins `template_id` as text and nothing enforces that the
+    // template still exists — deleting one without repointing its rows leaves
+    // live sites 404ing (see templates/dark-anime/CLAUDE.md, migration 0009).
+    log.error(
+      { templateId: input.templateId },
+      "render 404: template is not registered — orphaned site row?",
+    );
     notFound();
   }
 
@@ -44,11 +56,22 @@ export function renderPortfolioPage(input: {
 
   const Page = template.pages[route.page];
   if (!Page || !template.capabilities.pages.includes(route.page)) {
+    log.debug(
+      { templateId: template.id, page: route.page },
+      "render 404: template does not support this page",
+    );
     notFound();
   }
 
   const parsedConfig = template.configSchema.safeParse(input.config);
   if (!parsedConfig.success) {
+    // The likeliest cause is a template's config schema changing without a
+    // migration for rows already storing the old shape — silent by nature,
+    // because a rejected config renders as a missing page, not an error.
+    log.error(
+      { templateId: template.id, issues: parsedConfig.error.issues },
+      "render 404: stored config rejected by the template's schema",
+    );
     notFound();
   }
   const config = parsedConfig.data;

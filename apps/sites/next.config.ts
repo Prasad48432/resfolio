@@ -6,6 +6,9 @@ import type { NextConfig } from "next";
 import "./lib/env";
 
 const nextConfig: NextConfig = {
+  // Pino uses worker-thread transports; keep it out of the server bundle
+  // (same reason as apps/dashboard).
+  serverExternalPackages: ["pino", "pino-pretty"],
   async headers() {
     return [
       {

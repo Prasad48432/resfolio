@@ -242,17 +242,32 @@ export async function publishSite(userId: string): Promise<PublishSiteResult> {
 }
 
 /**
- * The stable site id for a **published** slug, or null (unknown slug or never
- * published). A single indexed lookup the render host runs uncached to derive
- * the `site:<id>` cache tag before wrapping the expensive load — the tag can't
- * be the slug (a rename would orphan the cache; the id is stable, doc 04).
+ * The stable site id for a **claimed** slug — published or not — or null when
+ * no site owns that slug at all. A single indexed lookup the render host runs
+ * uncached to derive the `site:<id>` cache tag before wrapping the expensive
+ * load. The tag can't be the slug (a rename would orphan the cache; the id is
+ * stable, doc 04).
+ *
+ * **It deliberately ignores publish state**, and that is a correctness
+ * requirement rather than convenience. It used to return null for a claimed
+ * but unpublished site, which meant the render host answered 404 *before* it
+ * had a tag to cache that answer under. Next then cached the 404 for the
+ * route's full `revalidate` window with no tag attached — so `publishSite`'s
+ * `revalidateTag('site:<id>')` could not reach it, and a freshly published
+ * site kept serving "not found" for up to 24 hours. The window between
+ * claiming a slug and publishing it is exactly when someone loads their own
+ * URL to see what it looks like, so this was reliably self-inflicted.
+ *
+ * Callers still decide what to *render*: `getSiteForRender` returns null for an
+ * unpublished site. This only answers "does this slug belong to a site, and
+ * which one" — the question the cache tag needs.
  */
 export async function getSiteIdBySlug(slug: string): Promise<string | null> {
   const row = await db.query.site.findFirst({
     where: eq(schema.site.slug, slug.trim().toLowerCase()),
-    columns: { id: true, publishedVersionId: true },
+    columns: { id: true },
   });
-  return row && row.publishedVersionId ? row.id : null;
+  return row?.id ?? null;
 }
 
 export interface SiteRenderData {
