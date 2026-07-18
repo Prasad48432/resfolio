@@ -122,7 +122,7 @@ function ProviderGallery() {
           orphan on row two kept its own (taller) height — the one card with
           nothing beside it was the one that didn't match. Equal-height rows fix
           that no matter how the count and the breakpoint divide. */}
-      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid auto-rows-fr gap-4 md:grid-cols-2">
         <PublicConnectCard
           connectorId="github"
           icon={Github}
@@ -255,16 +255,17 @@ function PublicConnectCard({
             placeholder={placeholder}
             onChange={(event) => setValue(event.target.value)}
             disabled={pending}
+            className="flex-1"
             data-testid={sourceConnectInputTestId(connectorId)}
           />
+
           <Button
             type="submit"
-            size="sm"
-            className="h-full rounded-xl"
+            className="min-w-24 rounded-xl px-5 shrink-0"
             disabled={pending || value.trim().length === 0}
             data-testid={sourceConnectButtonTestId(connectorId)}
           >
-            {pending ? <Spinner size="sm" /> : null}
+            {pending && <Spinner size="sm" />}
             Import
           </Button>
         </div>
