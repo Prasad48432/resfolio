@@ -106,14 +106,30 @@ function normalizeArticle(raw: DevtoArticle): CandidateItem[] {
   return [candidate];
 }
 
+/** The user's Dev.to profile URL — derived from the username, no request. */
+function devtoProfileLinks(input: DevtoInput): CandidateItem[] {
+  const url = `https://dev.to/${input.username}`;
+  return [
+    candidateItemSchema.parse({
+      kind: "profileLink",
+      externalId: "profile-link",
+      url,
+      title: "Dev.to profile",
+      raw: null,
+      payload: { label: "Dev.to", url },
+    }),
+  ];
+}
+
 export const devto = defineConnector<DevtoInput, DevtoArticle>({
   id: "devto",
   name: "Dev.to",
   authMode: "public",
   tier: "A",
   input: devtoInputSchema,
-  resources: ["article"],
+  resources: ["article", "profileLink"],
   capabilities: { refreshable: true, incremental: false },
   fetch: fetchArticles,
   normalize: normalizeArticle,
+  profileLinks: devtoProfileLinks,
 });

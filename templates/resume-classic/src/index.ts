@@ -33,6 +33,11 @@ export const resumeClassic = defineTemplate({
     pageSizes: ["A4", "LETTER"],
   },
 
+  // Seeded into a new resume's view, then owned by the user. Education leads
+  // because this template's readers are most often screening for it; a partial
+  // list is deliberate — everything unlisted follows in canonical order.
+  defaultSectionOrder: ["education", "experience", "projects", "skills"],
+
   document: ResumeDocument,
 });
 

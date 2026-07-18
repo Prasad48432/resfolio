@@ -21,8 +21,9 @@ import { CandidateApplyError } from "./errors";
  */
 
 /** Where each kind lands by default. `unclassified` deliberately has no
- * destination; `profileBasics` is `suggested` — a basics patch is always
- * shown, never assumed. */
+ * destination. `profileLink` is `certain`: a provider knows its own profile
+ * URL as a fact, not a guess — unlike identity, which no connector may
+ * propose at all (see `candidate.ts`). */
 export const DEFAULT_ROUTE_FOR_KIND: Record<CandidateKind, CandidateRoute> = {
   project: { sectionKey: "projects", confidence: "certain" },
   contribution: { sectionKey: "projects", confidence: "certain" },
@@ -32,7 +33,7 @@ export const DEFAULT_ROUTE_FOR_KIND: Record<CandidateKind, CandidateRoute> = {
   education: { sectionKey: "education", confidence: "certain" },
   skillGroup: { sectionKey: "skills", confidence: "certain" },
   certification: { sectionKey: "certifications", confidence: "certain" },
-  profileBasics: { sectionKey: "basics", confidence: "suggested" },
+  profileLink: { sectionKey: "links", confidence: "certain" },
   unclassified: { sectionKey: null, confidence: "suggested" },
 };
 
@@ -55,7 +56,7 @@ export const COMPATIBLE_ROUTE_TARGETS: Record<
   education: ["education"],
   skillGroup: ["skills"],
   certification: ["certifications"],
-  profileBasics: ["basics"],
+  profileLink: ["links"],
   unclassified: ["custom"],
 };
 

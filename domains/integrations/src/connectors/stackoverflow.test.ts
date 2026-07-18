@@ -46,7 +46,7 @@ async function collect(
 }
 
 describe("stackoverflow.fetch", () => {
-  it("yields the user then the top tags", async () => {
+  it("yields only the top tags — the user object is an existence probe", async () => {
     const raws = await collect(
       stackoverflow.fetch(
         makeCtx({
@@ -55,7 +55,7 @@ describe("stackoverflow.fetch", () => {
         }),
       ),
     );
-    expect(raws.map((raw) => raw.kind)).toEqual(["user", "topTags"]);
+    expect(raws.map((raw) => raw.kind)).toEqual(["topTags"]);
   });
 
   it("throws when the user does not exist", async () => {
@@ -72,22 +72,38 @@ describe("stackoverflow.fetch", () => {
   });
 });
 
+describe("stackoverflow.profileLinks", () => {
+  it("derives the profile URL from the user id alone — no fetch", () => {
+    const [candidate] = stackoverflow.profileLinks!({ userId: "22656" });
+    expect(candidate?.kind).toBe("profileLink");
+    if (candidate?.kind === "profileLink") {
+      expect(candidate.payload).toEqual({
+        label: "Stack Overflow",
+        url: "https://stackoverflow.com/users/22656",
+      });
+    }
+  });
+});
+
 describe("stackoverflow.normalize", () => {
-  it("user → a suggested basics patch with reputation as a metric, never a name", () => {
-    const [candidate] = stackoverflow.normalize({
-      kind: "user",
-      user: stackoverflowUser,
-    });
-    expect(candidate?.kind).toBe("profileBasics");
-    expect(candidate?.metrics).toEqual([{ key: "reputation", value: 41230 }]);
-    if (candidate?.kind === "profileBasics") {
-      expect(candidate.payload.location).toBe("Berlin, Germany");
-      expect(candidate.payload.avatarUrl).toBe(
-        "https://i.sstatic.net/abc123.jpg",
-      );
-      // A Q&A display name must never propose renaming the profile — the
-      // schema default "" is dropped by buildBasicsPatch at import.
-      expect(candidate.payload.name).toBe("");
+  it("proposes nothing about the user's identity", () => {
+    const candidates = [
+      ...stackoverflow.normalize({
+        kind: "topTags",
+        userId: "22656",
+        tags: stackoverflowTopTags,
+      }),
+      ...stackoverflow.profileLinks!({ userId: "22656" }),
+    ];
+    // The regression this guards: SO used to propose the user's location and
+    // avatar. `name` is deliberately not on this list — `skillGroup.payload.name`
+    // is the group's own label ("Stack Overflow"), not the user's name.
+    for (const candidate of candidates) {
+      const payload = candidate.payload as Record<string, unknown>;
+      expect(payload["headline"]).toBeUndefined();
+      expect(payload["summary"]).toBeUndefined();
+      expect(payload["location"]).toBeUndefined();
+      expect(payload["avatarUrl"]).toBeUndefined();
     }
   });
 
@@ -112,12 +128,6 @@ describe("stackoverflow.normalize", () => {
   });
 
   it("returns [] when there is nothing worth proposing", () => {
-    expect(
-      stackoverflow.normalize({
-        kind: "user",
-        user: { user_id: 1, display_name: "x" },
-      }),
-    ).toEqual([]);
     expect(
       stackoverflow.normalize({ kind: "topTags", userId: "1", tags: [] }),
     ).toEqual([]);

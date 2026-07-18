@@ -20,9 +20,16 @@ re-import. Mirrors the layering of `@resfolio/profile` and
 - **Root (`.`, pure):** framework- and database-free. Safe to import into the
   dashboard, the runtime, and tests alike. Everything below is here.
   - **`contract.ts`** — `defineConnector` + the `Connector` interface. Each
-    provider implements exactly two functions: `fetch(ctx)` (the only place a
+    provider implements two functions: `fetch(ctx)` (the only place a
     provider API is touched, an `AsyncIterable<Raw>`) and `normalize(raw)`
-    (**pure**: raw → `CandidateItem[]`). Metadata declares the `authMode`
+    (**pure**: raw → `CandidateItem[]`) — plus an optional third,
+    `profileLinks(input)` (**pure**: connection input → the provider's own
+    `profileLink` candidate, **no fetch at all**). `profileLinks` exists
+    because `https://github.com/{username}` is knowable the moment the
+    username is typed, and `normalize` could not derive it anyway: it sees one
+    raw item, and a user with zero repos yields none. `defineConnector`
+    rejects declaring `profileLinks` without listing `profileLink` in
+    `resources`. Metadata declares the `authMode`
     (`oauth2 | token | public | file`) — **the load-bearing per-provider
     declaration** that keeps public-feed connectors nearly free — and
     `capabilities: { refreshable, incremental }`: `refreshable: false` lets
@@ -34,7 +41,7 @@ re-import. Mirrors the layering of `@resfolio/profile` and
     load (throws `ConnectorDefinitionError`) — loud in CI, never mid-run.
   - **`candidate.ts`** — `candidateItemSchema`, the canonical staging shape.
     Kinds cover the whole Profile: `project | contribution | article | talk |
-experience | education | skillGroup | certification | profileBasics`
+experience | education | skillGroup | certification | profileLink`
     plus **`unclassified`** — the escape hatch (loose `title/text/url/date`
     payload, no automatic destination) that keeps canonical-kinds-only from
     silently dropping data. Typed payloads **reuse the profile item schemas**
@@ -43,13 +50,26 @@ experience | education | skillGroup | certification | profileBasics`
     connector `route` override; provider richness lives in `raw` (staging
     only, never the Profile); the one typed Profile-facing extension is
     `metrics` (`MetricKey`: stars/forks/followers/…).
+    **A connector may never propose the user's identity** (2026-07-17): no
+    kind carries `name`/`headline`/`summary`/`location`/`avatarUrl`, and
+    `basics` is not a route target — both halves structural, not policy. Those
+    five are the user's own words about themselves; no provider's guess is
+    worth overwriting the real thing. `profileBasics` existed until this
+    revision (Stack Overflow proposed a location + avatar through it) and was
+    removed with the idea; migration `0008` deletes its rows. `profileLink` →
+    `basics.links` is the one non-section destination: a provider does know
+    its own profile URL. Links have no provenance (`{ id, label, url }`), so
+    the import dedupes on **url** — see `mergeProfileLink` in
+    `server/import.ts`, which also explains why the merge can't live in the
+    pure layer (`updateBasics` replaces the whole array).
   - **`routing.ts`** — the Route stage's policy: `DEFAULT_ROUTE_FOR_KIND`
-    (per-kind default; `profileBasics` is `suggested`, `unclassified` is
-    unrouted), `COMPATIBLE_ROUTE_TARGETS` (what a user override may pick —
-    validated so a mis-route can't produce an invalid profile),
+    (per-kind default; `profileLink` is `certain` — a URL is a fact, not a
+    guess — and `unclassified` is unrouted), `COMPATIBLE_ROUTE_TARGETS` (what
+    a user override may pick — validated so a mis-route can't produce an
+    invalid profile),
     `resolveRoute` (connector declaration sanitized: incompatible → unrouted,
     never guessed), `assertRouteTarget`. Routes are
-    `{ sectionKey: SectionKey | "basics" | null, confidence: "certain" |
+    `{ sectionKey: SectionKey | "links" | null, confidence: "certain" |
 "suggested" }`; `null` = "needs a home", waits for the user.
   - **`fingerprint.ts`** — `computeFingerprint`, a deterministic,
     dependency-free content hash (FNV-1a, no `node:crypto`) over the content
@@ -63,9 +83,12 @@ experience | education | skillGroup | certification | profileBasics`
   - **`registry.ts`** — the static connector registry (code + PR + deploy,
     like templates): `CONNECTORS`, `getConnector`, `listConnectors`.
   - **`connectors/`** — the **V1 set, all `public`**: `github`
-    (`{username}` → `project`), `rss` (`{feedUrl}` → `article`), `devto`
-    (`{username}` → `article`), `stackoverflow` (`{userId}` → `skillGroup`
-    and `profileBasics`). Each is `fetch` + pure `normalize` + recorded
+    (`{username}` → `project` + `profileLink`), `rss` (`{feedUrl}` →
+    `article`; **no `profileLink`** — a feed is a publication, not a person),
+    `devto` (`{username}` → `article` + `profileLink`), `stackoverflow`
+    (`{userId}` → `skillGroup` + `profileLink`; it still fetches `/users/{id}`
+    purely as an existence probe so a typo'd id fails at connect rather than
+    importing nothing). Each is `fetch` + pure `normalize` + recorded
     fixtures + a declared mapping (doc 12's provider table).
     **No connector stores a credential**, which is why
     `INTEGRATIONS_TOKEN_KEY` is optional and currently unused.
@@ -81,7 +104,8 @@ experience | education | skillGroup | certification | profileBasics`
     additive-only.
   - **`apply.ts`** — the pure half of Import: `buildProfileItem` (candidate →
     canonical item, provenance stamped; converts `unclassified` → custom-item
-    content), `buildBasicsPatch`, `sectionForKind`, and the re-import
+    content), `buildProfileLink` + `sameLinkUrl` (the url-based dedupe key),
+    `sectionForKind`, and the re-import
     warning's primitives — `contentFingerprint(kind, payload)` recorded at
     import, `extractAppliedPayload(profile, kind, itemId)` re-extracted
     later, and `detectUserEdit` (a removed item counts as edited).

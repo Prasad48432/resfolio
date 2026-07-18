@@ -1,0 +1,17 @@
+-- Data-only (no schema diff — hand-authored, not drizzle-kit generated).
+--
+-- The `profileBasics` candidate kind is gone (doc 12 revision, 2026-07-17):
+-- a connector may propose content and a profile link, never the user's
+-- identity — no name, headline, summary, location or avatar. `basics` is no
+-- longer a route target at all, and no `CandidateItem` variant can carry those
+-- fields, so these rows are unreadable by the domain: their `candidate` jsonb
+-- fails `candidateItemSchema` and their `applied_section_key` ('basics') is not
+-- a `RouteTarget`.
+--
+-- Receipts (state = 'imported') go too. That deletes import history, which is
+-- normally sacred — but it is history for a capability that no longer exists,
+-- and a receipt whose kind cannot be parsed can only crash the workspace that
+-- reads it. Nothing already applied to a profile is touched: an imported
+-- avatar or location stays exactly where it is, as the user's own content, and
+-- is now theirs to edit or clear by hand.
+DELETE FROM "integration_items" WHERE "kind" = 'profileBasics';

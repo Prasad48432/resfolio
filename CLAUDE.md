@@ -108,8 +108,15 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   (doc 05): `defineTemplate`, the versioned `ProfileView` contract, `--rf-*`
   theme tokens, and deterministic format + rich-text helpers. Templates
   depend on this and nothing else platform-side. Two kinds: `resume` (a single
-  `document` renderer) and `portfolio` (a `pages` renderer map over the
-  platform route table, `PortfolioPageProps` carrying `params` + `basePath`).
+  `document` renderer, plus an optional `defaultSectionOrder` seeded into new
+  documents) and `portfolio` (a `pages` renderer map over the platform route
+  table, `PortfolioPageProps` carrying `params` + `basePath`). Templates may
+  also declare `requirements` — config keys and profile content they can't look
+  right without, checked by the pure `checkTemplateRequirements` — and
+  `configFields`, presentation hints for what Zod introspection can't know.
+  Requirements are **advisory**: the dashboard prompts and gates Publish;
+  nothing blocks a render. Portfolio renderers may ship client islands; resume
+  renderers may not (the dashboard renders those client-side).
   See `packages/template-sdk/CLAUDE.md`
 - `@resfolio/eslint-config`, `@resfolio/typescript-config` — shared tooling
 
@@ -141,7 +148,13 @@ Business-logic packages live under `domains/`:
   (`fetch` + pure `normalize`) behind a static registry, each declaring an
   `authMode` (`oauth2 | token | public | file`) and whether it's
   `refreshable`. Providers are import sources only — imported content is
-  ordinary Resfolio data. Pure root: `defineConnector`, the canonical
+  ordinary Resfolio data. **A connector may never propose the user's
+  identity**: no candidate kind carries `name`/`headline`/`summary`/
+  `location`/`avatarUrl` and `basics` is not a route target, so the rule is
+  structural rather than a policy to remember. The one profile field outside a
+  section a connector may propose is a link (`profileLink` → `basics.links`),
+  derived from the connection input by a pure `profileLinks(input)` that
+  spends no request. Pure root: `defineConnector`, the canonical
   `CandidateItem` schema (kinds cover the Profile + the `unclassified`
   escape hatch; payloads reuse the profile item schemas), the routing policy
   (per-kind defaults, user override, unrouted = "needs a home"), the
@@ -161,17 +174,22 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 - `@resfolio/template-resume-classic` (`templates/resume-classic`) — the first
   resume template: clean single-column, ATS-safe, self-hosted Manrope,
   physical-unit CSS, inline SVG icons
-- `@resfolio/template-portfolio-minimal` (`templates/portfolio-minimal`) — the
-  first portfolio template (`kind: "portfolio"`): a quiet editorial dark/light
-  site (home, projects, project detail, about, résumé), serif display type,
-  self-contained `.rf-site`-scoped stylesheet, universal RSC pages. See
-  `templates/portfolio-minimal/CLAUDE.md`
-- `@resfolio/template-portfolio-sidebar` (`templates/portfolio-sidebar`) — the
-  second portfolio template: a two-column site (sticky profile sidebar + content),
-  dark/light sans-serif, its own content-only config shape (proves the schema-
-  driven settings form) and the **same** route table (proves URL-stable template
-  switching). Templates are opinionated — config exposes content/visibility, not
-  styling. See `templates/portfolio-sidebar/CLAUDE.md`
+- `@resfolio/template-dark-anime` (`templates/dark-anime`) — the portfolio
+  template (`kind: "portfolio"`), **adapted from
+  github.com/Ashutoshx7/Portfolio-v2-** (note the trailing dash; the repo
+  without it is a different site). A dark-first developer site: full-bleed
+  banner, avatar breaking its edge, dashed reading column, fixed INDEX rail,
+  single-scroll home over the platform route table. The reference hardcodes its
+  data in components; here everything that was data is the **ProfileView**, and
+  what has no home in a Profile (banner, tagline, quote, intro-call link) is
+  template `config`. Light/dark, ⌘K palette and scroll reveal as **client
+  islands over server-rendered markup** — if none hydrate, the site still reads,
+  navigates and indexes. Hand-written scoped CSS rather than the reference's
+  Tailwind, because a template must render on a host that knows nothing about
+  it. Replaced `portfolio-minimal`/`portfolio-sidebar`/`portfolio-default`
+  (2026-07-17) — **deleting a template is a data migration** (`0009`); a `sites`
+  row pins `template_id` as text and nothing enforces the template still exists,
+  so an orphaned row 404s the live site. See `templates/dark-anime/CLAUDE.md`
 
 ---
 

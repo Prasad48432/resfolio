@@ -58,11 +58,12 @@ export {
 export { computeFingerprint } from "./fingerprint";
 
 export {
-  buildBasicsPatch,
   buildProfileItem,
+  buildProfileLink,
   contentFingerprint,
   detectUserEdit,
   extractAppliedPayload,
+  sameLinkUrl,
   sectionForKind,
   type BuiltProfileItem,
 } from "./apply";

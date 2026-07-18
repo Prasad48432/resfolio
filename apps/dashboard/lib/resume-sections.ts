@@ -1,4 +1,9 @@
-import type { Profile, SectionKey, ViewDefinition } from "@resfolio/profile";
+import {
+  SECTION_KEYS,
+  type Profile,
+  type SectionKey,
+  type ViewDefinition,
+} from "@resfolio/profile";
 
 /**
  * The resume configuration layer (docs/architecture/01-profile-engine.md,
@@ -29,7 +34,12 @@ export interface ResumeSectionDescriptor {
   locked?: true;
 }
 
-/** Every profile section, in canonical order (doc 01's `SECTION_KEYS`). */
+/**
+ * Label + lock lookup for every profile section. **This array's order means
+ * nothing** — `orderedSections` decides what the panel shows, from the view.
+ * (It used to be presented as the render order and quietly disagreed with it:
+ * Education sat second here and rendered fourth.)
+ */
 export const RESUME_SECTIONS: readonly ResumeSectionDescriptor[] = [
   { key: "experience", label: "Work Experience", locked: true },
   { key: "education", label: "Education", locked: true },
@@ -41,6 +51,58 @@ export const RESUME_SECTIONS: readonly ResumeSectionDescriptor[] = [
   { key: "languages", label: "Languages" },
   { key: "custom", label: "Custom sections" },
 ];
+
+const DESCRIPTOR_BY_KEY = new Map(
+  RESUME_SECTIONS.map((section) => [section.key, section]),
+);
+
+/**
+ * The sections in the order the resume actually renders them — an exact mirror
+ * of `orderedSectionKeys` in `@resfolio/profile`'s `view.ts`, which is what
+ * `buildProfileView` runs. The panel must agree with the preview beside it, so
+ * this reads the view rather than any fixed list.
+ *
+ * Same tolerance as the domain: unknown keys are ignored and unlisted sections
+ * follow in canonical order, so a stale `sectionOrder` can never drop a
+ * section from the panel.
+ */
+export function orderedSections(
+  view: ViewDefinition,
+): ResumeSectionDescriptor[] {
+  const explicit = (view.sectionOrder ?? []).filter(
+    (key, index, all) => all.indexOf(key) === index,
+  );
+  const rest = SECTION_KEYS.filter((key) => !explicit.includes(key));
+  return [...explicit, ...rest]
+    .map((key) => DESCRIPTOR_BY_KEY.get(key))
+    .filter((section): section is ResumeSectionDescriptor => Boolean(section));
+}
+
+/**
+ * Record the section render order. Locked sections participate: `locked` is
+ * about *visibility* (a resume without work history isn't one), never about
+ * position — and forbidding it would make "Projects, Experience, Skills"
+ * impossible to express, which is the whole point of the feature.
+ *
+ * Stored as absence when it matches canonical order, so an untouched view stays
+ * `{}` — the same minimal-storage rule `patchSection` follows, and what keeps a
+ * default view out of the render key.
+ */
+export function setSectionOrder(
+  view: ViewDefinition,
+  orderedKeys: SectionKey[],
+): ViewDefinition {
+  const next: ViewDefinition = { ...view };
+  const isCanonical =
+    orderedKeys.length === SECTION_KEYS.length &&
+    orderedKeys.every((key, index) => key === SECTION_KEYS[index]);
+  if (isCanonical) {
+    delete next.sectionOrder;
+  } else {
+    next.sectionOrder = orderedKeys;
+  }
+  return next;
+}
 
 /** The section rows a user may toggle. */
 export const OPTIONAL_RESUME_SECTIONS = RESUME_SECTIONS.filter(

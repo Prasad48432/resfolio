@@ -31,6 +31,8 @@ interface TemplateOption {
   id: string;
   name: string;
   description: string;
+  /** Gallery thumbnail (the template's own asset, or the placeholder). */
+  preview: string;
 }
 
 export function PortfolioClaim({
@@ -135,45 +137,63 @@ export function PortfolioClaim({
         <legend className="mb-1 text-sm font-medium text-foreground">
           Template
         </legend>
+        {/* A gallery, not a list: you choose a template by looking at it. The
+            radio stays as the real control (keyboard, form semantics) and is
+            visually hidden — a card that only *looked* selectable would lose
+            arrow-key navigation and the accessible group. */}
         <div
-          className="flex flex-col gap-3"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2"
           data-testid={TEST_IDS.portfolioTemplatePick}
         >
-          {templates.map((template) => (
-            <Card
-              asChild
-              key={template.id}
-              // Selection is carried by the border alone. A filled background
-              // would be the loudest thing on a page whose subject is the
-              // templates themselves.
-              className={cn(
-                "cursor-pointer transition-[border-color,background-color] duration-(--duration-press) ease-out",
-                templateId === template.id
-                  ? "border-brand/60 bg-surface-warm"
-                  : "hover:border-brand/30",
-              )}
-              data-testid={portfolioTemplateTestId(template.id)}
-            >
-              <label className="flex items-start gap-3 p-4">
-                <input
-                  type="radio"
-                  name="template"
-                  value={template.id}
-                  checked={templateId === template.id}
-                  onChange={() => setTemplateId(template.id)}
-                  className="mt-0.5 size-4 accent-brand"
-                />
-                <span className="flex flex-col gap-1">
-                  <span className="text-sm font-medium text-foreground">
-                    {template.name}
+          {templates.map((template) => {
+            const selected = templateId === template.id;
+            return (
+              <Card
+                asChild
+                key={template.id}
+                className={cn(
+                  "overflow-hidden p-0 transition-[border-color] duration-(--duration-press) ease-out",
+                  selected
+                    ? "border-brand/60 ring-1 ring-brand/40"
+                    : "hover:border-brand/30",
+                )}
+                data-testid={portfolioTemplateTestId(template.id)}
+              >
+                <label className="flex cursor-pointer flex-col">
+                  <input
+                    type="radio"
+                    name="template"
+                    value={template.id}
+                    checked={selected}
+                    onChange={() => setTemplateId(template.id)}
+                    className="sr-only"
+                  />
+                  <span className="relative block aspect-16/10 overflow-hidden border-b border-border bg-surface-warm">
+                    {/* eslint-disable-next-line @next/next/no-img-element --
+                        a template-owned asset path, not a known-host URL. */}
+                    <img
+                      src={template.preview}
+                      alt=""
+                      className="size-full object-cover object-top"
+                    />
+                    {selected ? (
+                      <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-brand text-white">
+                        <Check className="size-3" aria-hidden />
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="text-xs leading-relaxed text-muted">
-                    {template.description}
+                  <span className="flex flex-col gap-1 p-3">
+                    <span className="text-sm font-medium text-foreground">
+                      {template.name}
+                    </span>
+                    <span className="text-xs leading-relaxed text-muted">
+                      {template.description}
+                    </span>
                   </span>
-                </span>
-              </label>
-            </Card>
-          ))}
+                </label>
+              </Card>
+            );
+          })}
         </div>
       </fieldset>
 

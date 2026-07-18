@@ -57,6 +57,20 @@
       "when": 1784232401970,
       "tag": "0007_nebulous_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784288303133,
+      "tag": "0008_lively_wallflower",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784293430639,
+      "tag": "0009_glorious_shard",
+      "breakpoints": true
     }
   ]
 }

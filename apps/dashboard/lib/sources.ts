@@ -87,7 +87,7 @@ export const DESTINATION_LABELS: Record<RouteTarget, string> = {
   awards: "Awards",
   languages: "Languages",
   custom: "Custom section",
-  basics: "Profile basics",
+  links: "Profile links",
 };
 
 const KIND_LABELS: Record<CandidateKind, string> = {
@@ -99,7 +99,7 @@ const KIND_LABELS: Record<CandidateKind, string> = {
   education: "Education",
   skillGroup: "Skill group",
   certification: "Certification",
-  profileBasics: "Profile info",
+  profileLink: "Profile link",
   unclassified: "Unclassified",
 };
 
@@ -145,8 +145,8 @@ function detailFor(candidate: CandidateItem): string {
       return candidate.payload.skills.join(", ");
     case "certification":
       return candidate.payload.issuer;
-    case "profileBasics":
-      return candidate.payload.headline ?? "";
+    case "profileLink":
+      return candidate.payload.url;
     case "unclassified":
       return candidate.payload.text;
   }
@@ -214,11 +214,10 @@ function editableFieldsFor(candidate: CandidateItem): EditableField[] {
         text("name", "Name", candidate.payload.name),
         text("issuer", "Issuer", candidate.payload.issuer),
       ];
-    case "profileBasics":
-      return [
-        text("name", "Name", candidate.payload.name ?? ""),
-        text("headline", "Headline", candidate.payload.headline ?? ""),
-      ];
+    case "profileLink":
+      // The label is taste ("GitHub" vs "Code"); the url is a fact the
+      // connector derived — editing it would only break the link.
+      return [text("label", "Label", candidate.payload.label)];
     case "unclassified":
       return [
         text("title", "Title", candidate.payload.title),

@@ -51,6 +51,8 @@ export const TEST_IDS = {
   portfolioEditor: "portfolio-editor",
   portfolioSaveIndicator: "portfolio-save-indicator",
   portfolioPublishButton: "portfolio-publish-button",
+  portfolioSetupDialog: "portfolio-setup-dialog",
+  portfolioMissingChecklist: "portfolio-missing-checklist",
   portfolioPublishState: "portfolio-publish-state",
   portfolioPublicUrl: "portfolio-public-url",
   portfolioDiscoverable: "portfolio-discoverable",
@@ -81,6 +83,8 @@ export const resumeSectionToggleTestId = (key: string) =>
   `resume-section-toggle-${key}`;
 export const resumeSectionItemTestId = (key: string, id: string) =>
   `resume-section-item-${key}-${id}`;
+export const resumeSectionDragTestId = (key: string) =>
+  `resume-section-drag-${key}`;
 
 export const portfolioTemplateTestId = (id: string) =>
   `portfolio-template-${id}`;

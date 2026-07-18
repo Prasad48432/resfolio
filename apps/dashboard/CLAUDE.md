@@ -222,12 +222,28 @@ features.
   groups:
   - **Sections** — the configuration layer (`components/resume/resume-sections.tsx`
     over the pure, tested `lib/resume-sections.ts`). It writes a
-    **`ViewDefinition`** (`include` / `order` / `exclude`) — the exact thing
-    `buildProfileView` already read, which is why this needed no migration and
-    no domain change. Name/headline/contact/links/summary have **no controls**
-    (they're `basics`); Experience and Education are shown but locked. The
-    default view is `{}` — everything on, empty sections auto-dropped — so the
-    toggles exist to _hide_ content you have.
+    **`ViewDefinition`** (`sectionOrder` / `include` / `order` / `exclude`) — the
+    exact thing `buildProfileView` already read, which is why this needed no
+    migration and no domain change. Name/headline/contact/links/summary have
+    **no controls** (they're `basics`). The default view is `{}` — everything on,
+    empty sections auto-dropped — so the toggles exist to _hide_ content you have.
+    - **Two levels of drag**: sections reorder against each other (writing
+      `sectionOrder`), and items reorder within a section (writing
+      `sections[key].order`). Nested `DndContext`s, so **both need an explicit
+      `id`** or dnd-kit's generated aria ids collide.
+    - **`locked` means un-hideable, never un-movable.** Experience and Education
+      keep their drag handle and lose only their switch — a resume without your
+      work history isn't a resume, but "Projects, Experience, Skills, Education"
+      is a perfectly reasonable thing to want.
+    - **The panel renders `orderedSections(view)`, not a fixed list** — a mirror
+      of the domain's `orderedSectionKeys`. `RESUME_SECTIONS`' own order means
+      nothing and is a label/lock lookup only. It used to be presented as the
+      render order while quietly disagreeing with it (Education sat second,
+      rendered fourth); a panel you can drag *must* show the truth.
+    - **Default order is the template's** (`resumeClassic.defaultSectionOrder`),
+      seeded into a new document by `createResumeAction` and then owned by the
+      user. Nothing re-imposes it, which is why existing resumes keep the order
+      they have rather than silently rearranging on deploy.
   - **Layout** — the template's own config schema (page size, margins, accent,
     icons). Presentation only.
   - **Sharing** — `visibility` (public/private) + the permanent public URL.
@@ -253,8 +269,25 @@ features.
   `configSchema` into field descriptors (`ConfigFields` renders them), so a new
   config option never touches the dashboard. Config is **content/visibility only**
   — the portfolio templates are opinionated and own all styling (doc 03), so the
-  form surfaces toggles/counts, not color/theme pickers. `lib/portfolio-templates.ts`
-  is the pick/config registry (mirrors the `apps/sites` render registry). Autosave
+  form surfaces toggles/counts/template-specific content (a cover image, a
+  quote), not color/theme pickers. `lib/portfolio-templates.ts`
+  is the pick/config registry (mirrors the `apps/sites` render registry).
+  - **Introspection first, metadata only where it can't reach.** A template's
+    `configFields` supplies what Zod cannot say — that a URL is an image, that it
+    wants 1600×900 — and is merged over the inferred shape. Note metadata is
+    consulted **before** the type switch: a cover image is
+    `z.union([z.literal(""), z.url()])`, an unknown shape the switch rightly
+    skips, so checking it inside `case "string"` would never fire.
+  - **Requirements** (doc 05) surface three ways: a `SetupDialog` on arrival
+    (from the server's list, shown once — re-opening as you type would be
+    torture), a live `MissingChecklist` above the form, and a disabled Publish.
+    **Config gaps are recomputed client-side** so typing a cover URL clears the
+    warning immediately; **profile gaps keep the server's answer** (they can't
+    change without leaving the page). Nothing gates the preview — a half-filled
+    page is what the user fixes it against.
+  - **The page uses `safeParse`, not `.parse`.** `.parse` threw the entire
+    settings page when stored config didn't fit the schema — precisely when the
+    user most needs the page that could fix it. Autosave
   persists config + discoverable; a **template switch** resets config to the new
   template's defaults (URLs are unaffected — routes are platform-owned) and the
   editor **remounts** on the template `key` (the `router.refresh()` after a switch
@@ -284,6 +317,12 @@ features.
   revalidates `/profile` too because the import mutates the profile draft.
   Nothing reaches the profile without an explicit Import click; imported items
   are ordinary profile content, and publish stays at `/profile`.
+  **A connector may never propose the user's identity** (2026-07-17): no
+  candidate kind carries name/headline/summary/location/avatar and `basics` is
+  not a route target. The one non-section destination is `profileLink` →
+  "Profile links" (`basics.links`, edited by `components/profile/links-editor.tsx`).
+  Only its `label` is inline-editable — the url is a fact the connector derived,
+  and editing it would only break the link.
 - **String arrays** (skills, technologies) are edited with `TagsField`
   (`components/profile/tags-field.tsx`), the RHF binding over `@resfolio/ui`'s
   `TagInput` chip editor — never a comma-separated text input. Enter (and

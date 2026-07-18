@@ -33,13 +33,13 @@ SDK types. This single choke point is what makes evolution manageable.
 ```ts
 export const template = defineTemplate({
   // Identity
-  id: "portfolio-minimal",            // permanent, unique
+  id: "dark-anime",                   // permanent, unique
   kind: "portfolio",                  // "portfolio" | "resume"
   version: "1.2.0",                   // semver
   compat: { profileView: 1, sdk: 1 }, // contract versions it was built for
 
   // Metadata (dashboard gallery)
-  name: "Minimal",
+  name: "Dark Anime",
   description: "…",
   preview: previewImage,              // static preview asset
 
@@ -48,6 +48,13 @@ export const template = defineTemplate({
   defaultConfig,                      // valid against configSchema
   themes: [{ id: "paper", tokens: {…} }, …],  // CSS-token presets
   customizableTokens: ["--rf-accent", "--rf-font-heading"],
+  configFields: {                     // presentation hints Zod can't express
+    bannerImage: { kind: "image", image: { width: 1200, height: 260 } },
+  },
+  requirements: {                     // what it can't look right without
+    config: ["bannerImage"],
+    profile: ["basics.headline", "sections.projects"],
+  },
 
   // Capabilities — declarative feature support
   capabilities: {
@@ -55,6 +62,8 @@ export const template = defineTemplate({
     atsSafe: true,                    // resume
     pageSizes: ["A4", "LETTER"],      // resume
   },
+
+  defaultSectionOrder: ["education", "experience", "projects"], // resume
 
   // Renderers — React Server Components
   pages: { home: HomePage, projects: ProjectsPage, … },  // portfolio kind
@@ -81,6 +90,50 @@ renders resume templates _client-side_ for keystroke-latency preview
 templates may additionally ship client islands for motion/interactivity;
 resume templates must lay out with zero client JS.
 
+**Why the two kinds differ here**: the asymmetry isn't taste, it's how each is
+previewed. A resume is rendered *into the dashboard's own React tree* on every
+keystroke, so an island in a resume template would be a client component inside
+a client render — and would have to bundle into the dashboard. A portfolio is
+previewed through an **iframe** pointed at `apps/sites`, so its islands are just
+that page's own JS and the dashboard never sees them.
+
+The bar an island must clear: **it enhances markup that is already there.**
+Content is a `children`, never a prop; every destination a palette offers is a
+real `<a href>` in the page. If the island never hydrates, the page still reads,
+navigates, and indexes. `dark-anime`'s theme toggle, ⌘K palette and
+scroll-reveal are the reference implementations.
+
+### Requirements — "is it valid?" vs "is it finished?"
+
+`defineTemplate` requires `defaultConfig` to parse clean against `configSchema`.
+That means **every config field must carry a default**, and a genuinely required
+field — a hero banner with no sensible default — is *unrepresentable in the
+schema*. Rather than relax that check (which would let a broken template load),
+requirements are a **separate declaration**:
+
+```ts
+requirements: {
+  config:  ["bannerImage"],                         // keys of defaultConfig
+  profile: ["basics.headline", "sections.projects"], // content at /profile
+}
+```
+
+`checkTemplateRequirements(requirements, { config, view })` is pure over the
+ProfileView and returns what's missing. Two scopes because the fixes live in
+different places: config is fixed in the settings form, profile content at
+`/profile` — a template may need content it cannot itself provide, and saying so
+early beats a published site with a hole in it.
+
+**Advisory, never enforcement.** The dashboard prompts on arrival, shows a live
+checklist, and gates Publish. Nothing blocks a render: the half-filled draft
+preview is exactly what the user fixes it against. Renderers must still tolerate
+every field being absent — the sparse `jun` fixture is the test that they do.
+
+`configFields` is the adjacent idea: presentation hints (`kind: "image"`,
+dimensions, help text) for what Zod introspection genuinely cannot know. The
+dashboard infers field shapes from the schema by default and merges these over
+the top; declare only what introspection can't reach.
+
 ### Backwards compatibility — the three versioned surfaces
 
 Compatibility is managed by versioning the **contracts**, not by freezing the
@@ -97,6 +150,16 @@ platform:
    automatically; a **major** template release is effectively a new template
    the user opts into, with the dashboard offering a preview-then-switch flow.
    A user's site never changes appearance because we refactored.
+**Deleting or renaming a template is a data migration.** `sites.template_id` is
+plain text and nothing enforces that the template still exists — an orphaned row
+404s the live site (`getPortfolioTemplate` → undefined → `notFound()`) while the
+dashboard's registry lookup fails and its editor reports "Offline". `config` must
+be reset alongside the id, because config is template-owned and the old shape
+fails the new schema, which renders as a *silent 404*. Migration `0009` is the
+worked example. Note ISR makes this bite twice: `unstable_cache` keeps serving
+the old `templateId` until `site:<id>` is dropped, so the fix looks like it
+didn't work.
+
 3. **Capabilities instead of version sniffing** — new platform features
    (blog pages, print headers, RTL) arrive as new optional capability flags +
    renderer slots. Old templates simply don't declare them: the platform
@@ -144,13 +207,13 @@ extraction check ([02-resume-rendering](02-resume-rendering.md)).
 2. ✅ First resume template consumes it ([02-resume-rendering](02-resume-rendering.md)).
 3. ✅ Extend for `kind: "portfolio"` (pages map, `capabilities.pages`, the
    `PortfolioPageProps` `params` + `basePath` inputs) — Phase 5, alongside the
-   first portfolio template (`portfolio-minimal`)
+   the portfolio template (`dark-anime`)
    ([03-portfolio-rendering](03-portfolio-rendering.md)). `defineTemplate`
    validates page coverage (every declared page has a renderer; `home` is
    mandatory) and forbids a renderer for an undeclared page.
 4. Template CI harness (render every page with fixture ProfileViews, visual
    snapshots) as soon as template #2 exists. _Seed landed with
-   `portfolio-minimal`'s render tests; the visual-snapshot layer arrives with
+   `dark-anime`'s render tests; the visual-snapshot layer arrives with
    the second portfolio template._
 5. `create-template` starter script when template authoring becomes routine.
 

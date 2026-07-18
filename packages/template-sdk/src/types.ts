@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { z } from "zod";
 
-import type { ProfileView } from "@resfolio/profile";
+import type { ProfileView, SectionKey } from "@resfolio/profile";
 
 /**
  * The Template SDK contract types (docs/architecture/05-template-sdk.md).
@@ -20,9 +20,65 @@ export const PROFILE_VIEW_VERSION = 1;
 export const SDK_VERSION = 1;
 
 /** Re-exported so templates import the view contract from the SDK only. */
-export type { ProfileView } from "@resfolio/profile";
+export type { ProfileView, SectionKey } from "@resfolio/profile";
 
 export type PageSize = "A4" | "LETTER";
+
+/**
+ * Profile content a template can declare it needs. `basics.*` must be non-empty;
+ * `sections.*` must have at least one item (`buildProfileView` drops empty
+ * sections, so presence in the projection is the check).
+ */
+export type ProfileRequirementKey =
+  | "basics.name"
+  | "basics.headline"
+  | "basics.summary"
+  | "basics.location"
+  | "basics.avatarUrl"
+  | "basics.links"
+  | `sections.${SectionKey}`;
+
+/**
+ * What a template cannot look right without (`checkTemplateRequirements`).
+ * Advisory: the platform prompts and gates Publish; nothing blocks a render,
+ * because the half-filled draft preview is what the user fixes it against.
+ */
+export interface TemplateRequirements {
+  /** Config keys that must be non-empty. Validated against `defaultConfig`'s
+   * keys by `defineTemplate`, so a typo fails at load rather than never firing. */
+  config?: readonly string[];
+  /** Profile content the user must supply at `/profile`. */
+  profile?: readonly ProfileRequirementKey[];
+}
+
+export interface MissingRequirement {
+  /** `config` is fixed in the settings form; `profile` at `/profile`. */
+  scope: "config" | "profile";
+  key: string;
+}
+
+/**
+ * Presentation hints for a config field, merged over what the dashboard can
+ * already infer from the Zod schema.
+ *
+ * Introspection stays the default and this stays optional **on purpose**: config
+ * is the template's own vocabulary, and the dashboard must stay generic over any
+ * registered template. But some things a schema genuinely cannot say — a
+ * `z.string().url()` cover image is indistinguishable from any other URL, and
+ * "1600×900" is not a validation rule, it's advice. Declare only what
+ * introspection cannot know.
+ */
+export interface ConfigFieldMeta {
+  /** Overrides the humanized key. */
+  label?: string;
+  /** Help text under the control. */
+  description?: string;
+  /** Forces a control the schema can't imply. */
+  kind?: "image" | "textarea";
+  /** For `kind: "image"` — the dimensions the template is designed around,
+   * shown as guidance. Not enforced: we can't measure a pasted URL. */
+  image?: { width: number; height: number };
+}
 
 /** The two output kinds. `resume` renders a single paginated document;
  * `portfolio` renders a multi-page website (doc 03). New kinds (cover letter,
@@ -119,6 +175,24 @@ export interface ResumeTemplateDefinition<Config> {
   // Capabilities — declarative feature support (doc 05)
   capabilities: ResumeCapabilities;
 
+  /**
+   * The section order this template reads best in, seeded into a new document's
+   * `ViewDefinition.sectionOrder` — after which it is **the user's data**, freely
+   * reorderable and never re-imposed. Partial lists are fine: unlisted sections
+   * follow in canonical order (`orderedSectionKeys`).
+   *
+   * Why a declaration and not a render-time default: the renderer receives an
+   * already-ordered `ProfileView`, and the same `buildProfileView` runs for the
+   * dashboard preview and the PDF. A template that reordered at render would
+   * either duplicate that logic on both sides or break the parity guarantee.
+   * Seeding keeps one source of truth — the stored view — which is also what
+   * lets the Sections panel show the true order and let the user drag it.
+   *
+   * A future template whose sections are columns needs more than a flat list;
+   * that is a new declaration next to this one, not a reinterpretation of it.
+   */
+  defaultSectionOrder?: readonly SectionKey[];
+
   // Renderer
   document: ResumeRenderer<Config>;
 }
@@ -183,6 +257,24 @@ export interface PortfolioTemplateDefinition<Config> {
   themes: readonly ThemePreset[];
   /** Tokens the user may override; must exist in every theme preset. */
   customizableTokens?: readonly TokenName[];
+  /**
+   * Presentation hints per config key, merged over Zod introspection. Optional
+   * by design — declare only what a schema cannot say (that a URL is a cover
+   * image, that it wants 1600×900). See `ConfigFieldMeta`.
+   */
+  configFields?: Readonly<Record<string, ConfigFieldMeta>>;
+  /**
+   * What this template cannot look right without — config keys and/or profile
+   * content. Advisory: the dashboard prompts and gates Publish, nothing blocks
+   * a render. See `checkTemplateRequirements`.
+   *
+   * Note this is separate from `configSchema` on purpose. `defineTemplate`
+   * requires `defaultConfig` to parse clean, so every config field must carry a
+   * default and a genuinely required field is *unrepresentable* in the schema.
+   * Splitting "is it valid?" (schema) from "is it finished?" (this) keeps both
+   * questions answerable.
+   */
+  requirements?: TemplateRequirements;
 
   // Capabilities — declarative feature support (doc 05)
   capabilities: PortfolioCapabilities;

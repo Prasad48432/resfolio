@@ -1,3 +1,4 @@
+import { SECTION_KEYS } from "@resfolio/profile";
 import { z } from "zod";
 
 import { TemplateDefinitionError } from "./errors";
@@ -175,6 +176,19 @@ export function defineTemplate<Config>(
         );
       }
     }
+    // A required key that isn't a config key would never fire — the check would
+    // read `undefined`, call it missing, and nothing the user typed could ever
+    // satisfy it. `defaultConfig` parses clean (checked above), so its keys are
+    // exactly the config's keys.
+    for (const key of def.requirements?.config ?? []) {
+      if (!Object.hasOwn(def.defaultConfig as object, key)) {
+        throw new TemplateDefinitionError(
+          id,
+          `requirements.config names "${key}", which is not a key of defaultConfig`,
+        );
+      }
+    }
+
     return Object.freeze({
       ...def,
       ...frozenBase,
@@ -183,6 +197,16 @@ export function defineTemplate<Config>(
         pages: Object.freeze([...def.capabilities.pages]),
       }),
       pages: Object.freeze({ ...def.pages }),
+      requirements: def.requirements
+        ? Object.freeze({
+            config: def.requirements.config
+              ? Object.freeze([...def.requirements.config])
+              : undefined,
+            profile: def.requirements.profile
+              ? Object.freeze([...def.requirements.profile])
+              : undefined,
+          })
+        : undefined,
     });
   }
 
@@ -193,6 +217,26 @@ export function defineTemplate<Config>(
     );
   }
 
+  // A bad key here would be silently ignored by `orderedSectionKeys` — the
+  // template would just render in canonical order and nobody would know why.
+  if (def.defaultSectionOrder) {
+    for (const key of def.defaultSectionOrder) {
+      if (!SECTION_KEYS.includes(key)) {
+        throw new TemplateDefinitionError(
+          id,
+          `defaultSectionOrder contains "${key}", which is not a profile section key`,
+        );
+      }
+    }
+    const unique = new Set(def.defaultSectionOrder);
+    if (unique.size !== def.defaultSectionOrder.length) {
+      throw new TemplateDefinitionError(
+        id,
+        "defaultSectionOrder repeats a section key",
+      );
+    }
+  }
+
   return Object.freeze({
     ...def,
     ...frozenBase,
@@ -200,5 +244,8 @@ export function defineTemplate<Config>(
       ...def.capabilities,
       pageSizes: Object.freeze([...def.capabilities.pageSizes]),
     }),
+    defaultSectionOrder: def.defaultSectionOrder
+      ? Object.freeze([...def.defaultSectionOrder])
+      : undefined,
   });
 }

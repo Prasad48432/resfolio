@@ -1,14 +1,13 @@
 import type { StackoverflowTag, StackoverflowUser } from "./stackoverflow";
 
 /** Recorded shapes of the Stack Exchange API's `/users/{id}` and
- * `/users/{id}/top-tags` items (doc 11 fixture discipline). */
+ * `/users/{id}/top-tags` items (doc 11 fixture discipline). The real payload
+ * also carries `reputation`, `location`, `profile_image` and `link`; they are
+ * absent here because the connector no longer reads them — the user object is
+ * an existence probe now, not a content source. */
 export const stackoverflowUser: StackoverflowUser = {
   user_id: 22656,
   display_name: "ada-l",
-  reputation: 41230,
-  location: "Berlin, Germany",
-  profile_image: "https://i.sstatic.net/abc123.jpg",
-  link: "https://stackoverflow.com/users/22656/ada-l",
 };
 
 export const stackoverflowTopTags: StackoverflowTag[] = [

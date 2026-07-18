@@ -114,6 +114,16 @@ describe("github.normalize", () => {
     }
   });
 
+  it("proposes nothing about the user — only projects and a link", () => {
+    // Users report "the GitHub import changed my avatar/name/headline". It
+    // cannot, and this is the guard that keeps it that way.
+    const kinds = [
+      ...github.normalize(normalRepo),
+      ...github.profileLinks!({ username: "ada" }),
+    ].map((candidate) => candidate.kind);
+    expect(new Set(kinds)).toEqual(new Set(["project", "profileLink"]));
+  });
+
   it("tolerates a repo with nothing optional set", () => {
     const [candidate] = github.normalize(bareRepo);
     expect(candidate?.url).toBe("https://github.com/ada/dotfiles");

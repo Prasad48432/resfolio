@@ -5,7 +5,10 @@ import { defineConnector, type FetchContext } from "../contract";
 
 /**
  * GitHub connector (docs/architecture/12-integrations-and-sync.md) — `public`
- * mode, emitting `project` candidates from a user's public repositories.
+ * mode, emitting `project` candidates from a user's public repositories, plus
+ * a `profileLink` for the profile URL itself. It proposes **nothing about the
+ * user's identity** — no name, no avatar, no bio, no location: see the
+ * "never propose the user's identity" note in `../candidate.ts`.
  *
  * **No OAuth, no GitHub App, no user grant** (V1 decision): the user types a
  * username and `GET /users/{username}/repos` answers. That endpoint returns
@@ -143,14 +146,32 @@ function normalizeRepo(raw: GithubRepo): CandidateItem[] {
   return [candidate];
 }
 
+/** The user's GitHub profile URL — knowable from the username alone, so no
+ * request is spent on it and a user with zero public repos still gets their
+ * link. Staged as a proposal like everything else; the user imports it. */
+function githubProfileLinks(input: GithubInput): CandidateItem[] {
+  const url = `https://github.com/${input.username}`;
+  return [
+    candidateItemSchema.parse({
+      kind: "profileLink",
+      externalId: "profile-link",
+      url,
+      title: "GitHub profile",
+      raw: null,
+      payload: { label: "GitHub", url },
+    }),
+  ];
+}
+
 export const github = defineConnector<GithubInput, GithubRepo>({
   id: "github",
   name: "GitHub",
   authMode: "public",
   tier: "A",
   input: githubInputSchema,
-  resources: ["project"],
+  resources: ["project", "profileLink"],
   capabilities: { refreshable: true, incremental: true },
   fetch: fetchRepos,
   normalize: normalizeRepo,
+  profileLinks: githubProfileLinks,
 });

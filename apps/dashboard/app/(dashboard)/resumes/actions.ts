@@ -50,6 +50,10 @@ export const createResumeAction = createAction({
         templateId: resumeClassic.id,
         templateMajor: TEMPLATE_MAJOR,
         config: { ...defaultResumeClassicConfig },
+        // The template's preferred reading order, seeded once. From here it is
+        // the user's data: the Sections panel drags it and nothing re-imposes
+        // it — which is also why existing resumes keep the order they have.
+        sectionOrder: resumeClassic.defaultSectionOrder,
       }),
     );
     revalidatePath("/resumes");

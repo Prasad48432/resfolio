@@ -40,17 +40,21 @@ interface FixtureSiteDescriptor {
 const FIXTURE_SITES: Record<string, FixtureSiteDescriptor> = {
   ada: {
     siteId: "fixture-ada",
-    templateId: "portfolio-minimal",
+    templateId: "dark-anime",
     templateMajor: 1,
-    config: {},
+    // Exercises the template-config layer locally. No `coverImage`: a fixture
+    // can't reference a real image, and a broken <img> in dev teaches nothing.
+    config: { quote: "Boring, observable systems win.", quoteAttribution: "Ada" },
     view: {},
     discoverable: true,
     fixtureRef: "ada",
   },
   jun: {
     siteId: "fixture-jun",
-    templateId: "portfolio-minimal",
+    templateId: "dark-anime",
     templateMajor: 1,
+    // Deliberately bare — `jun` is the sparse case, and `{}` parsing clean is
+    // itself the check that every config field still carries a default.
     config: {},
     view: {},
     discoverable: true,

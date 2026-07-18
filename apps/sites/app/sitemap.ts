@@ -60,7 +60,7 @@ function entriesFor(site: SitemapSite): MetadataRoute.Sitemap {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sites: SitemapSite[] = FIXTURE_SITE_USERNAMES.map((username) => ({
     username,
-    templateId: "portfolio-minimal",
+    templateId: "dark-anime",
   }));
 
   // DB sites (best-effort — no database in the fixture/CI path).

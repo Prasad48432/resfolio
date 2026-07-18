@@ -1,5 +1,6 @@
 import {
   buildProfileView,
+  SECTION_KEYS,
   type Profile,
   type ViewDefinition,
 } from "@resfolio/profile";
@@ -10,11 +11,13 @@ import {
   isItemShown,
   isSectionIncluded,
   orderedChoices,
+  orderedSections,
   resetSectionItems,
   sectionItemChoices,
   setItemOrder,
   setItemShown,
   setSectionIncluded,
+  setSectionOrder,
   shownCount,
 } from "./resume-sections";
 
@@ -172,5 +175,59 @@ describe("custom sections", () => {
     for (const section of rendered) {
       expect(section.id).not.toBe(choices[0]!.id);
     }
+  });
+});
+
+describe("section order", () => {
+  it("the panel's order is the render order — the promise this feature makes", () => {
+    const view = setSectionOrder({}, [
+      "projects",
+      "experience",
+      "skills",
+      "education",
+    ]);
+    const panel = orderedSections(view)
+      .map((section) => section.key)
+      .filter((key) => ["projects", "experience", "skills", "education"].includes(key));
+    const rendered = projected(view)
+      .sections.map((section) => section.key)
+      .filter((key) => ["projects", "experience", "skills", "education"].includes(key));
+    expect(panel).toEqual(["projects", "experience", "skills", "education"]);
+    expect(rendered).toEqual(panel);
+  });
+
+  it("a partial order leaves the rest in canonical order", () => {
+    const view = setSectionOrder({}, ["skills", "projects"]);
+    const keys = orderedSections(view).map((section) => section.key);
+    expect(keys.slice(0, 2)).toEqual(["skills", "projects"]);
+    // Everything unlisted still appears exactly once, canonical order kept.
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys).toContain("experience");
+    expect(keys).toContain("custom");
+  });
+
+  it("canonical order stores as absence, keeping an untouched view {}", () => {
+    const view = setSectionOrder({}, [...SECTION_KEYS]);
+    expect(view).toEqual({});
+  });
+
+  it("locked sections reorder — locked is about visibility, not position", () => {
+    // The user's ask: "Projects, Experience, Skills, Education". Experience and
+    // Education are locked rows; if lock implied a fixed position this is the
+    // test that would fail.
+    const view = setSectionOrder({}, ["projects", "experience"]);
+    const rendered = projected(view)
+      .sections.map((section) => section.key)
+      .filter((key) => key === "projects" || key === "experience");
+    expect(rendered).toEqual(["projects", "experience"]);
+  });
+
+  it("tolerates a stale order without dropping a section from the panel", () => {
+    const view: ViewDefinition = {
+      sectionOrder: ["projects", "projects", "skills"] as never,
+    };
+    const keys = orderedSections(view).map((section) => section.key);
+    expect(keys.filter((key) => key === "projects")).toHaveLength(1);
+    expect(keys).toHaveLength(SECTION_KEYS.length);
   });
 });

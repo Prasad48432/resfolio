@@ -2,14 +2,20 @@ import { addItem, createEmptyProfile, createItemId } from "@resfolio/profile";
 import { describe, expect, it } from "vitest";
 
 import {
-  buildBasicsPatch,
   buildProfileItem,
+  buildProfileLink,
   contentFingerprint,
   detectUserEdit,
   extractAppliedPayload,
+  sameLinkUrl,
   sectionForKind,
 } from "./apply";
-import { candidateItemSchema, type CandidateItem } from "./candidate";
+import {
+  candidateItemSchema,
+  CANDIDATE_KINDS,
+  type CandidateItem,
+} from "./candidate";
+import { COMPATIBLE_ROUTE_TARGETS } from "./routing";
 import { CandidateApplyError } from "./errors";
 
 /**
@@ -45,6 +51,21 @@ function articleCandidate(): CandidateItem {
   });
 }
 
+function linkCandidate(): Extract<CandidateItem, { kind: "profileLink" }> {
+  const parsed = candidateItemSchema.parse({
+    kind: "profileLink",
+    externalId: "profile-link",
+    url: "https://github.com/ada",
+    title: "GitHub profile",
+    raw: null,
+    payload: { label: "GitHub", url: "https://github.com/ada" },
+  });
+  if (parsed.kind !== "profileLink") {
+    throw new Error("unreachable");
+  }
+  return parsed;
+}
+
 describe("buildProfileItem", () => {
   it("stamps provenance: fresh id, provider source, externalId → sourceId", () => {
     const built = buildProfileItem(projectCandidate(), "github");
@@ -65,7 +86,7 @@ describe("buildProfileItem", () => {
     expect(sectionForKind("contribution")).toBe("projects");
     expect(sectionForKind("talk")).toBe("custom");
     expect(sectionForKind("unclassified")).toBe("custom");
-    expect(sectionForKind("profileBasics")).toBe("basics");
+    expect(sectionForKind("profileLink")).toBe("links");
   });
 
   it("builds the multi-section kinds onto their own sections (the LinkedIn mapping)", () => {
@@ -146,36 +167,57 @@ describe("buildProfileItem", () => {
     );
   });
 
-  it("rejects profileBasics (patched, not added)", () => {
-    const basics = candidateItemSchema.parse({
-      kind: "profileBasics",
-      externalId: "me",
-      title: "Profile",
-      raw: {},
-      payload: { name: "Ada" },
-    });
-    expect(() => buildProfileItem(basics, "github")).toThrow(
+  it("rejects profileLink (merged into basics.links, not added to a section)", () => {
+    expect(() => buildProfileItem(linkCandidate(), "github")).toThrow(
       CandidateApplyError,
     );
   });
 });
 
-describe("buildBasicsPatch", () => {
-  it("drops empty fields so an import never blanks existing content", () => {
-    const basics = candidateItemSchema.parse({
-      kind: "profileBasics",
-      externalId: "me",
-      title: "Profile",
-      raw: {},
-      payload: { name: "Ada Lovelace", headline: "", location: "London" },
-    });
-    if (basics.kind !== "profileBasics") {
-      throw new Error("unreachable");
+describe("the identity rule", () => {
+  it("no kind exists for identity, and nothing may route to basics", () => {
+    // The invariant behind this module: a connector may propose content and a
+    // link, never who the user is. Both halves are structural — there is no
+    // kind carrying identity, and `basics` is not a route target at all.
+    expect(CANDIDATE_KINDS).not.toContain("profileBasics");
+    for (const kind of CANDIDATE_KINDS) {
+      expect(COMPATIBLE_ROUTE_TARGETS[kind]).not.toContain("basics");
     }
-    expect(buildBasicsPatch(basics)).toEqual({
-      name: "Ada Lovelace",
-      location: "London",
-    });
+  });
+});
+
+describe("buildProfileLink", () => {
+  it("mints an id and carries label + url", () => {
+    const link = buildProfileLink(linkCandidate());
+    expect(link.id).toMatch(/./);
+    expect(link.label).toBe("GitHub");
+    expect(link.url).toBe("https://github.com/ada");
+  });
+
+  it("rejects an unsafe scheme at the schema boundary", () => {
+    expect(() =>
+      candidateItemSchema.parse({
+        kind: "profileLink",
+        externalId: "profile-link",
+        title: "Profile",
+        raw: null,
+        payload: { label: "Bad", url: "javascript:alert(1)" },
+      }),
+    ).toThrow();
+  });
+});
+
+describe("sameLinkUrl (the dedupe key — links carry no provenance)", () => {
+  it("ignores a trailing slash and host case", () => {
+    expect(sameLinkUrl("https://github.com/ada", "https://GitHub.com/ada/")).toBe(
+      true,
+    );
+  });
+
+  it("keeps distinct paths distinct", () => {
+    expect(
+      sameLinkUrl("https://github.com/ada", "https://github.com/grace"),
+    ).toBe(false);
   });
 });
 
@@ -254,11 +296,20 @@ describe("contentFingerprint + extractAppliedPayload (the user-edit detector)", 
     expect(extracted).not.toHaveProperty("source");
   });
 
-  it("extracts the basics subset with empties dropped", () => {
+  it("extracts an imported link by id from basics.links", () => {
+    const link = buildProfileLink(linkCandidate());
     const profile = createEmptyProfile();
-    profile.basics.name = "Ada";
-    const extracted = extractAppliedPayload(profile, "profileBasics", null);
-    expect(extracted).toEqual({ name: "Ada" });
+    profile.basics.links = [link];
+    expect(extractAppliedPayload(profile, "profileLink", link.id)).toEqual({
+      label: "GitHub",
+      url: "https://github.com/ada",
+    });
+  });
+
+  it("a removed link extracts as null", () => {
+    expect(
+      extractAppliedPayload(createEmptyProfile(), "profileLink", "gone"),
+    ).toBeNull();
   });
 });
 

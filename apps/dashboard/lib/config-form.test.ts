@@ -1,12 +1,12 @@
-import { portfolioMinimalConfigSchema } from "@resfolio/template-portfolio-minimal";
+import { darkAnime, darkAnimeConfigSchema } from "@resfolio/template-dark-anime";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { describeConfigSchema } from "./config-form";
+import { describeConfigSchema, describeMissing } from "./config-form";
 
 describe("describeConfigSchema", () => {
-  it("describes the portfolio-minimal config from its schema", () => {
-    const fields = describeConfigSchema(portfolioMinimalConfigSchema);
+  it("describes the dark-anime config from its schema", () => {
+    const fields = describeConfigSchema(darkAnimeConfigSchema);
     const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
 
     // The templates are opinionated: config is content/visibility only, no
@@ -19,8 +19,36 @@ describe("describeConfigSchema", () => {
       kind: "number",
       min: 1,
       max: 12,
-      defaultValue: 4,
+      defaultValue: 6,
     });
+  });
+
+  it("merges the template's declared metadata over the inferred shape", () => {
+    const fields = describeConfigSchema(darkAnimeConfigSchema, {
+      configFields: darkAnime.configFields,
+      requirements: darkAnime.requirements,
+    });
+    const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
+
+    // Nothing about `z.union([z.literal(""), z.url()])` says "banner image" or
+    // "1200×260" — only the template knows, which is why metadata exists.
+    expect(byKey.bannerImage).toMatchObject({
+      kind: "image",
+      label: "Banner image",
+      required: true,
+      image: { width: 1200, height: 260 },
+    });
+    expect(byKey.quote).toMatchObject({ kind: "textarea" });
+    // Not declared required → no flag, not `required: false`.
+    expect(byKey.quote?.required).toBeUndefined();
+  });
+
+  it("without metadata, infers only what the schema can prove", () => {
+    const fields = describeConfigSchema(darkAnimeConfigSchema);
+    const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
+    // A bare union of "" | url is unknowable — skipped, never guessed.
+    expect(byKey.bannerImage).toBeUndefined();
+    expect(byKey.quote).toMatchObject({ kind: "text" });
   });
 
   it("describes an enum as a select and a hex string as a color", () => {
@@ -73,5 +101,24 @@ describe("describeConfigSchema", () => {
       z.object({ n: z.number().gt(0).lt(10).default(5) }),
     );
     expect(fields[0]).toMatchObject({ kind: "number", min: 1, max: 9 });
+  });
+});
+
+describe("describeMissing", () => {
+  const fields = describeConfigSchema(darkAnimeConfigSchema, {
+    configFields: darkAnime.configFields,
+    requirements: darkAnime.requirements,
+  });
+
+  it("labels a config gap with the form's own label, so the two agree", () => {
+    expect(describeMissing({ scope: "config", key: "bannerImage" }, fields)).toEqual(
+      { label: "Banner image", where: "settings" },
+    );
+  });
+
+  it("labels a profile gap in plain English and points at /profile", () => {
+    expect(
+      describeMissing({ scope: "profile", key: "sections.projects" }, fields),
+    ).toEqual({ label: "At least one project", where: "profile" });
   });
 });

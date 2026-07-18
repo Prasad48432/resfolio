@@ -1,10 +1,12 @@
 import { requireSession } from "@resfolio/auth";
 import { getSiteForOwner } from "@resfolio/portfolio/server";
+import { buildProfileView } from "@resfolio/profile";
 import { getOrCreateProfile } from "@resfolio/profile/server";
+import { checkTemplateRequirements } from "@resfolio/template-sdk";
 
 import { PortfolioClaim } from "@/components/portfolio/portfolio-claim";
 import { PortfolioEditor } from "@/components/portfolio/portfolio-editor";
-import { describeConfigSchema } from "@/lib/config-form";
+import { describeConfigSchema, describeMissing } from "@/lib/config-form";
 import { env } from "@/lib/env";
 import {
   getDashboardPortfolioTemplate,
@@ -45,6 +47,7 @@ export default async function PortfolioPage() {
           id: t.id,
           name: t.name,
           description: t.description,
+          preview: t.preview,
         }))}
         suggestedSlug={suggested}
       />
@@ -54,10 +57,29 @@ export default async function PortfolioPage() {
   const template = getDashboardPortfolioTemplate(site.templateId);
   // Start the settings form from a schema-valid config (stored config may
   // predate a config change; parse with defaults).
-  const config = template
-    ? (template.configSchema.parse(site.config) as Record<string, unknown>)
-    : (site.config as Record<string, unknown>);
-  const fields = template ? describeConfigSchema(template.configSchema) : [];
+  //
+  // `safeParse`, deliberately: `.parse` threw the whole settings page when
+  // stored config didn't fit the schema — which is exactly the moment a user
+  // most needs the page that can fix it. Falling back to defaults means a
+  // config we can't read gets re-stated rather than stranding the user.
+  const parsed = template?.configSchema.safeParse(site.config);
+  const config = parsed?.success
+    ? (parsed.data as Record<string, unknown>)
+    : ((template?.defaultConfig ?? site.config) as Record<string, unknown>);
+  const fields = template
+    ? describeConfigSchema(template.configSchema, {
+        configFields: template.configFields,
+        requirements: template.requirements,
+      })
+    : [];
+
+  // What this template can't look right without (doc 05). Advisory: the editor
+  // prompts and Publish is gated, but the draft still previews — a half-filled
+  // page is what the user fixes it against.
+  const missing = checkTemplateRequirements(template?.requirements, {
+    config,
+    view: buildProfileView(draft.data, site.view ?? {}),
+  }).map((entry) => ({ key: entry.key, ...describeMissing(entry, fields) }));
 
   return (
     <PortfolioEditor
@@ -71,6 +93,7 @@ export default async function PortfolioPage() {
       templateName={template?.name ?? site.templateId}
       fields={fields}
       initialConfig={config}
+      initialMissing={missing}
       discoverable={site.discoverable}
       publicBaseUrl={publicBaseUrl()}
       previewEnabled={Boolean(env.RENDER_SECRET && env.SITES_URL)}

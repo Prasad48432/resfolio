@@ -1,5 +1,4 @@
-import { portfolioMinimal } from "@resfolio/template-portfolio-minimal";
-import { portfolioSidebar } from "@resfolio/template-portfolio-sidebar";
+import { darkAnime } from "@resfolio/template-dark-anime";
 import type { PortfolioTemplateDefinition } from "@resfolio/template-sdk";
 
 /**
@@ -16,8 +15,7 @@ export type AnyPortfolioTemplate = PortfolioTemplateDefinition<unknown>;
 // unprovable to TS; the cast is sound because the host only ever feeds a page a
 // config it parsed through this same template's schema.
 const REGISTRY = new Map<string, AnyPortfolioTemplate>([
-  [portfolioMinimal.id, portfolioMinimal as unknown as AnyPortfolioTemplate],
-  [portfolioSidebar.id, portfolioSidebar as unknown as AnyPortfolioTemplate],
+  [darkAnime.id, darkAnime as unknown as AnyPortfolioTemplate],
 ]);
 
 export function getPortfolioTemplate(

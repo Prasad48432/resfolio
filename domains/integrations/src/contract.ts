@@ -9,9 +9,11 @@ import { ConnectorDefinitionError } from "./errors";
 
 /**
  * The connector contract (docs/architecture/12-integrations-and-sync.md). Every
- * provider is one small module implementing exactly two functions — `fetch`
+ * provider is one small module implementing two functions — `fetch`
  * (the only place a provider API is touched) and `normalize` (**pure**: raw →
- * canonical candidates) — plus metadata declaring its auth mode and whether
+ * canonical candidates) — plus an optional third, `profileLinks` (**pure**:
+ * connection input → the provider's own profile link, no fetch at all) — plus
+ * metadata declaring its auth mode and whether
  * it is `refreshable`. Everything else (token handling, retries, staging,
  * routing defaults, dedupe, media rehosting, the workspace UI) is the
  * runtime, written once. This is the single biggest lever for "adding
@@ -91,6 +93,18 @@ export interface Connector<Input = unknown, Raw = unknown> {
   fetch: (ctx: FetchContext<Input>) => AsyncIterable<Raw>;
   /** Pure: raw item → zero or more canonical candidates (skip = `[]`). */
   normalize: (raw: Raw) => CandidateItem[];
+  /**
+   * Pure: the connector's own profile link(s), derived from the connection
+   * `input` alone — **no fetch**. `https://github.com/{username}` is knowable
+   * the moment the user types the username; spending an API call to learn it
+   * would be silly, and `normalize` couldn't do it anyway (it sees only a raw
+   * item, and a user with zero repos yields no raw items at all).
+   *
+   * Omit when the input implies no profile: an RSS feed URL is a publication,
+   * not a person. Results are staged and triaged like any other candidate —
+   * this is a *proposal*, never a write.
+   */
+  profileLinks?: (input: Input) => CandidateItem[];
 }
 
 /** Any connector, credentials/input/raw erased — the registry's element type. */
@@ -142,6 +156,20 @@ export function defineConnector<Input, Raw>(
   }
   if (typeof def.normalize !== "function") {
     throw new ConnectorDefinitionError(id, "normalize must be a function");
+  }
+  if (def.profileLinks !== undefined && typeof def.profileLinks !== "function") {
+    throw new ConnectorDefinitionError(
+      id,
+      "profileLinks must be a function when declared",
+    );
+  }
+  // A connector that emits links must say so, like any other kind — `resources`
+  // is what the workspace reads to describe a connector before it ever runs.
+  if (def.profileLinks && !def.resources.includes("profileLink")) {
+    throw new ConnectorDefinitionError(
+      id,
+      "declares profileLinks but does not list `profileLink` in resources",
+    );
   }
 
   // oauth2/token need read scopes; public/file need an input schema to validate

@@ -61,6 +61,7 @@ export const BASICS_FIELDS: FieldDescriptor[] = [
     kind: "text",
     placeholder: "Ada Lovelace",
     testId: TEST_IDS.basicsName,
+    wide: true,
   },
   {
     name: "headline",

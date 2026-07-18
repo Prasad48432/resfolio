@@ -17,10 +17,11 @@ import {
 } from "@resfolio/profile/server";
 
 import {
-  buildBasicsPatch,
   buildProfileItem,
+  buildProfileLink,
   contentFingerprint,
   extractAppliedPayload,
+  sameLinkUrl,
 } from "../apply";
 import { assertRouteTarget } from "../routing";
 import {
@@ -128,6 +129,60 @@ function updateCustomItem(
   return updateItem(profile, "custom", section.id, { items });
 }
 
+/** The maximum `basicsSchema.links` accepts. Checked here so a full link list
+ * fails with something a user can act on, rather than as a raw schema error
+ * from deep inside `updateBasics`. */
+const MAX_LINKS = 20;
+
+/**
+ * Merge a link into `basics.links`. The merge lives here rather than in the
+ * pure layer because `updateBasics` **replaces** the array wholesale — passing
+ * a single link through it would delete every other link the user has.
+ *
+ * Three ways in, in priority order: the receipt's `appliedItemId` (a re-import
+ * of a link we placed), then a url match (the user already added this link by
+ * hand — adopt it rather than duplicate it), then append. Links carry no
+ * provenance of their own (`profileLinkSchema` is `{ id, label, url }`), so url
+ * is the only key available for that second case.
+ */
+function mergeProfileLink(
+  profile: Profile,
+  candidate: Extract<CandidateItem, { kind: "profileLink" }>,
+  appliedItemId: string | null,
+): ApplyOutcome {
+  const links = profile.basics.links;
+  const built = buildProfileLink(candidate);
+
+  const existing =
+    links.find((link) => appliedItemId !== null && link.id === appliedItemId) ??
+    links.find((link) => sameLinkUrl(link.url, built.url));
+
+  if (existing) {
+    const next = links.map((link) =>
+      link.id === existing.id
+        ? { ...link, label: built.label, url: built.url }
+        : link,
+    );
+    return {
+      next: updateBasics(profile, { links: next }),
+      appliedItemId: existing.id,
+      appliedSectionKey: "links",
+    };
+  }
+
+  if (links.length >= MAX_LINKS) {
+    throw new IntegrationDataError(
+      `Your profile already has ${MAX_LINKS} links — remove one to import another.`,
+    );
+  }
+
+  return {
+    next: updateBasics(profile, { links: [...links, built] }),
+    appliedItemId: built.id,
+    appliedSectionKey: "links",
+  };
+}
+
 /** Mutate the draft for this import. Pure over the loaded Profile — called
  * (and re-called) by the optimistic-concurrency retry below. */
 function applyToProfile(
@@ -137,12 +192,8 @@ function applyToProfile(
   appliedItemId: string | null,
   customSectionTitle: string,
 ): ApplyOutcome {
-  if (candidate.kind === "profileBasics") {
-    return {
-      next: updateBasics(profile, buildBasicsPatch(candidate)),
-      appliedItemId: null,
-      appliedSectionKey: "basics",
-    };
+  if (candidate.kind === "profileLink") {
+    return mergeProfileLink(profile, candidate, appliedItemId);
   }
 
   // A re-import refreshes the previously-imported item in place when it still

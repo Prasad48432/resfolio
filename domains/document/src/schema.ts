@@ -1,4 +1,8 @@
-import { viewDefinitionSchema, type ViewDefinition } from "@resfolio/profile";
+import {
+  viewDefinitionSchema,
+  type SectionKey,
+  type ViewDefinition,
+} from "@resfolio/profile";
 import { z } from "zod";
 
 /**
@@ -68,6 +72,10 @@ export function newResumeDocumentInput(params: {
   templateId: string;
   templateMajor: number;
   config: DocumentConfig;
+  /** The template's `defaultSectionOrder`, passed in by the caller for the same
+   * reason `config` is — this package depends on no template. Seeded once, then
+   * the user's to drag; it is never re-imposed on an existing document. */
+  sectionOrder?: readonly SectionKey[];
 }): NewDocumentInput {
   return {
     name: params.name,
@@ -75,9 +83,12 @@ export function newResumeDocumentInput(params: {
     templateId: params.templateId,
     templateMajor: params.templateMajor,
     config: params.config,
-    // Identity view: every section on, empty ones dropped by `buildProfileView`
-    // — the toggles at /resumes/[id] exist to *hide* content you have.
-    view: {},
+    // Otherwise the identity view: every section on, empty ones dropped by
+    // `buildProfileView` — the toggles at /resumes/[id] exist to *hide*
+    // content you have.
+    view: params.sectionOrder?.length
+      ? { sectionOrder: [...params.sectionOrder] }
+      : {},
     // Public by default (doc 02): a resume you can't link to isn't a resume.
     // It renders the published profile version, so a new user with nothing
     // published is not exposed by this default.

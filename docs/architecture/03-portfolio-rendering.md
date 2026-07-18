@@ -18,7 +18,7 @@ is evaluated here.
 ### Templates are React packages in this monorepo, rendered by one app
 
 - A portfolio template is a **workspace package**
-  (`templates/portfolio-minimal` → `@resfolio/template-portfolio-minimal`)
+  (`templates/dark-anime` → `@resfolio/template-dark-anime`)
   that implements the Template SDK contract ([05-template-sdk](05-template-sdk.md))
   with `kind: "portfolio"`.
 - Templates export **React Server Components** — one renderer per page type
@@ -124,7 +124,7 @@ thin dispatch layer no matter how many templates exist.
 1. Define the SDK contract first ([05-template-sdk](05-template-sdk.md)) —
    `templates/` top-level workspace folder, `@resfolio/template-sdk` package.
 2. Build `apps/sites` with the registry and one template
-   (`portfolio-minimal`), home page only.
+   (`dark-anime`), home page only.
 3. Add the remaining core page types (projects, project detail, about,
    resume) against the same template.
 4. Second template to _prove_ the contract — the SDK isn't real until two

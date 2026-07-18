@@ -59,12 +59,9 @@ importers:
       '@resfolio/profile':
         specifier: workspace:*
         version: link:../../domains/profile
-      '@resfolio/template-portfolio-minimal':
+      '@resfolio/template-dark-anime':
         specifier: workspace:*
-        version: link:../../templates/portfolio-minimal
-      '@resfolio/template-portfolio-sidebar':
-        specifier: workspace:*
-        version: link:../../templates/portfolio-sidebar
+        version: link:../../templates/dark-anime
       '@resfolio/template-resume-classic':
         specifier: workspace:*
         version: link:../../templates/resume-classic
@@ -165,12 +162,9 @@ importers:
       '@resfolio/profile':
         specifier: workspace:*
         version: link:../../domains/profile
-      '@resfolio/template-portfolio-minimal':
+      '@resfolio/template-dark-anime':
         specifier: workspace:*
-        version: link:../../templates/portfolio-minimal
-      '@resfolio/template-portfolio-sidebar':
-        specifier: workspace:*
-        version: link:../../templates/portfolio-sidebar
+        version: link:../../templates/dark-anime
       '@resfolio/template-resume-classic':
         specifier: workspace:*
         version: link:../../templates/resume-classic
@@ -735,57 +729,14 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
-  templates/portfolio-minimal:
+  templates/dark-anime:
     dependencies:
       '@resfolio/template-sdk':
         specifier: workspace:*
         version: link:../../packages/template-sdk
-      lucide-react:
-        specifier: ^0.516.0
-        version: 0.516.0(react@19.2.0)
-      react:
-        specifier: ^19.2.0
-        version: 19.2.0
-      zod:
-        specifier: ^4.1.0
-        version: 4.4.3
-    devDependencies:
-      '@resfolio/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
-      '@resfolio/fixtures':
-        specifier: workspace:*
-        version: link:../../packages/fixtures
-      '@resfolio/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      '@types/node':
-        specifier: ^22.15.3
-        version: 22.15.3
-      '@types/react':
-        specifier: 19.2.2
-        version: 19.2.2
-      '@types/react-dom':
-        specifier: 19.2.2
-        version: 19.2.2(@types/react@19.2.2)
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.1(jiti@2.7.0)
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.0(react@19.2.0)
-      typescript:
-        specifier: 5.9.2
-        version: 5.9.2
-      vitest:
-        specifier: ^3.2.7
-        version: 3.2.7(@types/node@22.15.3)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.49.0)(tsx@4.23.1)
-
-  templates/portfolio-sidebar:
-    dependencies:
-      '@resfolio/template-sdk':
-        specifier: workspace:*
-        version: link:../../packages/template-sdk
+      framer-motion:
+        specifier: ^11.18.0
+        version: 11.18.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       lucide-react:
         specifier: ^0.516.0
         version: 0.516.0(react@19.2.0)

@@ -165,10 +165,31 @@ plus `{ externalId, url, fingerprint, route, media[], raw }`. Canonical kinds
 cover the whole Profile:
 
 ```
-project | contribution | article | talk | profileBasics
+project | contribution | article | talk | profileLink
 | experience | education | skillGroup | certification     ← multi-section providers (LinkedIn)
 | unclassified                                            ← the escape hatch
 ```
+
+**A connector may never propose the user's identity** (decided 2026-07-17).
+There is deliberately no kind carrying `name`, `headline`, `summary`,
+`location` or `avatarUrl`, and `basics` is not a route target — both halves of
+the rule are structural, not a policy a future connector could forget. The
+reasoning: those five fields are the user's own words about themselves, and no
+provider's guess at them is worth the risk of overwriting the real thing. A
+`profileBasics` kind existed until this revision (Stack Overflow proposed a
+location and avatar through it); it was removed along with the idea.
+
+The one profile field outside a section a connector may propose is a **link**
+(`profileLink` → `basics.links`) — a provider genuinely does know its own
+profile URL. It is derived from the connection input by the connector's pure
+`profileLinks(input)`, spending no request: `https://github.com/{username}` is
+knowable the moment the username is typed, and `normalize` could not do it
+anyway (it sees one raw item, and a user with zero repos yields none). Links
+carry no provenance of their own — `profileLink` is `{ id, label, url }` — so
+the import dedupes on **url**, not `source`/`sourceId` like section items.
+
+Should LinkedIn direct profile import ever land, importing identity is a
+decision reopened deliberately then, not a door left ajar now.
 
 Typed kinds reuse the profile item schemas verbatim. `unclassified` is a
 loose payload (`title`, `text`, `url`, `date`) for content a connector can't
@@ -317,10 +338,10 @@ landing on canonical kinds. **Built** (V1):
 
 | Provider       | Mode                  | Mapping                                                                                                                                              |
 | -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub         | `public` `{username}` | public repos → `project`: name, description, `repoUrl`, language + topics → `technologies`, stars/forks → metrics. Forks and archived repos skipped. |
-| RSS / Atom     | `public` `{feedUrl}`  | entries → `article` → Writing: title, publisher, url, date, HTML-stripped summary                                                                    |
-| Dev.to         | `public` `{username}` | published articles → `article` → Writing; reactions → metric                                                                                         |
-| Stack Overflow | `public` `{userId}`   | top answer tags → `skillGroup` (suggested); reputation → metric on `profileBasics` (location/avatar only — never proposes a display name)            |
+| GitHub         | `public` `{username}` | public repos → `project`: name, description, `repoUrl`, language + topics → `technologies`, stars/forks → metrics. Forks and archived repos skipped. Plus `profileLink` → `https://github.com/{username}`. |
+| RSS / Atom     | `public` `{feedUrl}`  | entries → `article` → Writing: title, publisher, url, date, HTML-stripped summary. **No `profileLink`** — a feed URL is a publication, not a person.  |
+| Dev.to         | `public` `{username}` | published articles → `article` → Writing; reactions → metric. Plus `profileLink` → `https://dev.to/{username}`.                                      |
+| Stack Overflow | `public` `{userId}`   | top answer tags → `skillGroup` (suggested); `profileLink` → `https://stackoverflow.com/users/{userId}`. `/users/{id}` is still fetched, as an existence probe so a typo'd id fails at connect — nothing on it is imported. |
 
 **Import only the metadata the Profile needs.** GitHub's `created_at` and the
 owner avatar were both dropped: a repo's creation date is not a project's start

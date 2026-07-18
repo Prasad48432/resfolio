@@ -1,7 +1,7 @@
 "use client";
 
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@resfolio/ui";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";

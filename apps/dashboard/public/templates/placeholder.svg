@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200" role="img" aria-label="Template preview coming soon">
+  <!-- A stand-in until each template ships a real screenshot. Deliberately a
+       wireframe, not a pretty picture: it should read as "no preview yet",
+       never as the template's actual design. -->
+  <rect width="320" height="200" fill="#0d0d0f"/>
+  <rect x="0" y="0" width="320" height="44" fill="#141417"/>
+  <circle cx="30" cy="52" r="14" fill="#1e1e22" stroke="#26262a"/>
+  <rect x="52" y="46" width="72" height="7" rx="3" fill="#26262a"/>
+  <rect x="52" y="58" width="44" height="5" rx="2" fill="#1e1e22"/>
+  <rect x="16" y="86" width="180" height="5" rx="2" fill="#1e1e22"/>
+  <rect x="16" y="98" width="140" height="5" rx="2" fill="#1e1e22"/>
+  <rect x="16" y="122" width="136" height="58" rx="6" fill="#141417" stroke="#26262a"/>
+  <rect x="164" y="122" width="136" height="58" rx="6" fill="#141417" stroke="#26262a"/>
+  <line x1="8" y1="0" x2="8" y2="200" stroke="#26262a" stroke-dasharray="3 3"/>
+  <line x1="312" y1="0" x2="312" y2="200" stroke="#26262a" stroke-dasharray="3 3"/>
+</svg>

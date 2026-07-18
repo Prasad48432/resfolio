@@ -179,6 +179,15 @@ export async function runImport(
       }
     }
 
+    // The provider's own profile link — derived from the connection input, so
+    // it costs no request and doesn't count as `fetched`. Staged before the
+    // prune below so it isn't immediately swept as unseen.
+    if (connector.profileLinks && connection.input !== null) {
+      for (const candidate of connector.profileLinks(connection.input)) {
+        await stageCandidate(connection.id, candidate, counts);
+      }
+    }
+
     // Staging hygiene, only after a *full* walk (an incremental cursor-bounded
     // fetch legitimately skips old items): a pending row whose upstream
     // content disappeared has nothing left to review — delete it. Receipts

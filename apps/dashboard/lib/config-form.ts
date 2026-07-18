@@ -1,3 +1,4 @@
+import type { ConfigFieldMeta, TemplateRequirements } from "@resfolio/template-sdk";
 import type { z } from "zod";
 
 /**
@@ -7,32 +8,50 @@ import type { z } from "zod";
  * option never requires a dashboard change. Pure + unit-tested; the client
  * `ConfigFields` component renders whatever this returns.
  *
- * We introspect Zod v4 internals (`.def`) rather than depend on template-side
- * form metadata: config stays presentation knobs the template owns, and the
- * dashboard stays generic over any registered template. Only the handful of
- * field shapes our templates actually use are supported; an unknown shape is
- * skipped (never guessed) so the form degrades safely.
+ * **Introspection first, metadata only where introspection can't reach.** We
+ * read Zod v4 internals (`.def`) rather than depend on template-side form
+ * metadata: config stays presentation knobs the template owns, and the
+ * dashboard stays generic over any registered template. But a schema genuinely
+ * cannot say some things — a `z.string().url()` cover image is indistinguishable
+ * from any other URL, and "1600×900" is advice, not validation — so a template
+ * may add `configFields` hints (`ConfigFieldMeta`) that are merged over the
+ * inferred shape. Only the field shapes our templates actually use are
+ * supported; an unknown shape is skipped (never guessed) so the form degrades
+ * safely.
  */
 
+interface FieldBase {
+  key: string;
+  label: string;
+  /** Help text under the control (template-declared). */
+  description?: string;
+  /** Declared in `requirements.config` — the site can't publish without it. */
+  required?: boolean;
+}
+
 export type ConfigFieldDescriptor =
-  | { key: string; label: string; kind: "color"; defaultValue: string }
-  | { key: string; label: string; kind: "text"; defaultValue: string }
-  | {
-      key: string;
-      label: string;
+  | (FieldBase & { kind: "color"; defaultValue: string })
+  | (FieldBase & { kind: "text"; defaultValue: string })
+  | (FieldBase & { kind: "textarea"; defaultValue: string })
+  | (FieldBase & {
+      kind: "image";
+      defaultValue: string;
+      /** The dimensions the template is designed around — guidance, not a rule:
+       * we can't measure a pasted URL. */
+      image?: { width: number; height: number };
+    })
+  | (FieldBase & {
       kind: "select";
       options: string[];
       defaultValue: string;
-    }
-  | { key: string; label: string; kind: "boolean"; defaultValue: boolean }
-  | {
-      key: string;
-      label: string;
+    })
+  | (FieldBase & { kind: "boolean"; defaultValue: boolean })
+  | (FieldBase & {
       kind: "number";
       min?: number;
       max?: number;
       defaultValue: number;
-    };
+    });
 
 /** `featuredProjectCount` → "Featured project count". */
 function humanize(key: string): string {
@@ -113,33 +132,66 @@ function numberBounds(def: ZodDef): { min?: number; max?: number } {
   return { min, max };
 }
 
+export interface DescribeConfigOptions {
+  /** Template-declared presentation hints, merged over the inferred shape. */
+  configFields?: Readonly<Record<string, ConfigFieldMeta>>;
+  /** Template-declared requirements; `requirements.config` marks fields required. */
+  requirements?: TemplateRequirements;
+}
+
 export function describeConfigSchema(
   schema: z.ZodObject<z.ZodRawShape>,
+  options: DescribeConfigOptions = {},
 ): ConfigFieldDescriptor[] {
   const shape = schema.shape;
   const fields: ConfigFieldDescriptor[] = [];
+  const requiredKeys = new Set(options.requirements?.config ?? []);
 
   for (const [key, value] of Object.entries(shape)) {
     const outerDef = (value as unknown as { def: ZodDef }).def;
     const { def, defaultValue } = unwrap(outerDef);
-    const label = humanize(key);
+    const meta = options.configFields?.[key];
+    const base: FieldBase = {
+      key,
+      label: meta?.label ?? humanize(key),
+      description: meta?.description,
+      required: requiredKeys.has(key) || undefined,
+    };
+
+    // Metadata wins over introspection, and is checked *before* it: a declared
+    // kind is the template telling us something the schema cannot. A cover
+    // image is `z.union([z.literal(""), z.url()])` — an unknown shape that the
+    // switch below would rightly skip — and no amount of `.def` reading would
+    // ever reveal that it's an image.
+    const stringDefault = typeof defaultValue === "string" ? defaultValue : "";
+    if (meta?.kind === "image") {
+      fields.push({
+        ...base,
+        kind: "image",
+        image: meta.image,
+        defaultValue: stringDefault,
+      });
+      continue;
+    }
+    if (meta?.kind === "textarea") {
+      fields.push({ ...base, kind: "textarea", defaultValue: stringDefault });
+      continue;
+    }
 
     switch (def.type) {
       case "enum": {
-        const options = Object.keys(def.entries ?? {});
+        const options_ = Object.keys(def.entries ?? {});
         fields.push({
-          key,
-          label,
+          ...base,
           kind: "select",
-          options,
-          defaultValue: String(defaultValue ?? options[0] ?? ""),
+          options: options_,
+          defaultValue: String(defaultValue ?? options_[0] ?? ""),
         });
         break;
       }
       case "boolean":
         fields.push({
-          key,
-          label,
+          ...base,
           kind: "boolean",
           defaultValue: Boolean(defaultValue),
         });
@@ -147,8 +199,7 @@ export function describeConfigSchema(
       case "number": {
         const { min, max } = numberBounds(def);
         fields.push({
-          key,
-          label,
+          ...base,
           kind: "number",
           min,
           max,
@@ -158,10 +209,9 @@ export function describeConfigSchema(
       }
       case "string":
         fields.push({
-          key,
-          label,
+          ...base,
           kind: looksLikeColor(def) ? "color" : "text",
-          defaultValue: typeof defaultValue === "string" ? defaultValue : "",
+          defaultValue: stringDefault,
         });
         break;
       default:
@@ -172,3 +222,37 @@ export function describeConfigSchema(
 
   return fields;
 }
+
+/**
+ * Label a `MissingRequirement` for the completeness prompt. Config keys reuse
+ * the form's own labels so the prompt and the field agree; profile keys get a
+ * plain-English name and the page that fixes them.
+ */
+export function describeMissing(
+  missing: { scope: "config" | "profile"; key: string },
+  fields: ConfigFieldDescriptor[],
+): { label: string; where: "settings" | "profile" } {
+  if (missing.scope === "config") {
+    const field = fields.find((entry) => entry.key === missing.key);
+    return { label: field?.label ?? humanize(missing.key), where: "settings" };
+  }
+  return { label: PROFILE_REQUIREMENT_LABELS[missing.key] ?? missing.key, where: "profile" };
+}
+
+const PROFILE_REQUIREMENT_LABELS: Record<string, string> = {
+  "basics.name": "Your name",
+  "basics.headline": "Headline",
+  "basics.summary": "Summary",
+  "basics.location": "Location",
+  "basics.avatarUrl": "Avatar",
+  "basics.links": "At least one link",
+  "sections.experience": "At least one role in Experience",
+  "sections.projects": "At least one project",
+  "sections.skills": "At least one skill group",
+  "sections.education": "At least one entry in Education",
+  "sections.writing": "At least one post in Writing",
+  "sections.certifications": "At least one certification",
+  "sections.awards": "At least one award",
+  "sections.languages": "At least one language",
+  "sections.custom": "At least one custom section",
+};

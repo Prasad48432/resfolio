@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Textarea,
 } from "@resfolio/ui";
 
 import type { ConfigFieldDescriptor } from "@/lib/config-form";
@@ -43,6 +44,33 @@ export function ConfigFields({
   );
 }
 
+/** Label + optional help text + the required mark, shared by every control so
+ * the three can't drift apart per field kind. */
+function FieldLabel({
+  field,
+  htmlFor,
+}: {
+  field: ConfigFieldDescriptor;
+  htmlFor?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Label htmlFor={htmlFor}>
+        {field.label}
+        {field.required ? (
+          <span className="ml-1 text-brand" aria-hidden>
+            *
+          </span>
+        ) : null}
+        {field.required ? <span className="sr-only"> (required)</span> : null}
+      </Label>
+      {field.description ? (
+        <p className="text-xs text-muted">{field.description}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function ConfigField({
   field,
   value,
@@ -54,12 +82,18 @@ function ConfigField({
 }) {
   const testId = portfolioConfigFieldTestId(field.key);
   const id = `portfolio-config-${field.key}`;
+  const missing = field.required && !String(value ?? "").trim();
 
   switch (field.kind) {
     case "boolean":
       return (
         <label className="flex items-center justify-between gap-4 text-sm text-foreground">
-          <span>{field.label}</span>
+          <span className="flex flex-col gap-0.5">
+            <span>{field.label}</span>
+            {field.description ? (
+              <span className="text-xs text-muted">{field.description}</span>
+            ) : null}
+          </span>
           <Switch
             checked={Boolean(value ?? field.defaultValue)}
             onChange={(event) => onChange(field.key, event.target.checked)}
@@ -71,7 +105,7 @@ function ConfigField({
     case "select":
       return (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id}>{field.label}</Label>
+          <FieldLabel field={field} htmlFor={id} />
           <Select
             value={String(value ?? field.defaultValue)}
             onValueChange={(next) => onChange(field.key, next)}
@@ -93,7 +127,7 @@ function ConfigField({
     case "number":
       return (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id}>{field.label}</Label>
+          <FieldLabel field={field} htmlFor={id} />
           <Input
             id={id}
             type="number"
@@ -116,7 +150,7 @@ function ConfigField({
     case "color":
       return (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id}>{field.label}</Label>
+          <FieldLabel field={field} htmlFor={id} />
           <div className="flex items-center gap-2">
             <input
               id={id}
@@ -138,14 +172,67 @@ function ConfigField({
         </div>
       );
 
+    case "image":
+      return (
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel field={field} htmlFor={id} />
+          <Input
+            id={id}
+            type="url"
+            inputMode="url"
+            placeholder="https://…"
+            value={String(value ?? field.defaultValue)}
+            onChange={(event) => onChange(field.key, event.target.value)}
+            aria-invalid={missing || undefined}
+            data-testid={testId}
+          />
+          <p className="text-xs text-muted">
+            {field.image
+              ? `Paste an image URL. Designed for ${field.image.width}×${field.image.height}px.`
+              : "Paste an image URL."}
+          </p>
+          {/* A preview, not a validator: we can't measure a pasted URL, and a
+              broken one should look broken here rather than on the live site.
+              (Uploads land when R2 does — doc 07; the field shape won't change.) */}
+          {String(value ?? "").trim() ? (
+            <span className="mt-1 overflow-hidden rounded-lg border border-border bg-surface-warm">
+              {/* eslint-disable-next-line @next/next/no-img-element -- an
+                  arbitrary user-pasted origin; next/image would need every host
+                  allowlisted, which is exactly what we can't know here. */}
+              <img
+                src={String(value)}
+                alt=""
+                className="block max-h-32 w-full object-cover"
+              />
+            </span>
+          ) : null}
+        </div>
+      );
+
+    case "textarea":
+      return (
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel field={field} htmlFor={id} />
+          <Textarea
+            id={id}
+            rows={3}
+            value={String(value ?? field.defaultValue)}
+            onChange={(event) => onChange(field.key, event.target.value)}
+            aria-invalid={missing || undefined}
+            data-testid={testId}
+          />
+        </div>
+      );
+
     case "text":
       return (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={id}>{field.label}</Label>
+          <FieldLabel field={field} htmlFor={id} />
           <Input
             id={id}
             value={String(value ?? field.defaultValue)}
             onChange={(event) => onChange(field.key, event.target.value)}
+            aria-invalid={missing || undefined}
             data-testid={testId}
           />
         </div>

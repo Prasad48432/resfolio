@@ -7,9 +7,13 @@ import { defineConnector, type FetchContext } from "../contract";
  * Stack Overflow connector (docs/architecture/12-integrations-and-sync.md) —
  * `public` mode over the Stack Exchange API, keyed by the numeric user id.
  * Mapping (doc 12's provider table): top answer tags → one **suggested**
- * `skillGroup` (never assumed into the profile), reputation → a metric on a
- * suggested `profileBasics` patch. Everything else the API returns stays in
- * `raw`.
+ * `skillGroup` (never assumed into the profile), plus a `profileLink` for the
+ * profile URL. Everything else the API returns stays in `raw`.
+ *
+ * `/users/{id}` is still fetched — not for content, but so a typo'd user id
+ * fails loudly at connect time instead of quietly importing nothing. It used to
+ * also propose the user's location and avatar; that is gone, along with the
+ * whole idea that a connector may describe the user (see `../candidate.ts`).
  */
 
 export const stackoverflowInputSchema = z.object({
@@ -21,14 +25,11 @@ export const stackoverflowInputSchema = z.object({
 
 export type StackoverflowInput = z.infer<typeof stackoverflowInputSchema>;
 
-/** The subset of `/users/{id}` this connector reads. */
+/** The subset of `/users/{id}` this connector reads — an existence probe only.
+ * Nothing on it reaches the Profile, which is why it is this thin. */
 export interface StackoverflowUser {
   user_id: number;
   display_name?: string;
-  reputation?: number;
-  location?: string | null;
-  profile_image?: string | null;
-  link?: string;
 }
 
 /** The subset of `/users/{id}/top-tags` this connector reads. */
@@ -37,9 +38,11 @@ export interface StackoverflowTag {
   answer_score?: number;
 }
 
-export type StackoverflowRaw =
-  | { kind: "user"; user: StackoverflowUser }
-  | { kind: "topTags"; userId: string; tags: StackoverflowTag[] };
+export type StackoverflowRaw = {
+  kind: "topTags";
+  userId: string;
+  tags: StackoverflowTag[];
+};
 
 const API_BASE = "https://api.stackexchange.com/2.3";
 const SITE = "site=stackoverflow";
@@ -60,6 +63,8 @@ async function* fetchProfile(
   ctx: FetchContext<StackoverflowInput>,
 ): AsyncIterable<StackoverflowRaw> {
   const id = ctx.input.userId;
+  // Probe, don't yield: nothing on the user object is importable any more, but
+  // a wrong id must still fail here rather than look like an empty profile.
   const [user] = await fetchJson<StackoverflowUser>(
     ctx,
     `${API_BASE}/users/${id}?${SITE}`,
@@ -67,7 +72,6 @@ async function* fetchProfile(
   if (!user) {
     throw new Error(`Stack Overflow user ${id} not found.`);
   }
-  yield { kind: "user", user };
 
   const tags = await fetchJson<StackoverflowTag>(
     ctx,
@@ -76,41 +80,18 @@ async function* fetchProfile(
   yield { kind: "topTags", userId: id, tags };
 }
 
-function httpUrlOrUndefined(
-  value: string | null | undefined,
-): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  try {
-    const protocol = new URL(value).protocol;
-    return protocol === "http:" || protocol === "https:" ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function normalizeUser(user: StackoverflowUser): CandidateItem[] {
-  const reputation = user.reputation;
-  const location = user.location?.trim() ?? "";
-  const avatarUrl = httpUrlOrUndefined(user.profile_image);
-  if (!reputation && !location && !avatarUrl) {
-    return [];
-  }
+/** The user's Stack Overflow profile URL. The id-only form redirects to the
+ * slugged one, so this needs no API call and no display name. */
+function stackoverflowProfileLinks(input: StackoverflowInput): CandidateItem[] {
+  const url = `https://stackoverflow.com/users/${input.userId}`;
   return [
     candidateItemSchema.parse({
-      kind: "profileBasics",
-      externalId: "profile",
-      url: httpUrlOrUndefined(user.link),
+      kind: "profileLink",
+      externalId: "profile-link",
+      url,
       title: "Stack Overflow profile",
-      metrics:
-        typeof reputation === "number" && reputation >= 0
-          ? [{ key: "reputation", value: reputation }]
-          : [],
-      raw: user,
-      // Deliberately no `name`: a Q&A display name should never propose to
-      // rename the user's profile. Basics default to `suggested` anyway.
-      payload: { location, avatarUrl },
+      raw: null,
+      payload: { label: "Stack Overflow", url },
     }),
   ];
 }
@@ -143,8 +124,6 @@ function normalizeTopTags(
 
 function normalizeRaw(raw: StackoverflowRaw): CandidateItem[] {
   switch (raw.kind) {
-    case "user":
-      return normalizeUser(raw.user);
     case "topTags":
       return normalizeTopTags(raw);
   }
@@ -159,8 +138,9 @@ export const stackoverflow = defineConnector<
   authMode: "public",
   tier: "A",
   input: stackoverflowInputSchema,
-  resources: ["skillGroup", "profileBasics"],
+  resources: ["skillGroup", "profileLink"],
   capabilities: { refreshable: true, incremental: false },
   fetch: fetchProfile,
   normalize: normalizeRaw,
+  profileLinks: stackoverflowProfileLinks,
 });

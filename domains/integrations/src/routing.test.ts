@@ -4,6 +4,7 @@ import {
   CANDIDATE_KINDS,
   candidateItemSchema,
   type CandidateItem,
+  type CandidateKind,
 } from "./candidate";
 import {
   assertRouteTarget,
@@ -47,11 +48,19 @@ describe("routing policy", () => {
     });
   });
 
-  it("profileBasics is suggested, never certain — a basics patch is always shown", () => {
-    expect(DEFAULT_ROUTE_FOR_KIND.profileBasics).toEqual({
-      sectionKey: "basics",
-      confidence: "suggested",
+  it("profileLink routes to links as certain — a provider knows its own URL", () => {
+    expect(DEFAULT_ROUTE_FOR_KIND.profileLink).toEqual({
+      sectionKey: "links",
+      confidence: "certain",
     });
+  });
+
+  it("no kind may route to basics — connectors never propose identity", () => {
+    for (const kind of Object.keys(DEFAULT_ROUTE_FOR_KIND)) {
+      expect(DEFAULT_ROUTE_FOR_KIND[kind as CandidateKind].sectionKey).not.toBe(
+        "basics",
+      );
+    }
   });
 
   it("the LinkedIn kinds route to their own sections", () => {

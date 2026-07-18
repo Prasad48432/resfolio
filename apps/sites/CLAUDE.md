@@ -73,8 +73,9 @@ Resolve and Deliver; Project and Render are shared code.
     so the fixture path 404s cleanly with no DB); loads the published
     ProfileView cached via `unstable_cache` tagged `site:<id>` (24h fallback
     `revalidate`). `resolvePortfolioRoute` maps the catch-all segments to a page
-    kind + params; `lib/portfolio-templates.ts` (registry of **both** portfolio
-    templates) dispatches; declared `capabilities.pages` gate which routes 404.
+    kind + params; `lib/portfolio-templates.ts` (the portfolio template registry
+    — `dark-anime` today) dispatches; declared `capabilities.pages` gate
+    which routes 404.
     `generateMetadata` sets canonical + honors `discoverable`; the home page
     emits a JSON-LD `Person`. The shared Render stage is `lib/render-portfolio-page.tsx`.
   - `app/preview/portfolio/[[...slug]]` — the private **draft-preview route**.

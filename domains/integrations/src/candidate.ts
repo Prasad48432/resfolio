@@ -1,11 +1,11 @@
 import {
-  basicsSchema,
   calendarDateSchema,
   certificationItemSchema,
   customItemSchema,
   educationItemSchema,
   experienceItemSchema,
   httpUrlSchema,
+  profileLinkSchema,
   projectItemSchema,
   SECTION_KEYS,
   skillGroupSchema,
@@ -28,6 +28,15 @@ import { z } from "zod";
  * connector creep. `unclassified` is the escape hatch that keeps that rule
  * from silently dropping data: a loose payload with no automatic destination —
  * it waits in the Sources workspace until the user routes it.
+ *
+ * **A connector may never propose the user's identity.** There is deliberately
+ * no kind carrying `name`/`headline`/`summary`/`location`/`avatarUrl`: those
+ * are the user's own words about themselves, and a provider's guess at them is
+ * never worth the risk of overwriting the real thing. The one profile field
+ * outside a section a connector may propose is a **link** (`profileLink`) — a
+ * provider genuinely does know its own profile URL. Should LinkedIn direct
+ * import ever land, importing identity is a deliberate decision reopened then,
+ * not a door left ajar now.
  */
 
 /** Canonical resource kinds a connector may emit. Extend here + add the payload
@@ -41,7 +50,7 @@ export const CANDIDATE_KINDS = [
   "education",
   "skillGroup",
   "certification",
-  "profileBasics",
+  "profileLink",
   "unclassified",
 ] as const;
 
@@ -52,12 +61,12 @@ export const candidateKindSchema = z.enum(CANDIDATE_KINDS);
 /**
  * Routing metadata (doc 12 — routing is a named pipeline stage, and it is
  * data, not a constant). Where a candidate proposes to land: a profile
- * section key, `"basics"` (a patch, not an item), or `null` — **unrouted**,
- * the "needs a home" state that keeps an item in the workspace until the
- * user decides. `suggested` means the destination must be shown, never
- * assumed (e.g. a provider bio → basics).
+ * section key, `"links"` (an entry in `basics.links` — the only non-section
+ * destination a connector has), or `null` — **unrouted**, the "needs a home"
+ * state that keeps an item in the workspace until the user decides.
+ * `suggested` means the destination must be shown, never assumed.
  */
-export const ROUTE_TARGETS = [...SECTION_KEYS, "basics"] as const;
+export const ROUTE_TARGETS = [...SECTION_KEYS, "links"] as const;
 
 export type RouteTarget = (typeof ROUTE_TARGETS)[number];
 
@@ -111,13 +120,10 @@ const experiencePayloadSchema = experienceItemSchema.omit(provenance);
 const educationPayloadSchema = educationItemSchema.omit(provenance);
 const skillGroupPayloadSchema = skillGroupSchema.omit(provenance);
 const certificationPayloadSchema = certificationItemSchema.omit(provenance);
-const basicsPayloadSchema = basicsSchema.pick({
-  name: true,
-  headline: true,
-  summary: true,
-  location: true,
-  avatarUrl: true,
-});
+/** A social/profile link — `{ label, url }`, the profile's own link shape minus
+ * its id (Import mints one). `profileLinkSchema.url` is `safeLinkUrlSchema`, so
+ * the scheme allowlist that protects hand-typed links protects imported ones. */
+const profileLinkPayloadSchema = profileLinkSchema.omit({ id: true });
 
 /** The escape hatch's loose payload: content a connector can't confidently
  * type. It has **no automatic destination** — the user routes it (doc 12,
@@ -195,9 +201,9 @@ export const candidateItemSchema = z.discriminatedUnion("kind", [
     payload: certificationPayloadSchema,
   }),
   z.object({
-    kind: z.literal("profileBasics"),
+    kind: z.literal("profileLink"),
     ...candidateBaseShape,
-    payload: basicsPayloadSchema,
+    payload: profileLinkPayloadSchema,
   }),
   z.object({
     kind: z.literal("unclassified"),

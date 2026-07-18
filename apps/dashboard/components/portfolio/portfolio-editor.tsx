@@ -3,6 +3,11 @@
 import {
   Button,
   Card,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   Label,
   Select,
   SelectContent,
@@ -11,9 +16,16 @@ import {
   SelectValue,
   Switch,
 } from "@resfolio/ui";
-import { ExternalLink, Globe, Loader2, Rocket } from "lucide-react";
+import {
+  ExternalLink,
+  Globe,
+  Loader2,
+  Rocket,
+  TriangleAlert,
+} from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   mintPortfolioPreviewUrlAction,
@@ -39,8 +51,21 @@ import { TEST_IDS } from "@/lib/testids";
  *
  * Save state uses the shared `SaveStatus` vocabulary and `SaveIndicator`; this
  * editor simply never reaches the profile-only `invalid`/`conflict` states.
+ *
+ * **Requirements** (doc 05) are advisory: the template declares what it can't
+ * look right without, and this surfaces it three ways — a dialog on arrival, a
+ * standing checklist above the form, and a disabled Publish. The draft still
+ * previews throughout, because a half-filled page is what the user fixes it
+ * against.
  */
 const DEBOUNCE_MS = 700;
+
+export interface MissingRequirementView {
+  key: string;
+  label: string;
+  /** Where the user fixes it — this form, or `/profile`. */
+  where: "settings" | "profile";
+}
 
 export function PortfolioEditor({
   slug,
@@ -49,6 +74,7 @@ export function PortfolioEditor({
   templateName,
   fields,
   initialConfig,
+  initialMissing,
   discoverable: initialDiscoverable,
   publicBaseUrl,
   previewEnabled,
@@ -62,6 +88,7 @@ export function PortfolioEditor({
   templateName: string;
   fields: ConfigFieldDescriptor[];
   initialConfig: Record<string, unknown>;
+  initialMissing: MissingRequirementView[];
   discoverable: boolean;
   publicBaseUrl: string;
   previewEnabled: boolean;
@@ -76,6 +103,28 @@ export function PortfolioEditor({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const firstRender = useRef(true);
+
+  /**
+   * Config gaps are recomputed here rather than trusted from the server, so
+   * typing a cover URL clears the warning and re-enables Publish immediately —
+   * a checklist that only updated on reload would be worse than none.
+   *
+   * Profile gaps keep the server's answer: they can't change without leaving
+   * this page, and this component has no profile to check against.
+   */
+  const missing = useMemo(() => {
+    const configMissing = fields
+      .filter((field) => field.required && !String(config[field.key] ?? "").trim())
+      .map((field) => ({
+        key: field.key,
+        label: field.label,
+        where: "settings" as const,
+      }));
+    const profileMissing = initialMissing.filter(
+      (entry) => entry.where === "profile",
+    );
+    return [...configMissing, ...profileMissing];
+  }, [fields, config, initialMissing]);
 
   const latest = useRef({ config, discoverable });
   latest.current = { config, discoverable };
@@ -153,12 +202,22 @@ export function PortfolioEditor({
 
   return (
     <Page wide data-testid={TEST_IDS.portfolioEditor}>
+      <SetupDialog
+        templateName={templateName}
+        missing={initialMissing}
+        fields={fields}
+        config={config}
+        onChange={(key, value) =>
+          setConfig((current) => ({ ...current, [key]: value }))
+        }
+      />
       <Header
         slug={slug}
         status={status}
         profilePublished={profilePublished}
         sitePublished={sitePublished}
         siteUpToDate={siteUpToDate}
+        missing={missing}
       />
 
       <FadeIn>
@@ -200,6 +259,8 @@ export function PortfolioEditor({
                 </div>
               ) : null}
 
+              <MissingChecklist missing={missing} />
+
               <ConfigFields
                 fields={fields}
                 config={config}
@@ -237,18 +298,150 @@ export function PortfolioEditor({
   );
 }
 
+/**
+ * The arrival prompt — **a form, not a notice.** A template declares what it
+ * needs; this asks for exactly that and nothing else, right where the user
+ * lands, so choosing a template and finishing it is one motion instead of a
+ * scavenger hunt through a settings panel.
+ *
+ * Only the *config* gaps are editable here, because those are the fields this
+ * page owns. Profile gaps ("at least one project") can't be filled from a
+ * modal — they're real content, they live at `/profile`, and pretending
+ * otherwise would mean building a second profile editor inside a dialog. They
+ * are listed with a link instead.
+ *
+ * Opened once per mount from the **server's** list: it must not re-open as the
+ * user types, so live progress belongs to the standing checklist. Dismissible,
+ * with nothing gated behind it — the preview still renders and the user may
+ * want to look around first.
+ */
+function SetupDialog({
+  templateName,
+  missing,
+  fields,
+  config,
+  onChange,
+}: {
+  templateName: string;
+  missing: MissingRequirementView[];
+  fields: ConfigFieldDescriptor[];
+  config: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}) {
+  const [open, setOpen] = useState(missing.length > 0);
+  if (missing.length === 0) {
+    return null;
+  }
+
+  const askable = fields.filter((field) =>
+    missing.some(
+      (entry) => entry.where === "settings" && entry.key === field.key,
+    ),
+  );
+  const profileGaps = missing.filter((entry) => entry.where === "profile");
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto"
+        data-testid={TEST_IDS.portfolioSetupDialog}
+      >
+        <DialogTitle>Finish setting up {templateName}</DialogTitle>
+        <DialogDescription>
+          This template needs a few things the rest don&apos;t. Fill them in
+          here — everything autosaves, and you can close this and come back.
+        </DialogDescription>
+
+        {askable.length > 0 ? (
+          <div className="my-4">
+            <ConfigFields
+              fields={askable}
+              config={config}
+              onChange={onChange}
+            />
+          </div>
+        ) : null}
+
+        {profileGaps.length > 0 ? (
+          <div className="mb-4 flex flex-col gap-2 rounded-lg border border-border bg-surface-warm p-3">
+            <p className="text-xs font-medium text-foreground">
+              Also missing from your profile
+            </p>
+            <ul className="flex flex-col gap-1">
+              {profileGaps.map((entry) => (
+                <li key={entry.key} className="text-xs text-muted">
+                  {entry.label}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted">
+              These are real content, so they live in your profile — not here.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="flex justify-end gap-2">
+          {profileGaps.length > 0 ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/profile">Go to profile</Link>
+            </Button>
+          ) : null}
+          <DialogClose asChild>
+            <Button size="sm">Done</Button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The standing checklist — updates live as the form is filled in. */
+function MissingChecklist({ missing }: { missing: MissingRequirementView[] }) {
+  if (missing.length === 0) {
+    return null;
+  }
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-brand/30 bg-brand/5 p-3"
+      data-testid={TEST_IDS.portfolioMissingChecklist}
+    >
+      <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <TriangleAlert className="size-3.5 text-brand" aria-hidden />
+        Needed before publishing
+      </p>
+      <ul className="flex flex-col gap-1">
+        {missing.map((entry) => (
+          <li key={entry.key} className="text-xs text-muted">
+            {entry.label}
+            {entry.where === "profile" ? (
+              <>
+                {" — "}
+                <Link href="/profile" className="text-brand hover:underline">
+                  add it in your profile
+                </Link>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Header({
   slug,
   status,
   profilePublished,
   sitePublished,
   siteUpToDate,
+  missing,
 }: {
   slug: string;
   status: SaveStatus;
   profilePublished: boolean;
   sitePublished: boolean;
   siteUpToDate: boolean;
+  missing: MissingRequirementView[];
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-border pb-4">
@@ -271,6 +464,7 @@ function Header({
           profilePublished={profilePublished}
           sitePublished={sitePublished}
           siteUpToDate={siteUpToDate}
+          missing={missing}
         />
       </div>
     </div>
@@ -281,10 +475,12 @@ function PublishButton({
   profilePublished,
   sitePublished,
   siteUpToDate,
+  missing,
 }: {
   profilePublished: boolean;
   sitePublished: boolean;
   siteUpToDate: boolean;
+  missing: MissingRequirementView[];
 }) {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,7 +528,9 @@ function PublishButton({
         <Button
           type="button"
           size="sm"
-          disabled={publishing || !profilePublished || upToDate}
+          disabled={
+            publishing || !profilePublished || upToDate || missing.length > 0
+          }
           onClick={() => void publish()}
           data-testid={TEST_IDS.portfolioPublishButton}
         >
@@ -347,6 +545,10 @@ function PublishButton({
       {!profilePublished ? (
         <span className="text-xs text-brand" role="note">
           Publish your profile first
+        </span>
+      ) : missing.length > 0 ? (
+        <span className="text-xs text-brand" role="note">
+          {missing.length} thing{missing.length === 1 ? "" : "s"} still needed
         </span>
       ) : null}
       {error ? (

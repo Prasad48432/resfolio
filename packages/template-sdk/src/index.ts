@@ -7,6 +7,7 @@
  * multi-page website, doc 03).
  */
 export { defineTemplate } from "./define-template";
+export { checkTemplateRequirements } from "./requirements";
 export { resolveTheme, themeToStyle, type ResolveThemeOptions } from "./theme";
 export {
   formatCalendarDate,
@@ -20,21 +21,26 @@ export {
   PROFILE_VIEW_VERSION,
   SDK_VERSION,
   PORTFOLIO_PAGE_KINDS,
+  type ConfigFieldMeta,
+  type MissingRequirement,
   type PageSize,
   type PortfolioCapabilities,
   type PortfolioPageKind,
   type PortfolioPageProps,
   type PortfolioPageRenderer,
   type PortfolioTemplateDefinition,
+  type ProfileRequirementKey,
   type ProfileView,
   type ResolvedTheme,
   type ResumeCapabilities,
   type ResumeDocumentProps,
   type ResumeRenderer,
   type ResumeTemplateDefinition,
+  type SectionKey,
   type TemplateCompat,
   type TemplateDefinition,
   type TemplateKind,
+  type TemplateRequirements,
   type ThemePreset,
   type ThemeTokens,
   type TokenName,

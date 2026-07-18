@@ -7,7 +7,7 @@ import {
   type ExperienceItem,
   type ItemSource,
   type Profile,
-  type ProfileBasics,
+  type ProfileLink,
   type ProjectItem,
   type SkillGroup,
   type WritingItem,
@@ -28,7 +28,7 @@ import { CandidateApplyError } from "./errors";
  */
 
 /** The one profile destination a kind's payload maps onto (V1 routing is 1:1;
- * see `COMPATIBLE_ROUTE_TARGETS`). `profileBasics` patches `basics`;
+ * see `COMPATIBLE_ROUTE_TARGETS`). `profileLink` lands in `basics.links`;
  * `talk`/`unclassified` land inside a custom section. */
 export function sectionForKind(
   kind: CandidateKind,
@@ -84,8 +84,8 @@ function unclassifiedToCustomPayload(
 /**
  * A candidate as a brand-new Profile item, provenance stamped (doc 12): fresh
  * `createItemId()` → `id`, the provider → `source`, the candidate's
- * `externalId` → `sourceId`. `profileBasics` has no item shape — use
- * `buildBasicsPatch` instead.
+ * `externalId` → `sourceId`. `profileLink` is not a section item — use
+ * `buildProfileLink` instead.
  */
 export function buildProfileItem(
   candidate: CandidateItem,
@@ -138,25 +138,53 @@ export function buildProfileItem(
         sectionKey: "custom",
         item: { ...unclassifiedToCustomPayload(candidate.payload), ...provenance },
       };
-    case "profileBasics":
+    case "profileLink":
       throw new CandidateApplyError(
-        "profileBasics patches basics — use buildBasicsPatch.",
+        "profileLink lands in basics.links — use buildProfileLink.",
       );
   }
 }
 
-/** The basics patch a `profileBasics` candidate proposes. Empty strings are
- * dropped so an import never blanks a field the provider simply lacks. */
-export function buildBasicsPatch(
-  candidate: Extract<CandidateItem, { kind: "profileBasics" }>,
-): Partial<ProfileBasics> {
-  const patch: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(candidate.payload)) {
-    if (value !== undefined && value !== "") {
-      patch[key] = value;
-    }
+/**
+ * A `profileLink` candidate as a profile link. Links carry no `source`/
+ * `sourceId` — `profileLinkSchema` is `{ id, label, url }` and widening it is a
+ * profile schema decision (doc 01) — so provenance lives only in the import
+ * receipt, and `id` is the join back. That makes **url the dedupe key**, unlike
+ * section items which dedupe on provenance; see `mergeProfileLink` in
+ * `./server/import.ts`.
+ */
+export function buildProfileLink(
+  candidate: Extract<CandidateItem, { kind: "profileLink" }>,
+): ProfileLink {
+  return {
+    id: createItemId(),
+    label: candidate.payload.label,
+    url: candidate.payload.url,
+  };
+}
+
+/** Compare two link urls for the dedupe rule: a trailing slash and a
+ * differently-cased host are the same link to a human, so they must be the same
+ * link to us — importing GitHub twice may never leave two GitHub links. Path
+ * case is preserved (`/Ada` ≠ `/ada` on most providers). */
+export function sameLinkUrl(a: string, b: string): boolean {
+  return normalizeLinkUrl(a) === normalizeLinkUrl(b);
+}
+
+function normalizeLinkUrl(value: string): string {
+  const trimmed = value.trim();
+  try {
+    const url = new URL(trimmed);
+    // `URL` already lowercases protocol + host; strip only a bare trailing
+    // slash so "https://github.com/ada/" === "https://github.com/ada".
+    const path = url.pathname.endsWith("/") && url.pathname !== "/"
+      ? url.pathname.slice(0, -1)
+      : url.pathname;
+    return `${url.protocol}//${url.host}${path}${url.search}`;
+  } catch {
+    // Not a parseable absolute URL (mailto: etc.) — compare as typed.
+    return trimmed.toLowerCase();
   }
-  return patch as Partial<ProfileBasics>;
 }
 
 /**
@@ -204,16 +232,13 @@ export function extractAppliedPayload(
   kind: CandidateKind,
   appliedItemId: string | null,
 ): Record<string, unknown> | null {
-  if (kind === "profileBasics") {
-    const { name, headline, summary, location, avatarUrl } = profile.basics;
-    return stripEmpty({ name, headline, summary, location, avatarUrl });
-  }
   if (!appliedItemId) {
     return null;
   }
   const sectionKey = sectionForKind(kind);
-  if (sectionKey === "basics") {
-    return null; // unreachable — profileBasics is handled above
+  if (sectionKey === "links") {
+    const link = profile.basics.links.find((entry) => entry.id === appliedItemId);
+    return link ? { label: link.label, url: link.url } : null;
   }
   if (sectionKey === "custom") {
     for (const section of profile.sections.custom) {
@@ -250,18 +275,4 @@ export function detectUserEdit(
     return true; // The user removed it — a re-import may not resurrect it silently.
   }
   return contentFingerprint(kind, current) !== appliedFingerprint;
-}
-
-/** Mirror of `buildBasicsPatch`'s empty-dropping, so the applied-vs-current
- * comparison sees the same shape on both sides. */
-function stripEmpty(
-  record: Record<string, unknown>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    if (value !== undefined && value !== "") {
-      out[key] = value;
-    }
-  }
-  return out;
 }
