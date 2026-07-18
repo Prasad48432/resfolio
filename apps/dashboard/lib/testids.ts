@@ -67,9 +67,28 @@ export const TEST_IDS = {
   sourcesTriageEmpty: "sources-triage-empty",
   sourcesHistory: "sources-history",
   sourcesConnections: "sources-connections",
+  blogList: "blog-list",
+  blogEmpty: "blog-empty",
+  blogCreateButton: "blog-create-button",
+  blogEditor: "blog-editor",
+  blogSaveIndicator: "blog-save-indicator",
+  blogTitleInput: "blog-title-input",
+  blogBodyEditor: "blog-body-editor",
+  blogToolbar: "blog-toolbar",
+  blogPublishToggle: "blog-publish-toggle",
+  blogSettingsPanel: "blog-settings-panel",
+  blogSettingsToggle: "blog-settings-toggle",
+  blogSlugInput: "blog-slug-input",
+  blogExcerptInput: "blog-excerpt-input",
+  blogSeoTitleInput: "blog-seo-title-input",
+  blogSeoDescriptionInput: "blog-seo-description-input",
+  blogCoverField: "blog-cover-field",
+  blogImageBudget: "blog-image-budget",
+  blogDeleteButton: "blog-delete-button",
 } as const;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
+export const blogPostItemTestId = (id: string) => `blog-post-${id}`;
 export const themeOptionTestId = (theme: string) => `theme-option-${theme}`;
 export const paletteItemTestId = (key: string) => `palette-${key}`;
 export const signInButtonTestId = (providerId: string) =>

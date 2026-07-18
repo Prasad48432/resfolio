@@ -78,6 +78,13 @@
       "when": 1784372101591,
       "tag": "0010_married_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784388863941,
+      "tag": "0011_easy_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,7 @@ export const ASSET_KINDS = [
   "portfolioBanner",
   "portfolioImage",
   "blogCover",
+  "blogImage",
   "resumeAsset",
 ] as const;
 
@@ -93,12 +94,37 @@ export const ASSET_KIND_SPECS: Readonly<Record<AssetKind, AssetKindSpec>> = {
     singleton: false,
     label: "Portfolio image",
   },
+  /**
+   * A post's cover image.
+   *
+   * **Not a singleton, despite there being one cover per post.** `singleton`
+   * is scoped to the *owner*, not to any narrower thing — `supersedeSingletonSlot`
+   * clears `referenced_at` for every key of this kind belonging to the profile.
+   * Marked singleton, uploading a cover for a second post would supersede the
+   * first post's cover and hand it to the orphan sweep, and the failure would
+   * surface a day later as a missing image on a published post.
+   *
+   * One cover per *post* is enforced where that scope actually exists: the
+   * `coverAssetKey` column holds exactly one key, and replacing it routes
+   * through the blog domain's reference counting (`domains/blog`), which can
+   * see the other posts a key might still be used by. Scope the rule to the
+   * thing it is about.
+   */
   blogCover: {
     segment: "blog/covers",
     maxBytes: 10 * 1024 * 1024,
     maxDimensions: { width: 2000, height: 1200 },
-    singleton: true,
+    singleton: false,
     label: "Cover image",
+  },
+  /** An image embedded in a post body. Accumulates by nature; cleanup is
+   * reference-counted against post bodies by `domains/blog`. */
+  blogImage: {
+    segment: "blog/images",
+    maxBytes: 10 * 1024 * 1024,
+    maxDimensions: { width: 2000, height: 2000 },
+    singleton: false,
+    label: "Post image",
   },
   resumeAsset: {
     segment: "resume-assets",

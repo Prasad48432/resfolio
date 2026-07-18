@@ -161,17 +161,27 @@ export function buildResumeStyles(config: ResumeClassicConfig): string {
 }
 
 .rf-entry-body { margin-top: 3pt; }
-.rf-highlights { margin: 3pt 0 0; padding-left: 13pt; }
+
+/* list-style is declared explicitly rather than left to the UA default, and
+   that is load-bearing: a host may reset lists in its own base layer (the
+   dashboard imports Tailwind, whose preflight sets ul { list-style: none }).
+   A template must render the same on any host that knows nothing about it, so
+   relying on the UA default meant markers that showed in the PDF and silently
+   vanished in the in-browser preview — the two surfaces doc 09 exists to keep
+   identical. The ::marker content is what draws the hyphen; the disc keyword
+   is the fallback if a renderer ignores it, and keeps the marker box outside.
+   Note this sheet is a TS template literal: no backticks in these comments. */
+.rf-highlights { margin: 3pt 0 0; padding-left: 13pt; list-style: disc outside; }
 .rf-highlights li { margin: 1.5pt 0; padding-left: 1pt; }
-.rf-highlights li::marker { color: var(--rf-accent); }
+.rf-highlights li::marker { content: "-"; color: var(--rf-accent); }
 
 /* Markdown lists inside rich text. Styled identically to .rf-highlights so a
    list the user typed and a structured highlight are indistinguishable on the
    page — the distinction is a storage detail, not something a reader should
    be able to see. */
-.rf-rich-list { margin: 3pt 0 0; padding-left: 13pt; }
+.rf-rich-list { margin: 3pt 0 0; padding-left: 8pt; list-style: disc outside; }
 .rf-rich-list li { margin: 1.5pt 0; padding-left: 1pt; }
-.rf-rich-list li::marker { color: var(--rf-accent); }
+.rf-rich-list li::marker { content: "-"; color: var(--rf-accent); }
 
 .rf-tags { margin-top: 3pt; font-size: var(--rf-size-tags); color: var(--rf-muted); }
 .rf-skill-group { margin-top: 5pt; break-inside: avoid; }

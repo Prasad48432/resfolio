@@ -16,7 +16,11 @@ import { customizableTokens, themes } from "./theme";
 export const resumeClassic = defineTemplate({
   kind: "resume",
   id: "resume-classic",
-  version: "1.0.0",
+  // Bumped for the hyphen list marker (styles.ts). The PDF export store keys
+  // on this version, so a presentation change that skips it keeps serving the
+  // previous render from cache — the change would look applied in the preview
+  // and be invisible in every download.
+  version: "1.0.1",
   compat: { profileView: 1, sdk: 1 },
 
   name: "Classic",

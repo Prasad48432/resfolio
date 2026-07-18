@@ -6,7 +6,7 @@
  * (docs/architecture/10-auth-and-security.md). Product tables land with
  * their features (docs/architecture/07-storage.md): `./profiles` in
  * Phase 3; `./documents` in Phase 4; `./sites` in Phase 5; `./integrations`
- * in Phase 6; `./assets` with R2 uploads.
+ * in Phase 6; `./assets` with R2 uploads; `./blog` with native posts.
  */
 export * from "./auth";
 export * from "./profiles";
@@ -14,3 +14,4 @@ export * from "./documents";
 export * from "./sites";
 export * from "./integrations";
 export * from "./assets";
+export * from "./blog";

@@ -151,6 +151,20 @@ Business-logic packages live under `domains/`:
   table). **There is no `./token` subpath**: a resume has a permanent URL
   gated by its own `visibility`, so nothing needs an expiring capability to
   read one (doc 02). See `domains/document/CLAUDE.md`
+- `@resfolio/blog` (`domains/blog`) — the blog domain: natively authored posts.
+  A post is profile-owned writing with its own body, slug and draft/published
+  state, stored in the `blog_posts` table — **not** in the profile JSON, because
+  that document is rewritten in full on every autosave and snapshotted in full
+  on every publish. Published posts are projected into the Profile's **Writing**
+  section by the pure `withNativePosts`, applied _before_ `buildProfileView`, so
+  every renderer sees one Writing list and `profile` never learns about `blog`.
+  Pure root (the TipTap/ProseMirror `blogBodySchema` node whitelist — raw HTML is
+  unrepresentable rather than filtered — plus derived-value helpers: reading time,
+  slug, excerpt, `collectBodyAssetKeys`) and `./server` (the only code touching
+  `blog_posts`). **Reading time is derived and has no field in the update
+  schema**; image cleanup is reference-counted, never by ownership, because
+  content-hash dedupe means one image used in two posts is one object. See
+  `domains/blog/CLAUDE.md`
 - `@resfolio/integrations` (`domains/integrations`) — the imports domain
   (doc 12, **import-first**): one pipeline (**Connect → Fetch → Normalize →
   Route → Stage → Review → Import**) with providers as small connectors

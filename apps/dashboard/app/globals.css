@@ -60,6 +60,193 @@
   }
 }
 
+@layer components {
+  /* ── The writing surface ──────────────────────────────────────────────
+     Scoped to `.rf-prose`, which wraps the TipTap editor and (later) the
+     published post renderer, so the reading experience and the writing
+     experience are the same stylesheet rather than two that drift.
+
+     Everything below is deliberately *quieter and roomier* than the rest of
+     the dashboard. The dashboard is dense because it is a control surface;
+     this is the one screen whose job is to be read, so it gets a measure, a
+     larger body size, and generous vertical rhythm. Layered so ordinary
+     utilities can still override a rule locally. */
+  .rf-prose {
+    /* ~68 characters — the measure long-form prose is comfortable at. */
+    /* max-width: 34rem; */
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--color-foreground);
+  }
+
+  .rf-prose:focus,
+  .rf-prose :focus {
+    outline: none;
+  }
+
+  .rf-prose > * + * {
+    margin-top: 1.1em;
+  }
+
+  .rf-prose h1,
+  .rf-prose h2,
+  .rf-prose h3 {
+    font-weight: 650;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    /* Headings pull closer to what follows than to what precedes: the
+       heading belongs to its section, not to the paragraph above it. */
+    margin-top: 2em;
+    margin-bottom: 0.5em;
+  }
+  .rf-prose h1 {
+    font-size: 1.75em;
+  }
+  .rf-prose h2 {
+    font-size: 1.35em;
+  }
+  .rf-prose h3 {
+    font-size: 1.15em;
+  }
+
+  .rf-prose a {
+    color: var(--color-brand);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+
+  .rf-prose strong {
+    font-weight: 650;
+  }
+
+  .rf-prose code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.875em;
+    background: var(--color-muted-surface, rgb(0 0 0 / 0.05));
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+  }
+
+  .rf-prose pre {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.875em;
+    line-height: 1.6;
+    background: var(--color-muted-surface, rgb(0 0 0 / 0.05));
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 1em 1.1em;
+    overflow-x: auto;
+  }
+  .rf-prose pre code {
+    background: none;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  .rf-prose blockquote {
+    border-left: 2px solid var(--color-brand);
+    padding-left: 1.1em;
+    color: var(--color-muted);
+    font-style: italic;
+  }
+
+  .rf-prose ul,
+  .rf-prose ol {
+    padding-left: 1.4em;
+  }
+  .rf-prose ul {
+    list-style: disc;
+  }
+  .rf-prose ol {
+    list-style: decimal;
+  }
+  .rf-prose li + li {
+    margin-top: 0.35em;
+  }
+  .rf-prose li > p {
+    margin: 0;
+  }
+
+  /* Task lists render their own checkbox, so they must not also carry a
+     list marker. */
+  .rf-prose ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+  }
+  .rf-prose ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6em;
+  }
+  .rf-prose ul[data-type="taskList"] li > label {
+    margin-top: 0.36em;
+  }
+  .rf-prose ul[data-type="taskList"] input[type="checkbox"] {
+    accent-color: var(--color-brand);
+    width: 0.95em;
+    height: 0.95em;
+  }
+  .rf-prose ul[data-type="taskList"] li[data-checked="true"] > div {
+    color: var(--color-muted);
+    text-decoration: line-through;
+  }
+
+  .rf-prose hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 2.5em 0;
+  }
+
+  .rf-prose img {
+    border-radius: 10px;
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Callouts. Tone drives only the accent bar and tint, so a template can
+     restyle them wholesale without the node shape changing. */
+  .rf-prose [data-callout] {
+    border-radius: 10px;
+    padding: 0.9em 1.1em;
+    border: 1px solid var(--color-border);
+    border-left-width: 3px;
+    background: color-mix(in oklab, var(--callout-tint) 8%, transparent);
+    border-left-color: var(--callout-tint);
+    --callout-tint: var(--color-brand);
+  }
+  .rf-prose [data-callout] > * + * {
+    margin-top: 0.6em;
+  }
+  .rf-prose [data-callout][data-tone="success"] {
+    --callout-tint: oklch(0.62 0.15 150);
+  }
+  .rf-prose [data-callout][data-tone="warning"] {
+    --callout-tint: oklch(0.72 0.15 75);
+  }
+  .rf-prose [data-callout][data-tone="danger"] {
+    --callout-tint: oklch(0.62 0.2 25);
+  }
+
+  /* The placeholder. Rendered by TipTap as a data attribute on the first
+     empty node, so it disappears the moment anything is typed. */
+  .rf-prose p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+    color: var(--color-muted);
+  }
+
+  /* The selected image, when the node is the active selection. */
+  .rf-prose .ProseMirror-selectednode {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
+    border-radius: 10px;
+  }
+}
+
 @keyframes rf-ping {
   0% {
     transform: rotate(45deg) scale(1);

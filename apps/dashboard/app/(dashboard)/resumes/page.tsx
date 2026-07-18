@@ -57,7 +57,7 @@ export default async function ResumesPage() {
                 <Card interactive asChild>
                   <Link
                     href={`/resumes/${doc.id}`}
-                    className="flex items-center gap-3.5 p-3.5"
+                    className="flex flex-row items-center gap-3.5 p-3.5"
                     data-testid={resumeItemTestId(doc.id)}
                   >
                     <FileText

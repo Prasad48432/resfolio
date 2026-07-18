@@ -430,6 +430,55 @@ first and watch volume).
 
 ---
 
+## Phase 8 — Native blog
+
+**Goal:** users write in Resfolio and the writing becomes part of the Profile.
+
+**Status: authoring half complete (2026-07-18).** Creating, editing, storing,
+and deleting posts works end to end in the dashboard. **Rendering posts on
+portfolios and the public site is deliberately out of this slice** — the
+architecture is built for it (see the seams below), but no template renders a
+post yet.
+
+- ✅ **`blog_posts` table** (migration `0011`) + **`@resfolio/blog`**. A post is
+  its own row, not a profile section: the profile JSON is rewritten in full on
+  every autosave and snapshotted in full on every publish, so unbounded prose
+  inside it would make both costs scale with how much the user has written.
+- ✅ **Body = TipTap/ProseMirror JSON** over an explicit node whitelist, a
+  second content shape alongside the profile's Markdown subset rather than a
+  widening of it: that subset is small so a résumé survives ATS text
+  extraction, and headings/code blocks/task lists/callouts are not expressible
+  in it. Raw HTML is **unrepresentable**, not filtered — no whitelisted node
+  carries markup.
+- ✅ **Derived values are derived**: `readingMinutes` has no field in the update
+  schema at all (never user-editable, per the requirement), excerpts fall back
+  to opening prose only while the author has written none, and `publishedAt` is
+  stamped once on first publish and never moved.
+- ✅ **Writing-section projection**: the pure `withNativePosts` merges published
+  posts into `sections.writing` _before_ `buildProfileView`, so `@resfolio/profile`
+  never learns about the blog and the view builder stays pure, synchronous and
+  database-free (which is what lets the dashboard run it in the browser).
+- ✅ **Images over R2** with upload / drag-drop / paste-at-cursor, a
+  **configurable** per-post ceiling (`BLOG_MAX_IMAGES_PER_POST`, default 5)
+  enforced at both upload and repository, and **reference-counted cleanup** on
+  delete: content-hash dedupe means one image used in two posts is one object,
+  so a post's images are released only against what every remaining post still
+  references. Fixed a latent bug found on the way: `blogCover` was
+  `singleton: true`, and `singleton` is owner-scoped — a second post's cover
+  would have superseded the first's.
+- ⏳ **Rendering** (the other half): a `blog`/`blogPost` renderer in the
+  portfolio templates (doc 05 already declares both page kinds), the public
+  routes in `apps/sites`, and a node-walker that turns the body JSON into React
+  elements — reusing the `.rf-prose` stylesheet the editor already writes
+  against, so reading and writing cannot drift.
+
+**Exit criteria (authoring):** create → write with full rich text → paste an
+image and see it upload → autosave → publish → the post appears in the Profile's
+Writing projection → delete removes the row and only the images no other post
+uses. _Met._
+
+---
+
 ## Post-launch tracks (demand-ordered, not scheduled)
 
 - **Connector breadth** — GitLab, Hashnode, YouTube, Hugging Face, Figma,
@@ -439,13 +488,9 @@ first and watch volume).
   V1 set (GitHub, Dev.to, RSS, Stack Overflow) is closed.
 - **AI enrichment** — enrich stage in the integration pipeline; AI deltas
   in the editor (doc 01/09/12 seams).
-- **Native blog** (Phase 8) — `/blog` and its nav slot are **reserved now**
-  (a `ComingSoon` route). Today's Writing section holds _references_ to
-  articles published elsewhere; a native post needs a body, a slug, and a
-  draft/published state — a profile schema change (doc 01) plus a
-  `blog`/`blogPost` renderer in every portfolio template (doc 05, where both
-  page kinds are already declared). Reserving the URL means those land as
-  additions, not a re-organisation. Notion-as-CMS reuses connections.
+- **Native blog** (Phase 8) — **the authoring half shipped 2026-07-18**; see
+  the Phase 8 section below. Rendering posts on portfolios and the public site
+  is the remaining half. Notion-as-CMS reuses connections.
 - **GitHub webhooks**, template gallery growth, dark mode, mobile editing,
   public API extraction (doc 06 trigger), teams/orgs.
 

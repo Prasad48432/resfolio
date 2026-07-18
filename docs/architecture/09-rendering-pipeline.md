@@ -71,11 +71,11 @@ There are **three**, not two. The original rule — "`/p/*` is public, everythin
 else is private and token-guarded" — stopped being true when resumes gained
 permanent public URLs ([02](02-resume-rendering.md)).
 
-| Posture               | Routes                                                                               | Guard                                                                             | Indexed                                | Cached                 |
-| --------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------- | ---------------------- |
-| **Public, indexable** | `/p/[username]/[[...slug]]`                                                          | none                                                                              | yes, honoring `discoverable`           | ISR + `site:<id>` tags |
-| **Public, unlisted**  | `/render/resume/[documentId]`                                                        | the row's `visibility`                                                            | **no** — `X-Robots-Tag` + `robots.txt` | no (see below)         |
-| **Private**           | `/render/resume/*/draft`, `/api/export/*`, `/api/revalidate`                          | the `RENDER_SECRET` bearer (server-to-server)                                     | no                                     | never                  |
+| Posture               | Routes                                                       | Guard                                         | Indexed                                | Cached                 |
+| --------------------- | ------------------------------------------------------------ | --------------------------------------------- | -------------------------------------- | ---------------------- |
+| **Public, indexable** | `/p/[username]/[[...slug]]`                                  | none                                          | yes, honoring `discoverable`           | ISR + `site:<id>` tags |
+| **Public, unlisted**  | `/render/resume/[documentId]`                                | the row's `visibility`                        | **no** — `X-Robots-Tag` + `robots.txt` | no (see below)         |
+| **Private**           | `/render/resume/*/draft`, `/api/export/*`, `/api/revalidate` | the `RENDER_SECRET` bearer (server-to-server) | no                                     | never                  |
 
 Two things this table encodes that are easy to get wrong:
 

@@ -150,6 +150,45 @@ export async function markAssetsReferenced(keys: string[]): Promise<void> {
 }
 
 /**
+ * Delete the given keys, **except** any that live content still references.
+ *
+ * The targeted counterpart to `collectOrphanedAssets`: that one asks "what is
+ * nothing pointing at?" across the whole account and waits out a grace period;
+ * this one asks "I am destroying a thing that owned these keys — which of them
+ * die with it?" and answers immediately. Deleting a blog post is exactly that
+ * case: the post's images should go now, not in 24 hours, but only the ones no
+ * *other* post is using.
+ *
+ * That distinction is not hypothetical. Keys are content hashes deduped per
+ * `(owner, kind, hash)`, so the same image placed in two posts is **one**
+ * object with **one** row. Deleting post A's key set wholesale would blank the
+ * image in post B, silently and unrecoverably. `protectedKeys` is required and
+ * has no default for the same reason it is on `collectOrphanedAssets`: an
+ * optional one would make the dangerous call the short one.
+ *
+ * Returns the number of objects actually deleted, for the audit log.
+ */
+export async function releaseAssetKeys({
+  keys,
+  protectedKeys,
+}: {
+  /** The keys the destroyed thing referenced. */
+  keys: ReadonlySet<string> | readonly string[];
+  /** Every key other live content still points at. */
+  protectedKeys: ReadonlySet<string>;
+}): Promise<number> {
+  const doomed = [...keys].filter((key) => !protectedKeys.has(key));
+  if (doomed.length === 0) {
+    return 0;
+  }
+  // Row first, then object (doc 07): the recoverable failure is an orphaned
+  // object the sweep collects, not a row pointing at bytes that are gone.
+  await db.delete(schema.asset).where(inArray(schema.asset.key, doomed));
+  await deleteObjects(doomed);
+  return doomed.length;
+}
+
+/**
  * Delete every object belonging to a profile — the deletion path.
  *
  * A single prefix delete under `u/<ownerId>/`, which is exactly why keys are

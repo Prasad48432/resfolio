@@ -173,8 +173,24 @@ revisit only if session reads show up in p99s).
 
 ## Future Scalability
 
-- **Blogs/CMS**: posts become rows (relational metadata + structured content
-  JSONB) — same pattern, no new stores.
+- **Blogs/CMS**: ~~posts become rows~~ — **shipped 2026-07-18 exactly as
+  predicted**: `blog_posts` is relational metadata (title, slug, status,
+  `published_at`, `reading_minutes`, `cover_asset_key`) plus a structured
+  content JSONB body, no new stores. Two things worth recording, because
+  neither was obvious from the prediction:
+  - **The body is a second content shape, not the profile's rich text.** The
+    profile's Markdown subset is small so a résumé survives plain-text ATS
+    extraction; a post needs headings, code blocks, task lists and callouts,
+    which it cannot express. Widening it would have widened it for résumés too.
+    The post body is TipTap/ProseMirror JSON over a node whitelist, which also
+    makes raw HTML **unrepresentable** rather than filtered.
+  - **Posts are rows precisely because the Profile is one document.** The
+    profile blob is rewritten in full on every autosave and snapshotted in full
+    on every publish (above), so prose inside it would make both costs scale
+    with how much the user has written. Posts stay profile-_owned_ and are
+    projected into the Writing section at view-build time, which keeps "the
+    Profile is the source of truth" true at the layer that matters — the
+    ProfileView every renderer consumes.
 - **Analytics**: PostHog first; if first-party page analytics ship, that's a
   columnar/aggregate concern (e.g. ClickHouse or aggregated Postgres tables),
   explicitly _not_ forced into the OLTP schema.

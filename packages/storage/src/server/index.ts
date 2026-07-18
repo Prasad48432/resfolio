@@ -10,6 +10,7 @@ export {
   collectOrphanedAssets,
   deleteAllAssetsForOwner,
   markAssetsReferenced,
+  releaseAssetKeys,
   storeImageAsset,
   type StoredAsset,
 } from "./assets";

@@ -36,6 +36,21 @@ table.
   same reason `collectOrphanedAssets` takes a **required** `protectedKeys` set
   with no default: an optional one would make the dangerous call the short one.
   `referenced_at` is a hint; the live key set is the authority.
+- **`singleton` is scoped to the _owner_, not to any narrower thing.**
+  `supersedeSingletonSlot` clears `referenced_at` for every key of that kind
+  belonging to the profile. So a slot that is "one per post" or "one per site"
+  is **not** a singleton: `blogCover` was marked `singleton: true` and would
+  have superseded the previous post's cover every time a second post got one.
+  One-per-_something-narrower_ is enforced where that scope exists (a single
+  `cover_asset_key` column) with reference-counted cleanup in the owning domain.
+- **Targeted cleanup is `releaseAssetKeys`, and it also requires
+  `protectedKeys`.** `collectOrphanedAssets` asks "what is nothing pointing
+  at?" account-wide after a grace period; `releaseAssetKeys` asks "I destroyed
+  a thing that held these keys — which die with it?" and answers now. Deleting
+  a blog post is that case. Because keys are content hashes deduped per
+  `(owner, kind, hash)`, the same image in two posts is **one** object, so
+  releasing a key set wholesale would blank another post's image — which is why
+  neither function has a default for `protectedKeys`.
 - **Uploads are proxied, never presigned.** The server must see the bytes:
   re-encoding is what strips EXIF/GPS, discards appended payloads and polyglot
   files, and verifies the file is the type it claims. A content-type header is

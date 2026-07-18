@@ -13,7 +13,7 @@ This application is responsible for
 - Sources — the import workspace (GitHub, Dev.to, RSS, Stack Overflow)
 - Portfolio theme + custom domain configuration
 - Resume configuration, sharing, and PDF export
-- Blog (reserved; Phase 8)
+- Blog — writing, editing and managing native posts
 - Account & billing
 
 This application is NOT the public marketing site.
@@ -41,8 +41,10 @@ switch, publish) with the `apps/sites` draft-preview iframe. **Phase 6 (revised 
 gallery, triage-by-destination, needs-a-home bucket, import history):
 import from external sources into the profile draft; nothing lands without an
 explicit Import click. All four V1 providers are live and public — **no OAuth,
-no teasers**. `/domains` remains a `ComingSoon` placeholder until Phase 7, and
-`/blog` is the same until Phase 8. The **design-system pass** (doc 08)
+no teasers**. `/domains` remains a `ComingSoon` placeholder until Phase 7. **Phase 8
+(authoring half)**: the **blog** — `/blog` lists posts and `/blog/[id]` is the
+TipTap writing surface over `@resfolio/blog`; rendering posts on portfolios and
+the public site is deliberately still to come. The **design-system pass** (doc 08)
 then made the app a coherent product rather than a set of screens: shared
 `Page`/`PageHeader`/`EmptyState`/`SaveIndicator` primitives, the product `Card`
 surface replacing the landing page's `card-surface`, motion tokens + a Framer
@@ -361,13 +363,13 @@ features.
     after every save — a full re-render of a second application to answer "what
     does this look like?", at a cost that grows with every template. The route
     is gone; `PreviewPlaceholder` keeps the **bar unchanged** ("Draft preview"
-    + a real "Open live site" link) and stubs only the pane between them, so
-    restoring a real preview is a swap of one component's body.
+    - a real "Open live site" link) and stubs only the pane between them, so
+      restoring a real preview is a swap of one component's body.
   - **A template asks only for what it genuinely can't render without.** The
     generic visibility toggles and count knobs (`showAvatar`,
     `showCommandHint`, `featuredProjectCount`, `showGithubGraph`) were removed
     from `dark-anime`: templates are opinionated (doc 03), so they decide, and
-    anything genuinely absent is driven by absent *data*, not by a switch.
+    anything genuinely absent is driven by absent _data_, not by a switch.
     Reusable visibility toggles may return as a platform concern once two
     templates want the same one — not as per-template booleans.
   - **A config field whose Zod shape is a union renders no control unless the
@@ -401,6 +403,52 @@ features.
   "Profile links" (`basics.links`, edited by `components/profile/links-editor.tsx`).
   Only its `label` is inline-editable — the url is a fact the connector derived,
   and editing it would only break the link.
+- **Blog** (doc 07/01, Phase 8): `/blog` lists posts via `@resfolio/blog/server`;
+  `/blog/[id]` is the post editor (`components/blog/`). Mutations go through
+  `app/(dashboard)/blog/actions.ts`.
+  - **Not a `SplitWorkspace`, deliberately.** The résumé and portfolio editors
+    split because their output is a visual artefact you configure while watching
+    it. A post's output _is_ the text you are already looking at, so a preview
+    pane would show the same words twice and halve the width of both. One
+    centred column; everything that is not the writing (slug, excerpt, SEO,
+    delete) lives in a collapsed `PostSettingsPanel`, because each of those is
+    touched about once per post while the body is touched constantly. This is
+    also the one editor that does **not** use `Page`/`PageHeader` — it has its
+    own sticky header carrying the save indicator, reading time and the publish
+    switch, because the writing surface owns the full column.
+  - **The editor is uncontrolled.** TipTap owns the document; `onUpdate`
+    reports outward and nothing writes back in. Driving ProseMirror from React
+    state round-trips every keystroke through a re-render and a `setContent`,
+    which destroys the selection and makes typing feel laggy.
+  - **The browser validates with the server's own schema.** `blogBodySchema`
+    comes from the pure root of `@resfolio/blog`, so what the editor checks
+    before saving is literally what the server checks — not a second copy.
+  - **Node names in `components/blog/extensions.ts` must match the domain
+    schema exactly.** `getJSON()` is stored verbatim after that schema
+    validates it, so a rename on one side alone produces a document that saves
+    fine in the editor and is rejected by the server.
+  - **Paste and drop share one handler** and both return `true`, which is what
+    stops the browser also inserting the image as a `blob:`/`data:` URL that
+    would break on reload. Images insert **at the cursor**. The handler is
+    reached through a **ref**: `editorProps` is evaluated inside the `useEditor`
+    call while the handler needs `editor`, and written directly that cycle
+    reads the `const` before it initializes.
+  - **Bodies store the asset `key`, not just the URL** (doc 07) — the key is
+    what cleanup counts and what survives the delivery origin moving.
+    `use-image-upload.ts` keeps both halves of the upload response; the shared
+    `ImageUpload` component returns only a URL and is right for profile fields
+    that store one.
+  - **The slug follows the title only until the post is first published.**
+    After that its URL is a promise to whoever linked to it, and silently
+    rewriting it because a typo was fixed in the title breaks those links with
+    no warning.
+  - **The image ceiling is configurable**, not hardcoded:
+    `BLOG_MAX_IMAGES_PER_POST` (the `blog` env slice) with the domain's default
+    of 5 as fallback, read through `lib/blog-config.ts` so the upload check, the
+    editor budget and the repository's enforcement cannot disagree.
+  - Editor typography is `.rf-prose` in `app/globals.css`, inside
+    `@layer components` — the same stylesheet the published-post renderer will
+    use, so writing and reading do not drift.
 - **String arrays** (skills, technologies) are edited with `TagsField`
   (`components/profile/tags-field.tsx`), the RHF binding over `@resfolio/ui`'s
   `TagInput` chip editor — never a comma-separated text input. Enter (and

@@ -1,4 +1,5 @@
 import {
+  blog,
   createAppEnv,
   observability,
   r2,
@@ -25,6 +26,7 @@ export const env = createAppEnv({
     ...sharedRuntime.server,
     ...observability.server,
     ...render.dashboard,
+    ...blog.server,
     R2_PUBLIC_BASE_URL: r2.server.R2_PUBLIC_BASE_URL,
   },
   client: {

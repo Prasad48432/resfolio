@@ -260,6 +260,7 @@ function PublicConnectCard({
           <Button
             type="submit"
             size="sm"
+            className="h-full rounded-xl"
             disabled={pending || value.trim().length === 0}
             data-testid={sourceConnectButtonTestId(connectorId)}
           >
