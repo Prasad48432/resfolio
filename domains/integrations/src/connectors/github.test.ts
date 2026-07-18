@@ -115,7 +115,7 @@ describe("github.normalize", () => {
   });
 
   it("proposes nothing about the user — only projects and a link", () => {
-    // Users report "the GitHub import changed my avatar/name/headline". It
+    // Users report "the GitHub import changed my avatar/name/summary". It
     // cannot, and this is the guard that keeps it that way.
     const kinds = [
       ...github.normalize(normalRepo),

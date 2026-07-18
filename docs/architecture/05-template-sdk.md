@@ -53,7 +53,7 @@ export const template = defineTemplate({
   },
   requirements: {                     // what it can't look right without
     config: ["bannerImage"],
-    profile: ["basics.headline", "sections.projects"],
+    profile: ["basics.summary", "sections.projects"],
   },
 
   // Capabilities — declarative feature support
@@ -91,7 +91,7 @@ templates may additionally ship client islands for motion/interactivity;
 resume templates must lay out with zero client JS.
 
 **Why the two kinds differ here**: the asymmetry isn't taste, it's how each is
-previewed. A resume is rendered *into the dashboard's own React tree* on every
+previewed. A resume is rendered _into the dashboard's own React tree_ on every
 keystroke, so an island in a resume template would be a client component inside
 a client render — and would have to bundle into the dashboard. A portfolio is
 previewed through an **iframe** pointed at `apps/sites`, so its islands are just
@@ -107,14 +107,14 @@ scroll-reveal are the reference implementations.
 
 `defineTemplate` requires `defaultConfig` to parse clean against `configSchema`.
 That means **every config field must carry a default**, and a genuinely required
-field — a hero banner with no sensible default — is *unrepresentable in the
-schema*. Rather than relax that check (which would let a broken template load),
+field — a hero banner with no sensible default — is _unrepresentable in the
+schema_. Rather than relax that check (which would let a broken template load),
 requirements are a **separate declaration**:
 
 ```ts
 requirements: {
   config:  ["bannerImage"],                         // keys of defaultConfig
-  profile: ["basics.headline", "sections.projects"], // content at /profile
+  profile: ["basics.summary", "sections.projects"], // content at /profile
 }
 ```
 
@@ -150,15 +150,15 @@ platform:
    automatically; a **major** template release is effectively a new template
    the user opts into, with the dashboard offering a preview-then-switch flow.
    A user's site never changes appearance because we refactored.
-**Deleting or renaming a template is a data migration.** `sites.template_id` is
-plain text and nothing enforces that the template still exists — an orphaned row
-404s the live site (`getPortfolioTemplate` → undefined → `notFound()`) while the
-dashboard's registry lookup fails and its editor reports "Offline". `config` must
-be reset alongside the id, because config is template-owned and the old shape
-fails the new schema, which renders as a *silent 404*. Migration `0009` is the
-worked example. Note ISR makes this bite twice: `unstable_cache` keeps serving
-the old `templateId` until `site:<id>` is dropped, so the fix looks like it
-didn't work.
+   **Deleting or renaming a template is a data migration.** `sites.template_id` is
+   plain text and nothing enforces that the template still exists — an orphaned row
+   404s the live site (`getPortfolioTemplate` → undefined → `notFound()`) while the
+   dashboard's registry lookup fails and its editor reports "Offline". `config` must
+   be reset alongside the id, because config is template-owned and the old shape
+   fails the new schema, which renders as a _silent 404_. Migration `0009` is the
+   worked example. Note ISR makes this bite twice: `unstable_cache` keeps serving
+   the old `templateId` until `site:<id>` is dropped, so the fix looks like it
+   didn't work.
 
 3. **Capabilities instead of version sniffing** — new platform features
    (blog pages, print headers, RTL) arrive as new optional capability flags +

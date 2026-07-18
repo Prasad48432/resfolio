@@ -3,7 +3,10 @@ import {
   darkAnime,
   darkAnimeConfigSchema,
 } from "@resfolio/template-dark-anime";
-import type { ConfigFieldMeta, TemplateRequirements } from "@resfolio/template-sdk";
+import type {
+  ConfigFieldMeta,
+  TemplateRequirements,
+} from "@resfolio/template-sdk";
 import type { z } from "zod";
 
 /**

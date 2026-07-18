@@ -53,7 +53,6 @@ export const profileSchema = z.object({
   schemaVersion: z.literal(1),
   basics: z.object({
     name,
-    headline,
     summary,
     location,
     avatar,
@@ -84,8 +83,8 @@ Non-negotiable schema rules:
 - **`custom` sections exist from day one** so users are never blocked by the
   schema, and so we learn which fields to promote to first-class.
 - Dates are ISO strings with optional day/month precision; rich text is a
-  constrained subset (bold/italic/links), stored as structured content, never
-  raw HTML.
+  constrained subset (bold/italic/links/`- ` lists), stored as structured
+  content, never raw HTML.
 
 ### Schema versioning
 
@@ -179,9 +178,11 @@ storage schema evolve independently of every shipped template.
   provenance fields). The section set and canonical order are in
   `schema/profile.ts` (`SECTION_KEYS`).
 - ~~Rich-text representation~~ — **decided (Phase 3)**: a constrained
-  **Markdown subset** (bold, italic, `[label](url)` links), stored as a
-  string, validated by `richTextSchema` (no raw HTML; link schemes
-  restricted to http/https/mailto). Chosen over a structured AST for
+  **Markdown subset** (bold, italic, `[label](url)` links, and `- `
+  unordered lists), stored as a string, validated by `richTextSchema` (no raw
+  HTML; link schemes restricted to http/https/mailto). **Hyphen is the only
+  list marker**: `*` is already the emphasis delimiter, so accepting it as a
+  bullet would make a line-leading `*emphasis*` ambiguous. Chosen over a structured AST for
   portability (JSON Resume export, plain-text ATS extraction) and
   diffability; our renderer converts it to React elements in the Template
   SDK phase and re-checks schemes on output.

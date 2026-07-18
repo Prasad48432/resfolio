@@ -90,10 +90,9 @@ describe("dark-anime — definition", () => {
 });
 
 describe("dark-anime — home", () => {
-  it("renders name, headline, summary and a featured project", () => {
+  it("renders name, summary and a featured project", () => {
     const html = render("home", ada);
     expect(html).toContain("Ada Okonkwo");
-    expect(html).toContain("Staff Software Engineer");
     expect(html).toContain("fluxlog");
     expect(html).toContain("<strong>12 years</strong>");
     expect(html).not.toContain("**12 years**");
@@ -114,31 +113,46 @@ describe("dark-anime — home", () => {
 describe("dark-anime — config", () => {
   it("shows the banner image only when configured", () => {
     expect(body(render("home", ada))).not.toContain("rf-banner");
-    const html = render("home", ada, {}, {
-      ...defaultDarkAnimeConfig,
-      bannerImage: "https://example.com/banner.jpg",
-    });
+    const html = render(
+      "home",
+      ada,
+      {},
+      {
+        ...defaultDarkAnimeConfig,
+        bannerImage: "https://example.com/banner.jpg",
+      },
+    );
     expect(body(html)).toContain("rf-banner");
     expect(html).toContain("https://example.com/banner.jpg");
   });
 
   it("shows the quote only when configured, with its attribution", () => {
     expect(body(render("home", ada))).not.toContain("rf-quote-text");
-    const html = render("home", ada, {}, {
-      ...defaultDarkAnimeConfig,
-      quote: "Ship the thing.",
-      quoteAttribution: "Someone wise",
-    });
+    const html = render(
+      "home",
+      ada,
+      {},
+      {
+        ...defaultDarkAnimeConfig,
+        quote: "Ship the thing.",
+        quoteAttribution: "Someone wise",
+      },
+    );
     expect(html).toContain("Ship the thing.");
     expect(html).toContain("Someone wise");
   });
 
   it("honours featuredProjectCount on the home page", () => {
     const all = render("projects", ada);
-    const one = render("home", ada, {}, {
-      ...defaultDarkAnimeConfig,
-      featuredProjectCount: 1,
-    });
+    const one = render(
+      "home",
+      ada,
+      {},
+      {
+        ...defaultDarkAnimeConfig,
+        featuredProjectCount: 1,
+      },
+    );
     const count = (html: string) =>
       html.split(`href="/p/ada/projects/prj-`).length - 1;
     expect(count(one)).toBe(1);
@@ -147,10 +161,15 @@ describe("dark-anime — config", () => {
 
   it("hides the avatar when showAvatar is off", () => {
     expect(body(render("home", ada))).toContain("rf-avatar");
-    const html = render("home", ada, {}, {
-      ...defaultDarkAnimeConfig,
-      showAvatar: false,
-    });
+    const html = render(
+      "home",
+      ada,
+      {},
+      {
+        ...defaultDarkAnimeConfig,
+        showAvatar: false,
+      },
+    );
     expect(body(html)).not.toContain("rf-avatar");
   });
 });

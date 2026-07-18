@@ -31,7 +31,6 @@ export function createSeedProfile(identity: SeedIdentity = {}): Profile {
     basics: {
       ...empty.basics,
       name: identity.name ?? "",
-      headline: "Your headline — the one-liner under your name",
       contacts: { email: identity.email },
     },
     sections: {

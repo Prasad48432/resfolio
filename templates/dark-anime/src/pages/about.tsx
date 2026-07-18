@@ -1,4 +1,7 @@
-import { renderRichText, type PortfolioPageProps } from "@resfolio/template-sdk";
+import {
+  renderRichText,
+  type PortfolioPageProps,
+} from "@resfolio/template-sdk";
 import type { ReactElement } from "react";
 
 import type { DarkAnimeConfig } from "../config";
@@ -30,7 +33,10 @@ export function AboutPage({
       basePath={basePath}
       showCommandHint={config.showCommandHint}
     >
-      <section className="rf-section" style={{ borderTop: 0, paddingTop: "3rem" }}>
+      <section
+        className="rf-section"
+        style={{ borderTop: 0, paddingTop: "3rem" }}
+      >
         <a className="rf-back" href={href(basePath, "home")}>
           ← Home
         </a>

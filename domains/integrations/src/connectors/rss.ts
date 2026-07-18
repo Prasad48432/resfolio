@@ -150,7 +150,8 @@ export function parseFeed(xml: string): RssRawEntry[] {
         title: toPlainText(textOf(entry.title)),
         link,
         summary: textOf(entry.summary) || textOf(entry.content),
-        published: textOf(entry.updated) || textOf(entry.published) || undefined,
+        published:
+          textOf(entry.updated) || textOf(entry.published) || undefined,
         id: id || link || textOf(entry.title),
       };
     });

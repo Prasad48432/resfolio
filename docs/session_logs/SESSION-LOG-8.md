@@ -83,7 +83,7 @@ surfaces) and the full `turbo lint typecheck test` (40/40).
   `generateMetadata`. `SITE_PUBLIC_URL` (optional, shared env) overrides the
   production origin for preview deploys.
 - **`app/sitemap.ts`** — every discoverable published site expanded to its
-  template's *listable* pages (detail pages omitted); fixtures + DB sites.
+  template's _listable_ pages (detail pages omitted); fixtures + DB sites.
   **`app/robots.ts`** — allow `/p/*`, disallow `/render/` + `/api/`, point at
   the sitemap. Non-discoverable sites keep their per-page `noindex`.
 
@@ -103,10 +103,10 @@ render registry and the dashboard config registry.
   (was 37; +the sidebar template's lint/typecheck/test). New unit tests:
   portfolio token (5), dashboard `describeConfigSchema` (5), sidebar render (14).
 - **Production build + runtime (fixture source, no DB):** `pnpm --filter sites
-  build` compiles all routes (`/p/*`, `/preview/portfolio/*`, `/api/revalidate`,
+build` compiles all routes (`/p/*`, `/preview/portfolio/*`, `/api/revalidate`,
   `/robots.txt`, `/sitemap.xml`). Against the running prod server: `/p/ada` 200
   with a valid JSON-LD `Person` + `<link rel="canonical">`; `/p/ada/{projects,
-  projects/prj-fluxlog,about,resume}` 200; `/p/ada/nope` + `/p/nobody` **404**
+projects/prj-fluxlog,about,resume}` 200; `/p/ada/nope` + `/p/nobody` **404**
   (the no-DB gate — previously 500); `/preview/portfolio` (no token) 404 with
   `noindex` + `frame-ancestors` CSP; `robots.txt` + `sitemap.xml` correct.
 - **DB-backed end-to-end (local Tier 3, 2026-07-16):** migration `0003` applied

@@ -37,8 +37,7 @@ export function buildPersonJsonLd(
     basics.contacts.website,
   ].filter((url): url is string => Boolean(url));
 
-  const description =
-    basics.headline || richTextToPlainText(basics.summary).slice(0, 300);
+  const description = richTextToPlainText(basics.summary).slice(0, 300);
 
   const jsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
@@ -46,9 +45,6 @@ export function buildPersonJsonLd(
     name: basics.name,
     url: canonicalUrl,
   };
-  if (basics.headline) {
-    jsonLd.jobTitle = basics.headline;
-  }
   if (description) {
     jsonLd.description = description;
   }

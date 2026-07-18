@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { type CandidateItem } from "./candidate";
-import {
-  defineConnector,
-  type Connector,
-  type FetchContext,
-} from "./contract";
+import { defineConnector, type Connector, type FetchContext } from "./contract";
 import { ConnectorDefinitionError } from "./errors";
 
 /** An empty async iterable — a stub fetch for definition-shape tests. */
@@ -45,9 +41,9 @@ describe("defineConnector", () => {
   });
 
   it("rejects a non-kebab id", () => {
-    expect(() =>
-      defineConnector({ ...makeValid(), id: "Not_Kebab" }),
-    ).toThrow(ConnectorDefinitionError);
+    expect(() => defineConnector({ ...makeValid(), id: "Not_Kebab" })).toThrow(
+      ConnectorDefinitionError,
+    );
   });
 
   it("rejects an empty resources list", () => {
@@ -80,9 +76,9 @@ describe("defineConnector", () => {
   });
 
   it("requires an input schema for public/file connectors", () => {
-    expect(() =>
-      defineConnector({ ...makeValid(), input: undefined }),
-    ).toThrow(/input Zod schema/);
+    expect(() => defineConnector({ ...makeValid(), input: undefined })).toThrow(
+      /input Zod schema/,
+    );
   });
 
   it("rejects a missing normalize function", () => {

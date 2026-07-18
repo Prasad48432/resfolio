@@ -27,7 +27,7 @@ export interface ResumeSectionDescriptor {
    * Always rendered, no toggle offered. Not a schema rule — `include` would
    * happily hide these — but a product one: a resume without your work history
    * is not a resume, and a toggle that nobody should ever use is just a way to
-   * break your own document. Name/headline/contact/links/summary are `basics`
+   * break your own document. Name/contact/links/summary are `basics`
    * fields rather than sections, so they are locked simply by having no
    * control at all.
    */

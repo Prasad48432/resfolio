@@ -6,7 +6,7 @@ import { FieldInput } from "./field-input";
 import { LinksEditor } from "./links-editor";
 
 /**
- * The Basics block — name, headline, summary, contacts, links
+ * The Basics block — name, summary, contacts, links
  * (docs/architecture/01-profile-engine.md). Always present (not an array
  * section), so it renders a flat field grid rather than a SectionEditor.
  */

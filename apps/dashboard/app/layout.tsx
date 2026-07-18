@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, JetBrains_Mono, Manrope } from "next/font/google";
+
+import { Toaster } from "@/components/status/toaster";
+
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -50,7 +53,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
     >
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

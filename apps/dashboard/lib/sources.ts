@@ -107,9 +107,9 @@ export function toConnectionView(record: ConnectionRecord): ConnectionView {
   const input = record.input as Record<string, unknown> | null;
   const inputLabel =
     input && typeof input === "object"
-      ? (Object.values(input).find((value) => typeof value === "string") as
+      ? ((Object.values(input).find((value) => typeof value === "string") as
           | string
-          | undefined) ?? null
+          | undefined) ?? null)
       : null;
   return {
     id: record.id,
@@ -232,8 +232,7 @@ export function toPendingItemView(record: PendingItemRecord): PendingItemView {
     id: record.id,
     kind: record.kind,
     kindLabel: KIND_LABELS[record.kind] ?? record.kind,
-    connectorName:
-      getConnector(record.connectorId)?.name ?? record.connectorId,
+    connectorName: getConnector(record.connectorId)?.name ?? record.connectorId,
     title: record.candidate.title,
     url: record.candidate.url ?? null,
     detail: detailFor(record.candidate).slice(0, 200),
@@ -255,8 +254,7 @@ export function toReceiptView(record: ImportReceiptRecord): ReceiptView {
   const applied = record.appliedSectionKey as RouteTarget | null;
   return {
     id: record.id,
-    connectorName:
-      getConnector(record.connectorId)?.name ?? record.connectorId,
+    connectorName: getConnector(record.connectorId)?.name ?? record.connectorId,
     kindLabel: KIND_LABELS[record.kind] ?? record.kind,
     title: record.title,
     url: record.url,

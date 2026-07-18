@@ -2,12 +2,15 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { profileSchema, type Profile } from "@resfolio/profile";
+import { useCallback } from "react";
 import { FormProvider, useForm, type Resolver } from "react-hook-form";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Page } from "@/components/layout/page";
 import { FadeIn } from "@/components/motion/motion";
 import { SaveIndicator } from "@/components/status/save-indicator";
+import { firstErrorPath, focusField } from "@/lib/form-errors";
 import { SECTION_CONFIGS, type ProfileFormValues } from "@/lib/profile-form";
 import { TEST_IDS } from "@/lib/testids";
 
@@ -48,6 +51,33 @@ export function ProfileEditor({
   const { status, saveNow, hasUnpublishedChanges, markPublished } =
     useProfileAutosave(form, initialRev, initialHasUnpublishedChanges);
 
+  /**
+   * Take the user to the first thing that's wrong.
+   *
+   * `trigger()` first because the resolver runs `onChange`: a field the user
+   * never touched (a seeded blank, an imported item) can be invalid with no
+   * error recorded yet, and jumping to "the first error" while a worse one
+   * sits above it is more confusing than not jumping at all. Returns whether
+   * the form is valid so callers can decide what to do next.
+   */
+  const reviewInvalid = useCallback(async () => {
+    const valid = await form.trigger();
+    if (valid) {
+      return true;
+    }
+    const path = firstErrorPath(form.formState.errors);
+    if (path && focusField(path)) {
+      toast.error("Some fields need attention", {
+        description: "Jumped to the first one that needs fixing.",
+      });
+    } else {
+      toast.error("Some fields need attention", {
+        description: "Check the highlighted fields before publishing.",
+      });
+    }
+    return false;
+  }, [form]);
+
   return (
     <FormProvider {...form}>
       <Page className="pb-16" data-testid={TEST_IDS.profileEditor}>
@@ -59,10 +89,12 @@ export function ProfileEditor({
               <SaveIndicator
                 status={status}
                 testId={TEST_IDS.profileSaveIndicator}
+                onReviewInvalid={() => void reviewInvalid()}
               />
               <PublishButton
                 status={status}
                 saveNow={saveNow}
+                reviewInvalid={reviewInvalid}
                 initialPublishedVersion={publishedVersion}
                 hasUnpublishedChanges={hasUnpublishedChanges}
                 onPublished={markPublished}

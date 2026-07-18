@@ -13,7 +13,7 @@ what lets templates multiply without multiplying platform risk.
     (`{ view, config, theme }`); `capabilities` = `{ atsSafe, pageSizes }`.
   - `PortfolioTemplateDefinition` — a `pages` renderer map (one per
     `PortfolioPageKind`) + `PortfolioPageProps` (`{ view, config, theme,
-    params, basePath }` — `params`/`basePath` are platform-owned routing
+params, basePath }` — `params`/`basePath` are platform-owned routing
     inputs, doc 04); `capabilities` = `{ pages }`. `PORTFOLIO_PAGE_KINDS` is
     the platform route table.
   - Shared: `ThemeTokens` / `ResolvedTheme` (the `--rf-*` namespace). Re-exports
@@ -34,8 +34,24 @@ what lets templates multiply without multiplying platform risk.
   randomness** (doc 09): "ongoing" is a data fact (a start with no end), never
   "now". This purity is what makes preview == PDF and lets CI snapshot.
 - **`rich-text.tsx`** — renders the profile Markdown subset (`**bold**`,
-  `_italic_`, `[label](url)`) to React, **re-checking link schemes on output**
-  with the domain's own `safeLinkUrlSchema` (doc 10). Never emits raw HTML.
+  `_italic_`, `[label](url)`, and `- ` unordered lists) to React,
+  **re-checking link schemes on output** with the domain's own
+  `safeLinkUrlSchema` (doc 10). Never emits raw HTML. Two passes: a **block**
+  pass groups lines into list runs and paragraphs, then an **inline** pass runs
+  within each — which is what lets a list item still carry bold and links.
+  Three things not to break:
+  - **Hyphen is the only list marker.** `*` is the emphasis delimiter, so
+    accepting it as a bullet makes a line-leading `*emphasis*` ambiguous — and
+    the ambiguity would resolve differently here than in
+    `richTextToPlainText`, which must mirror this grammar exactly.
+  - **A single prose line renders with no wrapper element.** That is the
+    overwhelming majority of resume text; adding a `<p>` would reflow every
+    existing resume to serve a feature they don't use.
+  - **Lists emit `class="rf-rich-list"`, and templates must style it.** The
+    name is deliberately not `rf-list` — `dark-anime` already owns that for its
+    row-list layout, and the SDK renders into every template's stylesheet.
+    A template with a `list-style: none` reset (as `dark-anime` has) needs an
+    explicit rule or the bullets vanish.
 
 ## Rules
 

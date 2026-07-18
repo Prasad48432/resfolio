@@ -62,6 +62,17 @@ export {
   CommandShortcut,
 } from "./components/command";
 export {
+  MonthYearPicker,
+  formatMonthYear,
+  type MonthYearPickerProps,
+} from "./components/month-year-picker";
+export {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "./components/popover";
+export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -71,6 +82,11 @@ export {
 } from "./components/dropdown-menu";
 export { Separator } from "./components/separator";
 export { Skeleton } from "./components/skeleton";
+export {
+  Spinner,
+  spinnerVariants,
+  type SpinnerProps,
+} from "./components/spinner";
 export {
   Sheet,
   SheetClose,

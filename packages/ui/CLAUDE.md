@@ -11,15 +11,41 @@ so consuming apps must scan it for Tailwind classes:
 ## Two kinds of component, one bar
 
 - **Hand-authored to the shadcn pattern** (cva + tokens + `cn`): `Button`,
-  `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`, `TagInput`.
+  `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`, `TagInput`,
+  `Spinner`.
   These predate the CLI wiring and carry Resfolio's own variant vocabulary
   (`Button` is `primary | secondary | ghost`, not shadcn's `default |
 destructive | outline`). **Do not let the CLI overwrite them** — see below.
 - **From the registry**: `Sidebar`, `Sheet`, `Tooltip`, `Separator`,
-  `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`.
+  `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`, `Popover`
+  (restyled onto this app's surface + `animate-popover-in` motion, since the
+  registry's `tailwindcss-animate` classes don't exist here).
+- **Composed from those**: `MonthYearPicker` — month + year, never a day. No
+  career fact this product collects is precise to the day, and a full calendar
+  invites a precision the resume then throws away. `Popover` on pointer
+  devices, `Dialog` on mobile (`useIsMobile`), because a 260px popover anchored
+  to a field near the bottom of a phone viewport is unusable. Value in/out is
+  `""` or `YYYY-MM`; `min`/`max` **disable** out-of-range cells rather than
+  validating after the fact, and they work as plain string comparisons because
+  `YYYY-MM` sorts in date order.
 
 Both are exported from `src/index.ts`. Apps import from `"@resfolio/ui"` only,
 never an internal path (root CLAUDE.md → Imports).
+
+`Spinner` is **the** loading indicator — lucide's `Loader2` + `animate-spin` is
+gone from the dashboard and should not come back. Its twelve bars are CSS
+(`.spinner` / `.spinner-bar` in `@resfolio/design`), sized proportionally so the
+whole size lives in the root element's `size-*`, and painted with
+`currentColor`, so it inherits its context's text colour and is correct in dark
+mode with nothing passed. Two things to know at a call site:
+
+- **`Button`'s icon sizing does not reach it.** The variants target `[&_svg]`
+  and this is a `div`, so a spinner in a `size="sm"` button needs
+  `size="sm"` explicitly. Default `md` matches `md`/`lg`/`icon`.
+- **It is decorative by default** (`aria-hidden`). Pass `label` only when the
+  spinner is the sole indication that something is loading — adjacent text
+  ("Saving…") or an enclosing live region already says it, and a second
+  announcement is noise.
 
 ## Adding a component from the registry
 

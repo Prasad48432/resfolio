@@ -13,7 +13,7 @@ edge, a dashed reading column, a fixed INDEX rail, and a single-scroll home.
 
 ## What we kept, and what we changed
 
-The reference is a *personal site*: its name, bio, experience list, skills and
+The reference is a _personal site_: its name, bio, experience list, skills and
 socials are hardcoded arrays inside components (`ExperienceList.tsx` opens with
 `const experiences: ExperienceData[] = [...]`). Everything that was data there
 is the **ProfileView** here — that is the whole adaptation. What has no home in
@@ -29,7 +29,7 @@ Two deliberate departures:
   ours.
 - **A footer nav the reference doesn't have.** The reference is one scrolling
   page, so it needs no nav. We render real `/projects`, `/about` and `/resume`
-  routes, and ⌘K is an *island* — a page reachable only by palette is a page a
+  routes, and ⌘K is an _island_ — a page reachable only by palette is a page a
   crawler can't reach. The footer keeps the reference's clean top while keeping
   the site navigable with no JS. (`render.test.tsx` caught this; it wasn't
   foresight.)
@@ -43,13 +43,13 @@ Two deliberate departures:
   knobs. Config is **content and visibility only**; colours, type and density
   are the template's own (doc 03).
 - **`theme.ts`** — **the preset carries no colours, deliberately.** The platform
-  resolves one preset server-side and applies it as an *inline style*; an inline
+  resolves one preset server-side and applies it as an _inline style_; an inline
   custom property beats every stylesheet rule, so a runtime toggle physically
   could not override it. The preset carries the font slots; the palettes live in
   `styles.ts`.
 - **`styles.ts`** — the self-contained sheet, every rule scoped under `.rf-site`.
   **The cascade order is load-bearing**: `.rf-site` (dark, the default — it's
-  *dark*-anime) → `@media (prefers-color-scheme: light)` on
+  _dark_-anime) → `@media (prefers-color-scheme: light)` on
   `:not([data-theme="dark"])` → `.rf-site[data-theme="light"]`. Reorder the last
   two and an explicit Dark on a light OS silently stops working.
 - **`shared.tsx`** — `href` (the one place URLs are built), ProfileView
@@ -62,7 +62,7 @@ Two deliberate departures:
 
 - **Islands are enhancements, never the page.** Every destination is a real
   `<a href>` in the server HTML; `Reveal` takes content as **children** so the
-  markup is server-rendered and only *animated* on the client; the INDEX rail's
+  markup is server-rendered and only _animated_ on the client; the INDEX rail's
   links are plain `#hash` anchors and only the active highlight needs JS. If an
   island never hydrates, the site still reads, navigates and indexes. That's the
   bar — and it's why portfolio renderers may have islands while resume renderers
@@ -86,7 +86,7 @@ exists. Delete one without repointing its rows and every live site on it 404s
 "Offline" (the registry lookup fails, so the save action throws). That is
 exactly what migration `0009` cleans up after. `config` must be reset with the
 id, because config is template-owned and the old shape fails the new schema —
-which renders as a *silent 404*, not an error.
+which renders as a _silent 404_, not an error.
 
 ## Tests
 
@@ -95,6 +95,7 @@ sparse). It renders **server output only** — the islands are inert, which is
 exactly the property worth testing.
 
 Two traps it encodes:
+
 - **Asserting a class is absent against raw HTML is a trap** — the stylesheet
   names every class, so `toContain("rf-banner")` is true on a page with no
   banner. Use the `body()` helper, which strips the `<style>` block.

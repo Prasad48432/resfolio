@@ -58,14 +58,19 @@ export const darkAnime = defineTemplate({
     },
     tagline: {
       label: "Tagline",
-      description: "The small line under your name. An age, a pronoun, a city — anything short.",
+      description:
+        "The small line under your name. An age, a pronoun, a city — anything short.",
     },
     quote: {
       label: "Featured quote",
-      description: "A line you want people to leave with. Empty hides the section.",
+      description:
+        "A line you want people to leave with. Empty hides the section.",
       kind: "textarea",
     },
-    quoteAttribution: { label: "Quote attribution", description: "Who said it." },
+    quoteAttribution: {
+      label: "Quote attribution",
+      description: "Who said it.",
+    },
     introCallUrl: {
       label: "Intro call link",
       description: "Cal.com, Calendly, anything. Empty hides the button.",
@@ -79,7 +84,10 @@ export const darkAnime = defineTemplate({
       label: "Featured projects",
       description: "How many to show on the home page before “View all”.",
     },
-    showAvatar: { label: "Show avatar", description: "Your portrait, over the banner's edge." },
+    showAvatar: {
+      label: "Show avatar",
+      description: "Your portrait, over the banner's edge.",
+    },
     showCommandHint: {
       label: "Show ⌘K hint",
       description: "The shortcut badge in the nav. ⌘K works either way.",
@@ -91,11 +99,10 @@ export const darkAnime = defineTemplate({
   // preview is exactly what the user fixes it against.
   requirements: {
     config: ["bannerImage"],
-    // The hero is name + headline + summary over the banner; without them it's
-    // an image with a gap under it. Experience and projects are the body.
+    // The hero is name + summary over the banner; without them it's an image
+    // with a gap under it. Experience and projects are the body.
     profile: [
       "basics.name",
-      "basics.headline",
       "basics.summary",
       "basics.avatarUrl",
       "sections.projects",

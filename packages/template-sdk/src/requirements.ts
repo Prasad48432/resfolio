@@ -9,7 +9,7 @@ import type {
 /**
  * The completeness check (docs/architecture/05-template-sdk.md).
  *
- * A template is opinionated about what it needs: a hero with no headline is a
+ * A template is opinionated about what it needs: a hero with no summary is a
  * blank band, a cover-image layout with no cover is a grey rectangle. Rather
  * than render those badly — or defend against them in every renderer — a
  * template *declares* its requirements and the platform asks the user to fill

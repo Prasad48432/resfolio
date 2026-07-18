@@ -2,8 +2,7 @@
 
 import type { SignInProvider } from "@resfolio/auth";
 import { authClient } from "@resfolio/auth/client";
-import { Button } from "@resfolio/ui";
-import { Loader2 } from "lucide-react";
+import { Button, Spinner } from "@resfolio/ui";
 import { useState } from "react";
 
 import { signInButtonTestId } from "@/lib/testids";
@@ -87,7 +86,7 @@ export function LoginButtons({ providers }: { providers: SignInProvider[] }) {
             data-testid={signInButtonTestId(provider.id)}
           >
             {pending ? (
-              <Loader2 className="animate-spin" aria-hidden />
+              <Spinner />
             ) : brand === "google" ? (
               <GoogleMark />
             ) : (

@@ -1,4 +1,7 @@
-import { formatDateRange, type PortfolioPageProps } from "@resfolio/template-sdk";
+import {
+  formatDateRange,
+  type PortfolioPageProps,
+} from "@resfolio/template-sdk";
 import type { ReactElement } from "react";
 
 import type { DarkAnimeConfig } from "../config";
@@ -36,7 +39,10 @@ export function ResumePage({
       basePath={basePath}
       showCommandHint={config.showCommandHint}
     >
-      <section className="rf-section" style={{ borderTop: 0, paddingTop: "3rem" }}>
+      <section
+        className="rf-section"
+        style={{ borderTop: 0, paddingTop: "3rem" }}
+      >
         <a className="rf-back" href={href(basePath, "home")}>
           ← Home
         </a>
@@ -44,9 +50,6 @@ export function ResumePage({
           Résumé
         </p>
         <h1 className="rf-detail-title">{basics.name || "Résumé"}</h1>
-        {basics.headline ? (
-          <p className="rf-hero-tagline">{basics.headline}</p>
-        ) : null}
         <div style={{ marginTop: "1rem" }}>
           <Socials basics={basics} />
         </div>
@@ -127,7 +130,11 @@ export function ResumePage({
               <li className="rf-list-row" key={item.id}>
                 <div className="rf-list-main">
                   <div className="rf-list-title">
-                    {item.url ? <a href={item.url}>{item.title}</a> : item.title}
+                    {item.url ? (
+                      <a href={item.url}>{item.title}</a>
+                    ) : (
+                      item.title
+                    )}
                   </div>
                   <div className="rf-list-detail">{item.publisher}</div>
                 </div>

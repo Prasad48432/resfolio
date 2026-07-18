@@ -188,10 +188,14 @@ describe("section order", () => {
     ]);
     const panel = orderedSections(view)
       .map((section) => section.key)
-      .filter((key) => ["projects", "experience", "skills", "education"].includes(key));
+      .filter((key) =>
+        ["projects", "experience", "skills", "education"].includes(key),
+      );
     const rendered = projected(view)
       .sections.map((section) => section.key)
-      .filter((key) => ["projects", "experience", "skills", "education"].includes(key));
+      .filter((key) =>
+        ["projects", "experience", "skills", "education"].includes(key),
+      );
     expect(panel).toEqual(["projects", "experience", "skills", "education"]);
     expect(rendered).toEqual(panel);
   });

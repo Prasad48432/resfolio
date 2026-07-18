@@ -1,4 +1,7 @@
-import { renderRichText, type PortfolioPageProps } from "@resfolio/template-sdk";
+import {
+  renderRichText,
+  type PortfolioPageProps,
+} from "@resfolio/template-sdk";
 import { CalendarDays, Mail } from "lucide-react";
 import type { ReactElement } from "react";
 
@@ -70,11 +73,10 @@ export function HomePage({
           </div>
         </div>
 
-        {basics.headline ? (
-          <p className="rf-hero-headline">{basics.headline}</p>
-        ) : null}
         {basics.summary ? (
-          <div className="rf-hero-summary">{renderRichText(basics.summary)}</div>
+          <div className="rf-hero-summary">
+            {renderRichText(basics.summary)}
+          </div>
         ) : null}
 
         {config.introCallUrl || basics.contacts.email ? (
@@ -161,7 +163,11 @@ export function HomePage({
               <li className="rf-list-row" key={item.id}>
                 <div className="rf-list-main">
                   <div className="rf-list-title">
-                    {item.url ? <a href={item.url}>{item.title}</a> : item.title}
+                    {item.url ? (
+                      <a href={item.url}>{item.title}</a>
+                    ) : (
+                      item.title
+                    )}
                   </div>
                   <div className="rf-list-detail">{item.publisher}</div>
                 </div>

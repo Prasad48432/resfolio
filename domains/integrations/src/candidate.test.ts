@@ -42,7 +42,8 @@ describe("candidateItemSchema", () => {
 
   it("requires a non-empty externalId", () => {
     expect(
-      candidateItemSchema.safeParse({ ...validProject, externalId: "" }).success,
+      candidateItemSchema.safeParse({ ...validProject, externalId: "" })
+        .success,
     ).toBe(false);
   });
 

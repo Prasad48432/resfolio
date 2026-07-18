@@ -36,6 +36,37 @@ describe("renderRichText", () => {
     expect(renderRichText("")).toBeNull();
     expect(renderRichText(undefined)).toBeNull();
   });
+
+  it("renders a hyphen list as a <ul>", () => {
+    expect(html("- one\n- two")).toBe(
+      '<ul class="rf-rich-list"><li>one</li><li>two</li></ul>',
+    );
+  });
+
+  it("applies inline markup inside a list item", () => {
+    expect(html("- **shipped** [it](https://x.io)")).toBe(
+      '<ul class="rf-rich-list"><li><strong>shipped</strong> <a href="https://x.io">it</a></li></ul>',
+    );
+  });
+
+  it("keeps prose and a following list as separate blocks", () => {
+    expect(html("Intro line\n- one")).toBe(
+      '<p>Intro line</p><ul class="rf-rich-list"><li>one</li></ul>',
+    );
+  });
+
+  it("does not treat an asterisk bullet as a list (it is the emphasis marker)", () => {
+    // `* text *` would otherwise be ambiguous with italics; hyphen is the one
+    // documented marker, so this must stay inline.
+    expect(html("* not a bullet")).not.toContain("<ul");
+  });
+
+  // The single-line case is the overwhelming majority of resume prose, and it
+  // must keep rendering bare — a <p> wrapper would reflow every existing
+  // resume to add a feature none of them use.
+  it("emits no wrapper element for a single prose line", () => {
+    expect(html("Just prose")).toBe("Just prose");
+  });
 });
 
 describe("richTextToPlainText", () => {

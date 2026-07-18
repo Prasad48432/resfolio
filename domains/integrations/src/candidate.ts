@@ -30,7 +30,7 @@ import { z } from "zod";
  * it waits in the Sources workspace until the user routes it.
  *
  * **A connector may never propose the user's identity.** There is deliberately
- * no kind carrying `name`/`headline`/`summary`/`location`/`avatarUrl`: those
+ * no kind carrying `name`/`summary`/`location`/`avatarUrl`: those
  * are the user's own words about themselves, and a provider's guess at them is
  * never worth the risk of overwriting the real thing. The one profile field
  * outside a section a connector may propose is a **link** (`profileLink`) — a

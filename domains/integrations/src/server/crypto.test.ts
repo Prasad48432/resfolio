@@ -24,12 +24,9 @@ describe("keyringFromHex", () => {
     expect(ring.keys[1]?.length).toBe(32);
   });
 
-  it.each(["short", "g".repeat(64), "a".repeat(63)])(
-    "rejects %s",
-    (bad) => {
-      expect(() => keyringFromHex(bad)).toThrow(TokenCryptoError);
-    },
-  );
+  it.each(["short", "g".repeat(64), "a".repeat(63)])("rejects %s", (bad) => {
+    expect(() => keyringFromHex(bad)).toThrow(TokenCryptoError);
+  });
 });
 
 describe("encryptSecret / decryptSecret", () => {
@@ -73,7 +70,10 @@ describe("encryptSecret / decryptSecret", () => {
     const v1Envelope = encryptSecret("old-token", ring);
     const rotated: TokenKeyring = {
       current: 2,
-      keys: { 1: ring.keys[1] as Buffer, 2: keyringFromHex(KEY_B).keys[1] as Buffer },
+      keys: {
+        1: ring.keys[1] as Buffer,
+        2: keyringFromHex(KEY_B).keys[1] as Buffer,
+      },
     };
     // Old rows decrypt with v1; new encryptions carry v2.
     expect(decryptSecret(v1Envelope, rotated)).toBe("old-token");

@@ -17,6 +17,23 @@ export const resumeClassicConfigSchema = z.object({
     .default("#f0592b"),
   /** Show the small decorative contact icons (they are ATS-neutral). */
   showIcons: z.boolean().default(true),
+  /**
+   * Master typography scale. `medium` is the original sizing; `small` shrinks
+   * body copy hard and headings gently, so hierarchy survives the squeeze
+   * (see `TYPE_SCALE` in `./styles`).
+   */
+  fontSize: z.enum(["medium", "small"]).default("medium"),
+  /**
+   * Profile-link ids to **omit** from the contact row, by `basics.links[].id`.
+   *
+   * A deny list, not an allow list, and that choice is load-bearing: the
+   * default must be "show everything" (it is what every existing resume
+   * already does), and a link added to the profile later should appear rather
+   * than stay invisible until someone remembers to tick it. An allow list
+   * would silently drop new links — a bug the user only finds after sending
+   * the PDF.
+   */
+  hiddenLinkIds: z.array(z.string()).max(20).default([]),
 });
 
 export type ResumeClassicConfig = z.infer<typeof resumeClassicConfigSchema>;

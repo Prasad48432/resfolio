@@ -171,7 +171,7 @@ project | contribution | article | talk | profileLink
 ```
 
 **A connector may never propose the user's identity** (decided 2026-07-17).
-There is deliberately no kind carrying `name`, `headline`, `summary`,
+There is deliberately no kind carrying `name`, `summary`,
 `location` or `avatarUrl`, and `basics` is not a route target — both halves of
 the rule are structural, not a policy a future connector could forget. The
 reasoning: those five fields are the user's own words about themselves, and no
@@ -336,11 +336,11 @@ manager:
 Each connector owns a declared mapping table (in code and in its docs), all
 landing on canonical kinds. **Built** (V1):
 
-| Provider       | Mode                  | Mapping                                                                                                                                              |
-| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub         | `public` `{username}` | public repos → `project`: name, description, `repoUrl`, language + topics → `technologies`, stars/forks → metrics. Forks and archived repos skipped. Plus `profileLink` → `https://github.com/{username}`. |
-| RSS / Atom     | `public` `{feedUrl}`  | entries → `article` → Writing: title, publisher, url, date, HTML-stripped summary. **No `profileLink`** — a feed URL is a publication, not a person.  |
-| Dev.to         | `public` `{username}` | published articles → `article` → Writing; reactions → metric. Plus `profileLink` → `https://dev.to/{username}`.                                      |
+| Provider       | Mode                  | Mapping                                                                                                                                                                                                                    |
+| -------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub         | `public` `{username}` | public repos → `project`: name, description, `repoUrl`, language + topics → `technologies`, stars/forks → metrics. Forks and archived repos skipped. Plus `profileLink` → `https://github.com/{username}`.                 |
+| RSS / Atom     | `public` `{feedUrl}`  | entries → `article` → Writing: title, publisher, url, date, HTML-stripped summary. **No `profileLink`** — a feed URL is a publication, not a person.                                                                       |
+| Dev.to         | `public` `{username}` | published articles → `article` → Writing; reactions → metric. Plus `profileLink` → `https://dev.to/{username}`.                                                                                                            |
 | Stack Overflow | `public` `{userId}`   | top answer tags → `skillGroup` (suggested); `profileLink` → `https://stackoverflow.com/users/{userId}`. `/users/{id}` is still fetched, as an existence probe so a typo'd id fails at connect — nothing on it is imported. |
 
 **Import only the metadata the Profile needs.** GitHub's `created_at` and the

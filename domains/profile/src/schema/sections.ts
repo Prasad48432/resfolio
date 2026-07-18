@@ -42,7 +42,6 @@ export const profileLinkSchema = z.object({
 
 export const basicsSchema = z.object({
   name: shortText(120),
-  headline: shortText(180),
   summary: richTextSchema.default(""),
   location: shortText(120),
   avatarUrl: optionalField(httpUrlSchema),

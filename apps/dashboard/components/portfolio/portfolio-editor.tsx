@@ -14,15 +14,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   Switch,
 } from "@resfolio/ui";
-import {
-  ExternalLink,
-  Globe,
-  Loader2,
-  Rocket,
-  TriangleAlert,
-} from "lucide-react";
+import { ExternalLink, Globe, Rocket, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -114,7 +109,9 @@ export function PortfolioEditor({
    */
   const missing = useMemo(() => {
     const configMissing = fields
-      .filter((field) => field.required && !String(config[field.key] ?? "").trim())
+      .filter(
+        (field) => field.required && !String(config[field.key] ?? "").trim(),
+      )
       .map((field) => ({
         key: field.key,
         label: field.label,
@@ -534,11 +531,7 @@ function PublishButton({
           onClick={() => void publish()}
           data-testid={TEST_IDS.portfolioPublishButton}
         >
-          {publishing ? (
-            <Loader2 className="animate-spin" aria-hidden />
-          ) : (
-            <Rocket aria-hidden />
-          )}
+          {publishing ? <Spinner size="sm" /> : <Rocket aria-hidden />}
           {label}
         </Button>
       </div>

@@ -52,7 +52,7 @@ export const viewDefinitionSchema = z.object({
    * `id`/`source`/`sourceId` are never patchable. Patched items must still
    * satisfy the section schema. */
   deltas: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
-  /** Field overrides for basics (e.g. a tailored headline). */
+  /** Field overrides for basics (e.g. a tailored summary). */
   basics: z.record(z.string(), z.unknown()).optional(),
 });
 

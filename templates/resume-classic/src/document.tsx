@@ -271,9 +271,11 @@ function renderSectionBody(section: Section): ReactNode {
 function ContactRow({
   basics,
   showIcons,
+  hiddenLinkIds,
 }: {
   basics: ProfileView["basics"];
   showIcons: boolean;
+  hiddenLinkIds: readonly string[];
 }): ReactNode {
   const { location, contacts, links } = basics;
   const items: ReactNode[] = [];
@@ -311,6 +313,9 @@ function ContactRow({
     );
   }
   for (const link of links) {
+    if (hiddenLinkIds.includes(link.id)) {
+      continue;
+    }
     items.push(
       <span className="rf-contact-item" key={link.id}>
         <a href={link.url}>{link.label}</a>
@@ -337,14 +342,24 @@ export function ResumeDocument({
 
       <header className="rf-header">
         <h1 className="rf-name">{basics.name}</h1>
-        {basics.headline ? (
-          <p className="rf-headline">{basics.headline}</p>
-        ) : null}
-        <ContactRow basics={basics} showIcons={config.showIcons} />
-        {basics.summary ? (
-          <div className="rf-summary">{renderRichText(basics.summary)}</div>
-        ) : null}
+        <ContactRow
+          basics={basics}
+          showIcons={config.showIcons}
+          hiddenLinkIds={config.hiddenLinkIds}
+        />
       </header>
+
+      {/* Summary is a titled section, not header furniture. It used to live
+          inside <header> with no heading, which made it the one block on the
+          page a reader had to infer the purpose of — and left the document
+          with an <h1> followed by prose before any <h2>, a heading structure
+          ATS parsers read as unlabelled preamble (doc 02). */}
+      {basics.summary ? (
+        <section className="rf-section">
+          <h2 className="rf-section-title">Summary</h2>
+          <div className="rf-summary">{renderRichText(basics.summary)}</div>
+        </section>
+      ) : null}
 
       {sections.map((section) => (
         <SectionBlock

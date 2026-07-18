@@ -38,6 +38,9 @@ export const TEST_IDS = {
   resumeMargin: "resume-margin",
   resumeAccent: "resume-accent",
   resumeShowIcons: "resume-show-icons",
+  resumeFontSize: "resume-font-size",
+  /** Per-link visibility switch, keyed by the profile link's stable id. */
+  resumeLinkToggle: (linkId: string) => `resume-link-toggle-${linkId}`,
   resumeDeleteButton: "resume-delete-button",
   resumeSections: "resume-sections",
   resumeVisibility: "resume-visibility",

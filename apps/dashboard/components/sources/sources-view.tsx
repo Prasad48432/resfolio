@@ -10,6 +10,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   Textarea,
 } from "@resfolio/ui";
 import {
@@ -19,7 +20,6 @@ import {
   Github,
   Inbox,
   Layers,
-  Loader2,
   Pencil,
   RefreshCw,
   Rss,
@@ -263,7 +263,7 @@ function PublicConnectCard({
             disabled={pending || value.trim().length === 0}
             data-testid={sourceConnectButtonTestId(connectorId)}
           >
-            {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            {pending ? <Spinner size="sm" /> : null}
             Import
           </Button>
         </div>
@@ -363,7 +363,7 @@ function TriageGroup({
             data-testid={triageImportGroupTestId(label)}
           >
             {importingAll ? (
-              <Loader2 className="animate-spin" aria-hidden />
+              <Spinner size="sm" />
             ) : (
               <ArrowDownToLine aria-hidden />
             )}
@@ -543,7 +543,7 @@ function TriageRow({ item }: { item: PendingItemView }) {
             data-testid={triageImportTestId(item.id)}
           >
             {pending === "import" ? (
-              <Loader2 className="animate-spin" aria-hidden />
+              <Spinner size="sm" />
             ) : (
               <ArrowDownToLine aria-hidden />
             )}
@@ -730,11 +730,7 @@ function ReceiptRow({ receipt }: { receipt: ReceiptView }) {
                 onClick={() => void reimport()}
                 data-testid={receiptReimportTestId(receipt.id)}
               >
-                {pending ? (
-                  <Loader2 className="animate-spin" aria-hidden />
-                ) : (
-                  <RefreshCw aria-hidden />
-                )}
+                {pending ? <Spinner size="sm" /> : <RefreshCw aria-hidden />}
                 {confirming ? "Replace my copy" : "Re-import"}
               </Button>
             </>
@@ -861,11 +857,7 @@ function ConnectionRow({ connection }: { connection: ConnectionView }) {
               onClick={() => void checkForUpdates()}
               data-testid={sourceCheckUpdatesTestId(connection.id)}
             >
-              {checking ? (
-                <Loader2 className="animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw aria-hidden />
-              )}
+              {checking ? <Spinner size="sm" /> : <RefreshCw aria-hidden />}
               Check for updates
             </Button>
           ) : null}
@@ -878,11 +870,7 @@ function ConnectionRow({ connection }: { connection: ConnectionView }) {
             aria-label={`Remove ${connection.connectorName}`}
             data-testid={sourceRemoveTestId(connection.id)}
           >
-            {removing ? (
-              <Loader2 className="animate-spin" aria-hidden />
-            ) : (
-              <Trash2 aria-hidden />
-            )}
+            {removing ? <Spinner size="sm" /> : <Trash2 aria-hidden />}
           </Button>
         </div>
       </div>

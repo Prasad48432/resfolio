@@ -6,7 +6,11 @@ import type { FetchContext } from "../contract";
 import { parseFeed, rss, type RssInput, type RssRawEntry } from "./rss";
 import { atomFeed, rssFeed } from "./rss.fixtures";
 
-function makeCtx(body: string, ok = true, status = 200): FetchContext<RssInput> {
+function makeCtx(
+  body: string,
+  ok = true,
+  status = 200,
+): FetchContext<RssInput> {
   return {
     input: { feedUrl: "https://ada.example/feed.xml" },
     cursor: undefined,
@@ -71,7 +75,9 @@ describe("rss.normalize", () => {
       expect(candidate.payload.date).toBe("2024-06-03");
       // HTML in the description is stripped to plain text (doc 01/10).
       expect(candidate.payload.summary).toBe("Why structure beats grep.");
-      expect(() => richTextSchema.parse(candidate.payload.summary)).not.toThrow();
+      expect(() =>
+        richTextSchema.parse(candidate.payload.summary),
+      ).not.toThrow();
     }
   });
 

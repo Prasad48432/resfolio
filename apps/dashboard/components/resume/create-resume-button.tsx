@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@resfolio/ui";
-import { Loader2, Plus } from "lucide-react";
+import { Button, Spinner } from "@resfolio/ui";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -45,11 +45,7 @@ export function CreateResumeButton({ hasExisting }: { hasExisting: boolean }) {
         onClick={() => void create()}
         data-testid={TEST_IDS.resumeCreateButton}
       >
-        {creating ? (
-          <Loader2 className="animate-spin" aria-hidden />
-        ) : (
-          <Plus aria-hidden />
-        )}
+        {creating ? <Spinner size="sm" /> : <Plus aria-hidden />}
         New resume
       </Button>
       {error ? (

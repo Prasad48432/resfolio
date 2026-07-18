@@ -271,7 +271,9 @@ export default function HeroGraphic() {
             </span>
             ,{"\n  "}
             <span className="text-brand">&quot;updated&quot;</span>:{" "}
-            <span className="text-foreground/70">&quot;{updatedAgo}s ago&quot;</span>
+            <span className="text-foreground/70">
+              &quot;{updatedAgo}s ago&quot;
+            </span>
             {"\n"}
             <span className="text-foreground/50">{"}"}</span>
           </pre>

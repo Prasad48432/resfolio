@@ -66,8 +66,9 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   (`pnpm dlx shadcn@latest add … -c packages/ui`) — see `packages/ui/CLAUDE.md`
   before adding any. Some primitives are hand-authored to the same pattern
   (`Button`, `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`,
-  `TagInput`); the rest are registry components (`Sidebar`, `Sheet`, `Tooltip`,
-  `Separator`, `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`).
+  `TagInput`, `Spinner`); the rest are registry components (`Sidebar`, `Sheet`, `Tooltip`,
+  `Separator`, `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`,
+  `Popover`), plus `MonthYearPicker` composed over them.
   Prefer a primitive over a raw HTML control. These render inside Server
   Components, so they carry **no `"use client"` unless the behavior forces it**
   (Radix, or `TagInput`'s pending-text state) — keep interaction feedback in
@@ -149,7 +150,7 @@ Business-logic packages live under `domains/`:
   `authMode` (`oauth2 | token | public | file`) and whether it's
   `refreshable`. Providers are import sources only — imported content is
   ordinary Resfolio data. **A connector may never propose the user's
-  identity**: no candidate kind carries `name`/`headline`/`summary`/
+  identity**: no candidate kind carries `name`/`summary`/
   `location`/`avatarUrl` and `basics` is not a route target, so the rule is
   structural rather than a policy to remember. The one profile field outside a
   section a connector may propose is a link (`profileLink` → `basics.links`),
@@ -173,7 +174,10 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 
 - `@resfolio/template-resume-classic` (`templates/resume-classic`) — the first
   resume template: clean single-column, ATS-safe, self-hosted Manrope,
-  physical-unit CSS, inline SVG icons
+  physical-unit CSS, inline SVG icons. Typography is a **single `TYPE_SCALE`
+  table** emitted as `--rf-size-*` custom properties (`config.fontSize`:
+  `medium | small`) — no rule carries a literal `pt` size. Summary is a real
+  titled `<section>`, not header furniture
 - `@resfolio/template-dark-anime` (`templates/dark-anime`) — the portfolio
   template (`kind: "portfolio"`), **adapted from
   github.com/Ashutoshx7/Portfolio-v2-** (note the trailing dash; the repo

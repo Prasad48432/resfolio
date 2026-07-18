@@ -36,7 +36,11 @@ function applyChoice(choice: Choice): void {
   }
 }
 
-export function ThemeToggle({ storageKey }: { storageKey: string }): ReactElement {
+export function ThemeToggle({
+  storageKey,
+}: {
+  storageKey: string;
+}): ReactElement {
   const [choice, setChoice] = useState<Choice>("system");
   // Server and first client render must agree, so the button starts in its
   // neutral state and adopts the stored choice after mount. The *page* is
@@ -66,7 +70,8 @@ export function ThemeToggle({ storageKey }: { storageKey: string }): ReactElemen
     }
   }
 
-  const current = CHOICES.find((entry) => entry.value === choice) ?? CHOICES[2]!;
+  const current =
+    CHOICES.find((entry) => entry.value === choice) ?? CHOICES[2]!;
   const nextChoice =
     CHOICES[(CHOICES.indexOf(current) + 1) % CHOICES.length] ?? CHOICES[0]!;
   const Icon = current.Icon;
@@ -78,7 +83,9 @@ export function ThemeToggle({ storageKey }: { storageKey: string }): ReactElemen
       onClick={() => choose(nextChoice.value)}
       // An icon-only control needs an accessible name, and a tooltip is not one.
       aria-label={
-        mounted ? `Theme: ${current.label}. Switch to ${nextChoice.label}.` : "Switch theme"
+        mounted
+          ? `Theme: ${current.label}. Switch to ${nextChoice.label}.`
+          : "Switch theme"
       }
       title={mounted ? `Theme: ${current.label}` : undefined}
     >

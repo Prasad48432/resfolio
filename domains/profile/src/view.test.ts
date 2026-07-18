@@ -141,9 +141,9 @@ describe("buildProfileView — deltas (tailoring)", () => {
       skills: ["x"],
     });
     const view = buildProfileView(profile, {
-      basics: { headline: "Tailored headline" },
+      basics: { summary: "Tailored summary" },
     });
-    expect(view.basics.headline).toBe("Tailored headline");
+    expect(view.basics.summary).toBe("Tailored summary");
   });
 
   it("rejects a delta that produces an invalid item", () => {

@@ -103,7 +103,10 @@ export function SectionEditor({ config }: { config: SectionConfig }) {
       </div>
 
       {fields.length === 0 ? (
-        <EmptyState size="inline" title={`No ${config.title.toLowerCase()} yet.`} />
+        <EmptyState
+          size="inline"
+          title={`No ${config.title.toLowerCase()} yet.`}
+        />
       ) : (
         <DndContext
           sensors={sensors}

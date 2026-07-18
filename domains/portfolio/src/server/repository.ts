@@ -218,9 +218,7 @@ export interface PublishSiteResult {
  * invalidates `site:<id>` after this returns (the app layer owns cache
  * invalidation, mirroring the profile/document publish flow).
  */
-export async function publishSite(
-  userId: string,
-): Promise<PublishSiteResult> {
+export async function publishSite(userId: string): Promise<PublishSiteResult> {
   const profile = await requireProfile(userId);
   if (!profile.publishedVersionId) {
     throw new ProfileNotPublishedError();

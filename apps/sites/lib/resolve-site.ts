@@ -44,7 +44,10 @@ const FIXTURE_SITES: Record<string, FixtureSiteDescriptor> = {
     templateMajor: 1,
     // Exercises the template-config layer locally. No `coverImage`: a fixture
     // can't reference a real image, and a broken <img> in dev teaches nothing.
-    config: { quote: "Boring, observable systems win.", quoteAttribution: "Ada" },
+    config: {
+      quote: "Boring, observable systems win.",
+      quoteAttribution: "Ada",
+    },
     view: {},
     discoverable: true,
     fixtureRef: "ada",
@@ -74,9 +77,7 @@ export interface LoadedPortfolio {
   view: ProfileView;
 }
 
-function buildFixture(
-  descriptor: FixtureSiteDescriptor,
-): LoadedPortfolio {
+function buildFixture(descriptor: FixtureSiteDescriptor): LoadedPortfolio {
   const profile: Profile = getProfileFixture(descriptor.fixtureRef);
   return {
     siteId: descriptor.siteId,
@@ -106,9 +107,8 @@ async function loadFromDatabase(
     return null;
   }
 
-  const { getSiteIdBySlug, getSiteForRender } = await import(
-    "@resfolio/portfolio/server"
-  );
+  const { getSiteIdBySlug, getSiteForRender } =
+    await import("@resfolio/portfolio/server");
 
   const siteId = await getSiteIdBySlug(username);
   if (!siteId) {

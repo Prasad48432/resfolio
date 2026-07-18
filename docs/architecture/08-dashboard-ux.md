@@ -265,7 +265,7 @@ once as a layout primitive and reused three times.
   Three constraints worth keeping:
   - **The `.dark` class must land on `<html>`**, and the rules must stay
     **unlayered**. The bridge aliases (`--color-card: var(--color-surface)`)
-    are declared at `:root` and substitute *there*, so the override only
+    are declared at `:root` and substitute _there_, so the override only
     reaches them by winning the cascade on that same element. Layer it and
     `@theme`'s `:root` wins on layer order alone; move the class to `<body>`
     and every alias freezes at its light value while the base tokens go dark.
@@ -274,7 +274,7 @@ once as a layout primitive and reused three times.
     `/login` keeps `card-surface`, a light-only surface built on inset white
     highlights.
   - The visual-QA cost is real and was the original objection; it is paid per
-    *token*, not per screen, as long as new work keeps using the tokens.
+    _token_, not per screen, as long as new work keeps using the tokens.
 - ~~Mobile dashboard posture.~~ **Partly settled**: the shell is genuinely
   responsive (the sidebar becomes a Sheet below `md`) because adopting
   shadcn's `Sidebar` made that free. Editing remains optimized for ≥1024px.

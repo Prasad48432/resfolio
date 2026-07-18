@@ -30,7 +30,6 @@ const V1_CORPUS: { name: string; data: unknown }[] = [
       schemaVersion: 1,
       basics: {
         name: "Lee",
-        headline: "",
         summary: "",
         location: "",
         contacts: {},

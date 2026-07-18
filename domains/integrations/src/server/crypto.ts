@@ -28,7 +28,9 @@ const IV_BYTES = 12;
 /** A 64-hex-char string → a v1 keyring (the single-key case). */
 export function keyringFromHex(hex: string, version = 1): TokenKeyring {
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
-    throw new TokenCryptoError("Token key must be 64 hex characters (32 bytes).");
+    throw new TokenCryptoError(
+      "Token key must be 64 hex characters (32 bytes).",
+    );
   }
   return { current: version, keys: { [version]: Buffer.from(hex, "hex") } };
 }
@@ -36,7 +38,9 @@ export function keyringFromHex(hex: string, version = 1): TokenKeyring {
 function keyFor(keyring: TokenKeyring, version: number): Buffer {
   const key = keyring.keys[version];
   if (!key || key.length !== KEY_BYTES) {
-    throw new TokenCryptoError(`No ${KEY_BYTES}-byte key for version ${version}.`);
+    throw new TokenCryptoError(
+      `No ${KEY_BYTES}-byte key for version ${version}.`,
+    );
   }
   return key;
 }
@@ -63,10 +67,7 @@ export function encryptSecret(
 }
 
 /** Decrypt an envelope with whichever key version it names. */
-export function decryptSecret(
-  envelope: string,
-  keyring: TokenKeyring,
-): string {
+export function decryptSecret(envelope: string, keyring: TokenKeyring): string {
   const parts = envelope.split(".");
   if (parts.length !== 4 || !/^v\d+$/.test(parts[0] as string)) {
     throw new TokenCryptoError("Malformed token envelope.");

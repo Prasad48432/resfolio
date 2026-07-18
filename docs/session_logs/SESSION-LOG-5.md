@@ -31,8 +31,8 @@ Phase 5).
   - **`./token` (server-only, `node:crypto`):** the signed render token,
     **lifted out of `apps/sites`** so the dashboard mints and `apps/sites`
     verifies with one implementation. New discriminated payload: `{ source,
-    ref, document: { kind:'inline', templateId, config, view? } | {
-    kind:'stored', id }, exp }`. Inline is the fixture/export-script path (no
+ref, document: { kind:'inline', templateId, config, view? } | {
+kind:'stored', id }, exp }`. Inline is the fixture/export-script path (no
     DB); stored is the product path.
   - **`./server` (DB):** `create/list/get/update/delete` all scoped to the
     profile the `userId` owns (ownership enforced via a `requireProfileId`

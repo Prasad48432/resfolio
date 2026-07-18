@@ -18,11 +18,11 @@ carried-over fixes.
   about unmet peers under `@better-auth/cli`. Root cause: the CLI is
   **codegen-only and versions independently** (CLI still on 1.4.x while
   runtime `better-auth` is 1.6.23), so it hoists a stale `@better-auth/core`
-  + `drizzle-orm@0.41.0`. The runtime auth adapter takes its drizzle client
-  from `@resfolio/database` (0.45.2), so the mismatches are benign. Silenced
-  the official way — `pnpm.peerDependencyRules.allowedVersions` in root
-  `package.json` — which changes nothing about resolution or the codegen
-  workflow. (Matches the known gotcha in memory.)
+  - `drizzle-orm@0.41.0`. The runtime auth adapter takes its drizzle client
+    from `@resfolio/database` (0.45.2), so the mismatches are benign. Silenced
+    the official way — `pnpm.peerDependencyRules.allowedVersions` in root
+    `package.json` — which changes nothing about resolution or the codegen
+    workflow. (Matches the known gotcha in memory.)
 - **Landing-page gradient.** Enriched the near-invisible `body::before`
   ambient wash in `apps/web/app/globals.css` into a subtle brand gradient
   (warm burnt-orange glows anchored to the hero, a faint "live"-green whisper
@@ -52,7 +52,7 @@ carried-over fixes.
     Markdown subset to React, **re-checking link schemes on output** with the
     domain's `safeLinkUrlSchema` (doc 10); unsafe links degrade to text.
   - Resume kind only; `portfolio` slots into the discriminated union in
-    Phase 5. Framework-light (React *types* + the rich-text renderer).
+    Phase 5. Framework-light (React _types_ + the rich-text renderer).
 - **`@resfolio/template-resume-classic`** (`templates/resume-classic`) — the
   first template. `ResumeDocument` is a **universal RSC** (no `"use client"`,
   zero client JS): semantic single-flow HTML in correct reading order
@@ -77,7 +77,7 @@ Resolve and Deliver:
   (real DB via `@resfolio/profile/server`, **dynamically imported** so the
   fixture path needs no database or `DATABASE_URL`).
 - **Project** — `buildProfileView(profile, view)` from `@resfolio/profile`,
-  the *same pure function* the dashboard preview will run client-side.
+  the _same pure function_ the dashboard preview will run client-side.
 - **Render** — the template's `document` via the `lib/templates.ts` registry;
   host is generic over any registered resume template, config re-validated
   with the template's own schema, `compat.profileView` asserted.
@@ -96,7 +96,7 @@ swaps the token-carried config for a DB lookup, keeping `source`/`ref`.
   (`lib/render-key.ts`; includes `templateId@version`), checks the
   `ExportStore` (**cache hit → no Chromium boot**), else mints a token, drives
   **Playwright** over the real print route, `page.pdf({ preferCSSPageSize:
-  true, printBackground: true })`, and stores via `LocalFsExportStore`
+true, printBackground: true })`, and stores via `LocalFsExportStore`
   (`apps/sites/out/<hash>.pdf`).
 - `scripts/ats-check.mts` — extracts the PDF's real text layer (`pdfjs-dist`)
   and asserts name + every section heading + representative content are

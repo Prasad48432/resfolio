@@ -64,6 +64,7 @@ export function SortableItem({
           type="button"
           className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted transition-colors duration-(--duration-press) ease-out hover:bg-surface-warm hover:text-foreground active:cursor-grabbing"
           aria-label={`Reorder ${title}`}
+          suppressHydrationWarning
           {...attributes}
           {...listeners}
         >

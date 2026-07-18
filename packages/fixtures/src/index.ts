@@ -27,7 +27,6 @@ const ada: Profile = profileSchema.parse({
   schemaVersion: 1,
   basics: {
     name: "Ada Okonkwo",
-    headline: "Staff Software Engineer — distributed systems & developer tools",
     summary:
       "Engineer with **12 years** building reliable backends and the tools teams use to ship them. I care about clear interfaces and boring, observable systems.",
     location: "Berlin, Germany",
@@ -175,7 +174,6 @@ const jun: Profile = profileSchema.parse({
   schemaVersion: 1,
   basics: {
     name: "Jun Park",
-    headline: "Frontend developer",
     contacts: { email: "jun@example.com" },
   },
   sections: {

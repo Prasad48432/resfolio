@@ -47,8 +47,8 @@ function entriesFor(site: SitemapSite): MetadataRoute.Sitemap {
   if (!template) {
     return [];
   }
-  return LISTABLE_PAGES.filter(
-    (page) => template.capabilities.pages.includes(page),
+  return LISTABLE_PAGES.filter((page) =>
+    template.capabilities.pages.includes(page),
   ).map((page) => ({
     url: siteUrl(site.username, PAGE_PATH[page] ?? ""),
     lastModified: site.lastModified,
@@ -65,9 +65,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // DB sites (best-effort — no database in the fixture/CI path).
   try {
-    const { listDiscoverableSites } = await import(
-      "@resfolio/portfolio/server"
-    );
+    const { listDiscoverableSites } =
+      await import("@resfolio/portfolio/server");
     const dbSites = await listDiscoverableSites();
     for (const site of dbSites) {
       // A DB slug shadows a same-named fixture (the DB is the real site).

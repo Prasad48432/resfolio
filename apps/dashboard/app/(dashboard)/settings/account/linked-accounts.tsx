@@ -2,8 +2,8 @@
 
 import type { SignInProvider } from "@resfolio/auth";
 import { authClient } from "@resfolio/auth/client";
-import { Button, Card } from "@resfolio/ui";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Button, Card, Spinner } from "@resfolio/ui";
+import { CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -120,9 +120,7 @@ export function LinkedAccounts({
                 onClick={() => void unlink(provider, account)}
                 data-testid={unlinkProviderTestId(provider.id)}
               >
-                {pending ? (
-                  <Loader2 className="animate-spin" aria-hidden />
-                ) : null}
+                {pending ? <Spinner size="sm" /> : null}
                 Unlink
               </Button>
             ) : (
@@ -133,9 +131,7 @@ export function LinkedAccounts({
                 onClick={() => void link(provider)}
                 data-testid={linkProviderTestId(provider.id)}
               >
-                {pending ? (
-                  <Loader2 className="animate-spin" aria-hidden />
-                ) : null}
+                {pending ? <Spinner size="sm" /> : null}
                 Connect
               </Button>
             )}

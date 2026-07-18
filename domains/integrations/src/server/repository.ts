@@ -385,10 +385,7 @@ export async function listPendingItems(
     .from(schema.integrationItem)
     .innerJoin(
       schema.integrationConnection,
-      eq(
-        schema.integrationItem.connectionId,
-        schema.integrationConnection.id,
-      ),
+      eq(schema.integrationItem.connectionId, schema.integrationConnection.id),
     )
     .where(
       and(
@@ -397,7 +394,9 @@ export async function listPendingItems(
       ),
     )
     .orderBy(desc(schema.integrationItem.updatedAt));
-  return rows.map(({ item, connectorId }) => toPendingRecord(item, connectorId));
+  return rows.map(({ item, connectorId }) =>
+    toPendingRecord(item, connectorId),
+  );
 }
 
 /**
@@ -418,10 +417,7 @@ export async function listImportReceipts(
     .from(schema.integrationItem)
     .innerJoin(
       schema.integrationConnection,
-      eq(
-        schema.integrationItem.connectionId,
-        schema.integrationConnection.id,
-      ),
+      eq(schema.integrationItem.connectionId, schema.integrationConnection.id),
     )
     .where(
       and(
@@ -480,10 +476,7 @@ export async function requireOwnedItem(
     .from(schema.integrationItem)
     .innerJoin(
       schema.integrationConnection,
-      eq(
-        schema.integrationItem.connectionId,
-        schema.integrationConnection.id,
-      ),
+      eq(schema.integrationItem.connectionId, schema.integrationConnection.id),
     )
     .where(
       and(

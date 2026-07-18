@@ -12,12 +12,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Spinner,
   Switch,
 } from "@resfolio/ui";
-import { ArrowLeft, Download, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import {
   deleteResumeAction,
@@ -148,7 +150,11 @@ export function ResumeEditor({
                 view={view}
                 onChange={setView}
               />
-              <ConfigForm config={config} onChange={updateConfig} />
+              <ConfigForm
+                config={config}
+                links={profile.basics.links}
+                onChange={updateConfig}
+              />
               <SharingForm
                 visibility={visibility}
                 onChange={setVisibility}
@@ -211,7 +217,9 @@ function Header({
             status={status}
             testId={TEST_IDS.resumeSaveIndicator}
           />
-          {exportEnabled ? <DownloadPdfButton documentId={documentId} /> : null}
+          {exportEnabled ? (
+            <DownloadPdfButton documentId={documentId} name={name} />
+          ) : null}
           <DeleteButton documentId={documentId} onDeleted={onDeleted} />
         </div>
       </div>
@@ -220,24 +228,98 @@ function Header({
 }
 
 /**
- * A plain link, not a fetch-and-blob dance: the route answers with
- * `Content-Disposition: attachment`, so the browser does the download itself —
- * progress, cancel, and the user's own save location all come free. Rendering
- * the current **draft**, matching the preview beside it (the public URL shows
- * the published version — see `SharingForm`).
+ * Fetch-then-save, not a plain `<a download>`.
+ *
+ * The anchor was cheaper and got the bytes, but it had no idea whether it
+ * worked: a PDF takes seconds to render (Chromium boots), and the button gave
+ * no sign it had been pressed — so people pressed it again, queuing a second
+ * render. Worse, the route's failure modes (501 when the export env isn't
+ * configured, 502 when the render host is down) answer with **JSON**, which
+ * the browser cheerfully navigated to and displayed as raw text instead of an
+ * error the user could understand.
+ *
+ * Fetching means the in-flight state is real, repeat clicks are impossible,
+ * and a failure becomes a toast. The cost is buffering the file in memory
+ * before saving it — fine for a resume, which is measured in hundreds of KB.
+ *
+ * Renders the current **draft**, matching the preview beside it (the public
+ * URL shows the published version — see `SharingForm`).
  */
-function DownloadPdfButton({ documentId }: { documentId: string }) {
+function DownloadPdfButton({
+  documentId,
+  name,
+}: {
+  documentId: string;
+  name: string;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function download() {
+    setDownloading(true);
+    const pending = toast.loading("Generating your PDF…", {
+      description: "This takes a few seconds.",
+    });
+    try {
+      const response = await fetch(
+        `/api/resumes/${encodeURIComponent(documentId)}/pdf`,
+      );
+      if (!response.ok) {
+        // The route sends `{ error }` for the cases it can explain (export not
+        // configured, render host unreachable); anything else gets generic copy.
+        const detail = await response
+          .json()
+          .then((body: { error?: string }) => body.error)
+          .catch(() => undefined);
+        toast.error("Couldn't generate the PDF", {
+          id: pending,
+          description: detail ?? "Please try again in a moment.",
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filenameFrom(response) ?? `${name || "resume"}.pdf`;
+      anchor.click();
+      // Revoking immediately can race the download in Safari; a tick is enough.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      toast.success("PDF downloaded", {
+        id: pending,
+        description: "Check your downloads folder.",
+      });
+    } catch {
+      toast.error("Couldn't generate the PDF", {
+        id: pending,
+        description: "Check your connection and try again.",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
-    <Button asChild size="sm" variant="secondary">
-      <a
-        href={`/api/resumes/${encodeURIComponent(documentId)}/pdf`}
-        data-testid={TEST_IDS.resumeDownloadPdf}
-      >
-        <Download aria-hidden />
-        Download PDF
-      </a>
+    <Button
+      type="button"
+      size="sm"
+      variant="secondary"
+      disabled={downloading}
+      onClick={() => void download()}
+      data-testid={TEST_IDS.resumeDownloadPdf}
+    >
+      {downloading ? <Spinner size="sm" /> : <Download aria-hidden />}
+      {downloading ? "Generating…" : "Download PDF"}
     </Button>
   );
+}
+
+/** Prefer the server's own filename — it already knows the resume's name. */
+function filenameFrom(response: Response): string | undefined {
+  const header = response.headers.get("content-disposition");
+  const match = header ? /filename="([^"]+)"/.exec(header) : null;
+  return match?.[1];
 }
 
 function DeleteButton({
@@ -257,11 +339,18 @@ function DeleteButton({
     try {
       const result = await deleteResumeAction({ id: documentId });
       if (result.ok) {
+        toast.success("Resume deleted");
         onDeleted();
       } else {
+        toast.error("Couldn't delete this resume", {
+          description: result.error,
+        });
         setDeleting(false);
       }
     } catch {
+      toast.error("Couldn't delete this resume", {
+        description: "Please try again.",
+      });
       setDeleting(false);
     }
   }
@@ -276,11 +365,7 @@ function DeleteButton({
       aria-label="Delete resume"
       data-testid={TEST_IDS.resumeDeleteButton}
     >
-      {deleting ? (
-        <Loader2 className="animate-spin" aria-hidden />
-      ) : (
-        <Trash2 aria-hidden />
-      )}
+      {deleting ? <Spinner size="sm" /> : <Trash2 aria-hidden />}
     </Button>
   );
 }
@@ -289,12 +374,15 @@ function DeleteButton({
 // — a new option would fail to typecheck the `labels` records below).
 const PAGE_SIZES = ["A4", "LETTER"] as const;
 const MARGINS = ["compact", "normal", "relaxed"] as const;
+const FONT_SIZES = ["medium", "small"] as const;
 
 function ConfigForm({
   config,
+  links,
   onChange,
 }: {
   config: ResumeClassicConfig;
+  links: Profile["basics"]["links"];
   onChange: <K extends keyof ResumeClassicConfig>(
     key: K,
     value: ResumeClassicConfig[K],
@@ -316,6 +404,15 @@ function ConfigForm({
         labels={{ A4: "A4", LETTER: "US Letter" }}
         onChange={(value) => onChange("pageSize", value)}
         testId={TEST_IDS.resumePageSize}
+      />
+
+      <SelectField
+        label="Font size"
+        value={config.fontSize}
+        options={FONT_SIZES}
+        labels={{ medium: "Medium", small: "Small" }}
+        onChange={(value) => onChange("fontSize", value)}
+        testId={TEST_IDS.resumeFontSize}
       />
 
       <SelectField
@@ -357,6 +454,84 @@ function ConfigForm({
           data-testid={TEST_IDS.resumeShowIcons}
         />
       </label>
+
+      <LinkVisibility
+        links={links}
+        hiddenLinkIds={config.hiddenLinkIds}
+        onChange={(next) => onChange("hiddenLinkIds", next)}
+      />
+    </div>
+  );
+}
+
+/**
+ * Which profile links appear under the name. Every link used to render
+ * unconditionally, which is wrong for a resume specifically: a portfolio wants
+ * every link you have, an application wants the two that matter to *this*
+ * employer.
+ *
+ * The control is per-resume config, not a profile edit — the same links stay
+ * on the portfolio, and two resumes can show different subsets. State is
+ * stored as the **hidden** ids (see `hiddenLinkIds` in the template config for
+ * why), so the switches read inverted here and nowhere else.
+ */
+function LinkVisibility({
+  links,
+  hiddenLinkIds,
+  onChange,
+}: {
+  links: Profile["basics"]["links"];
+  hiddenLinkIds: string[];
+  onChange: (next: string[]) => void;
+}) {
+  if (links.length === 0) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <Label>Profile links</Label>
+        <p className="text-xs text-muted">
+          No links yet — add them at{" "}
+          <Link href="/profile" className="text-brand hover:underline">
+            /profile
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Label>Profile links</Label>
+      <p className="-mt-1 text-xs text-muted">
+        Which links show under your name on this resume.
+      </p>
+      {links.map((link) => {
+        const shown = !hiddenLinkIds.includes(link.id);
+        return (
+          <label
+            key={link.id}
+            className="flex items-center justify-between gap-4 text-sm text-foreground"
+          >
+            <span className="min-w-0 truncate">
+              {link.label}
+              <span className="ml-2 font-mono text-xs text-muted">
+                {link.url.replace(/^https?:\/\//, "")}
+              </span>
+            </span>
+            <Switch
+              checked={shown}
+              onChange={(event) =>
+                onChange(
+                  event.target.checked
+                    ? hiddenLinkIds.filter((id) => id !== link.id)
+                    : [...hiddenLinkIds, link.id],
+                )
+              }
+              data-testid={TEST_IDS.resumeLinkToggle(link.id)}
+            />
+          </label>
+        );
+      })}
     </div>
   );
 }

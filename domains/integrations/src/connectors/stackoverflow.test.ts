@@ -100,7 +100,6 @@ describe("stackoverflow.normalize", () => {
     // is the group's own label ("Stack Overflow"), not the user's name.
     for (const candidate of candidates) {
       const payload = candidate.payload as Record<string, unknown>;
-      expect(payload["headline"]).toBeUndefined();
       expect(payload["summary"]).toBeUndefined();
       expect(payload["location"]).toBeUndefined();
       expect(payload["avatarUrl"]).toBeUndefined();

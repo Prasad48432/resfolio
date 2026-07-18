@@ -51,9 +51,9 @@ experience | education | skillGroup | certification | profileLink`
     only, never the Profile); the one typed Profile-facing extension is
     `metrics` (`MetricKey`: stars/forks/followers/…).
     **A connector may never propose the user's identity** (2026-07-17): no
-    kind carries `name`/`headline`/`summary`/`location`/`avatarUrl`, and
+    kind carries `name`/`summary`/`location`/`avatarUrl`, and
     `basics` is not a route target — both halves structural, not policy. Those
-    five are the user's own words about themselves; no provider's guess is
+    four are the user’s own words about themselves; no provider's guess is
     worth overwriting the real thing. `profileBasics` existed until this
     revision (Stack Overflow proposed a location + avatar through it) and was
     removed with the idea; migration `0008` deletes its rows. `profileLink` →

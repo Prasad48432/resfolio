@@ -136,7 +136,10 @@ export function buildProfileItem(
     case "unclassified":
       return {
         sectionKey: "custom",
-        item: { ...unclassifiedToCustomPayload(candidate.payload), ...provenance },
+        item: {
+          ...unclassifiedToCustomPayload(candidate.payload),
+          ...provenance,
+        },
       };
     case "profileLink":
       throw new CandidateApplyError(
@@ -177,9 +180,10 @@ function normalizeLinkUrl(value: string): string {
     const url = new URL(trimmed);
     // `URL` already lowercases protocol + host; strip only a bare trailing
     // slash so "https://github.com/ada/" === "https://github.com/ada".
-    const path = url.pathname.endsWith("/") && url.pathname !== "/"
-      ? url.pathname.slice(0, -1)
-      : url.pathname;
+    const path =
+      url.pathname.endsWith("/") && url.pathname !== "/"
+        ? url.pathname.slice(0, -1)
+        : url.pathname;
     return `${url.protocol}//${url.host}${path}${url.search}`;
   } catch {
     // Not a parseable absolute URL (mailto: etc.) — compare as typed.
@@ -213,7 +217,9 @@ export function contentFingerprint(
 
 /** A profile item's content with provenance stripped — the "current payload"
  * side of the user-edit comparison. */
-function stripProvenance(item: Record<string, unknown>): Record<string, unknown> {
+function stripProvenance(
+  item: Record<string, unknown>,
+): Record<string, unknown> {
   const content = { ...item };
   delete content["id"];
   delete content["source"];
@@ -237,7 +243,9 @@ export function extractAppliedPayload(
   }
   const sectionKey = sectionForKind(kind);
   if (sectionKey === "links") {
-    const link = profile.basics.links.find((entry) => entry.id === appliedItemId);
+    const link = profile.basics.links.find(
+      (entry) => entry.id === appliedItemId,
+    );
     return link ? { label: link.label, url: link.url } : null;
   }
   if (sectionKey === "custom") {

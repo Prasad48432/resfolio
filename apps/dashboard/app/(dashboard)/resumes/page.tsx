@@ -43,7 +43,10 @@ export default async function ResumesPage() {
         // `Stagger` is a client island; the rows themselves stay server-
         // rendered and are passed through as children, so this list costs no
         // extra client JS beyond the wrapper.
-        <Stagger className="flex flex-col gap-2" data-testid={TEST_IDS.resumesList}>
+        <Stagger
+          className="flex flex-col gap-2"
+          data-testid={TEST_IDS.resumesList}
+        >
           {documents.map((doc) => {
             const pageSize =
               typeof doc.config.pageSize === "string"

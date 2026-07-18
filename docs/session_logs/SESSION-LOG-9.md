@@ -24,7 +24,7 @@ New `domains/integrations` package (mirrors the `domains/portfolio` skeleton;
   implements exactly two functions: `fetch(ctx): AsyncIterable<Raw>` (the only
   place a provider API is touched) and `normalize(raw): CandidateItem[]`
   (**pure**). Metadata declares the `authMode` (`oauth2 | token | public |
-  file`) — the load-bearing per-provider lever. **`FetchContext` is the runtime
+file`) — the load-bearing per-provider lever. **`FetchContext` is the runtime
   seam**, defined now so the runtime needs no contract change: a
   pre-authenticated + rate-limited `fetch` (tokens injected by the runtime,
   never handled by connector code), the validated `input`, and the incremental

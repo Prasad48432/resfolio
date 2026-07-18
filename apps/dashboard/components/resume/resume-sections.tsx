@@ -49,7 +49,7 @@ import {
  * is. Every field here writes a `ViewDefinition`, which `buildProfileView`
  * already knew how to read — the preview beside it runs that exact function.
  *
- * Name, headline, contact, links and summary have no controls at all: they are
+ * Name, contact, links and summary have no controls at all: they are
  * `basics` fields, and a resume without them isn't one. Experience and
  * Education can't be hidden for the same reason — but they **can** be
  * reordered: `locked` is about visibility, never position.

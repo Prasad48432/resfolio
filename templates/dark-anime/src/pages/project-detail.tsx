@@ -35,7 +35,10 @@ export function ProjectDetailPage({
       basePath={basePath}
       showCommandHint={config.showCommandHint}
     >
-      <section className="rf-section" style={{ borderTop: 0, paddingTop: "3rem" }}>
+      <section
+        className="rf-section"
+        style={{ borderTop: 0, paddingTop: "3rem" }}
+      >
         <a className="rf-back" href={href(basePath, "projects")}>
           ← All work
         </a>

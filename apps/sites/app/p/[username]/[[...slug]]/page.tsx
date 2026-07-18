@@ -36,9 +36,7 @@ export async function generateMetadata({
   const { basics } = loaded.view;
   const title = basics.name || "Portfolio";
   const description =
-    basics.headline ||
-    richTextToPlainText(basics.summary).slice(0, 160) ||
-    undefined;
+    richTextToPlainText(basics.summary).slice(0, 160) || undefined;
   const canonical = siteUrl(username, (slug ?? []).join("/"));
 
   return {

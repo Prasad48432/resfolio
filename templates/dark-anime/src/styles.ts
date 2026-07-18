@@ -194,7 +194,6 @@ export function buildPortfolioStyles(): string {
 .rf-banner + .rf-col .rf-avatar { margin-top: -2.5rem; }
 .rf-hero-name { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; }
 .rf-hero-tagline { font-size: 0.8125rem; color: var(--rf-muted); }
-.rf-hero-headline { margin-top: 1.25rem; font-size: 0.9375rem; color: var(--rf-fg); }
 .rf-hero-summary { margin-top: 0.5rem; color: var(--rf-muted); }
 
 .rf-cta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; }
@@ -323,6 +322,15 @@ export function buildPortfolioStyles(): string {
 .rf-highlights { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.5rem; }
 .rf-highlights li { position: relative; padding-left: 0.875rem; font-size: 0.8125rem; color: var(--rf-muted); }
 .rf-highlights li::before { content: "•"; position: absolute; left: 0; color: var(--rf-faint); }
+
+/* Markdown lists from the SDK's rich-text renderer. The site-wide
+   :where(ul, ol) list-style reset above would otherwise strip these to
+   unmarked lines, so they re-state the bullet in this template's own voice —
+   matching .rf-highlights, since a typed list and a structured highlight
+   should be indistinguishable to a reader. */
+.rf-rich-list { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.5rem 0 0; }
+.rf-rich-list li { position: relative; padding-left: 0.875rem; }
+.rf-rich-list li::before { content: "•"; position: absolute; left: 0; color: var(--rf-faint); }
 
 .rf-prose { color: var(--rf-muted); display: flex; flex-direction: column; gap: 0.625rem; }
 .rf-empty { font-size: 0.8125rem; color: var(--rf-faint); }

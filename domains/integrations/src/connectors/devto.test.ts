@@ -54,7 +54,10 @@ describe("devto.fetch", () => {
       cursor: undefined,
       setCursor: () => {},
       fetch: (() =>
-        Promise.resolve({ ok: false, status: 429 } as Response)) as unknown as typeof fetch,
+        Promise.resolve({
+          ok: false,
+          status: 429,
+        } as Response)) as unknown as typeof fetch,
     };
     await expect(collect(devto.fetch(ctx))).rejects.toThrow(/429/);
   });

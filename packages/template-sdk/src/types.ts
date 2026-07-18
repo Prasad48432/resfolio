@@ -31,7 +31,6 @@ export type PageSize = "A4" | "LETTER";
  */
 export type ProfileRequirementKey =
   | "basics.name"
-  | "basics.headline"
   | "basics.summary"
   | "basics.location"
   | "basics.avatarUrl"

@@ -57,11 +57,16 @@ type PublishedRef = { version: number; data: unknown } | null;
  * published counts as "has changes" so the first Publish is always enabled.
  * Both sides are normalized through `migrateProfile` so the comparison is over
  * canonical shapes (deterministic key order), not storage artifacts. */
-function computeUnpublishedChanges(draft: Profile, published: PublishedRef): boolean {
+function computeUnpublishedChanges(
+  draft: Profile,
+  published: PublishedRef,
+): boolean {
   if (!published) {
     return true;
   }
-  return JSON.stringify(draft) !== JSON.stringify(migrateProfile(published.data));
+  return (
+    JSON.stringify(draft) !== JSON.stringify(migrateProfile(published.data))
+  );
 }
 
 function toDraft(

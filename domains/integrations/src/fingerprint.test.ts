@@ -33,13 +33,22 @@ describe("computeFingerprint", () => {
 
   it("changes when the payload changes", () => {
     const a = project();
-    const b = project({ payload: { name: "fluxlog v2", repoUrl: "https://github.com/ada/fluxlog" } });
+    const b = project({
+      payload: {
+        name: "fluxlog v2",
+        repoUrl: "https://github.com/ada/fluxlog",
+      },
+    });
     expect(computeFingerprint(a)).not.toBe(computeFingerprint(b));
   });
 
   it("changes when metrics or url change", () => {
     const base = computeFingerprint(project());
-    expect(computeFingerprint(project({ metrics: [{ key: "stars", value: 11 }] }))).not.toBe(base);
-    expect(computeFingerprint(project({ url: "https://other.dev" }))).not.toBe(base);
+    expect(
+      computeFingerprint(project({ metrics: [{ key: "stars", value: 11 }] })),
+    ).not.toBe(base);
+    expect(computeFingerprint(project({ url: "https://other.dev" }))).not.toBe(
+      base,
+    );
   });
 });

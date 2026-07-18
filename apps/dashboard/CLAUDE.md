@@ -110,6 +110,20 @@ features.
   - **Autosave UI** is `<SaveIndicator>` over the shared `SaveStatus`
     (`lib/save-status.ts`). Never redeclare either — all three editors share
     them; an editor simply may not reach every state.
+  - **Transient notifications are Sonner**, via `toast` from `sonner`.
+    `components/status/toaster.tsx` is mounted **once, in the root layout**, so
+    every route can toast. That puts it _outside_ the `(dashboard)`
+    `ThemeProvider` — deliberate and safe: `useTheme()` with no provider
+    returns an empty context, so `resolvedTheme` is undefined and it falls back
+    to light, which is exactly right for `/login`, the one light-only screen.
+    Inside the dashboard the provider supplies the real value.
+    It is themed by pointing Sonner's own `--normal-*` CSS variables at
+    Resfolio tokens rather than by a `classNames` entry per variant — that way
+    toasts we never style by hand still look like the product.
+    **The division of labour matters**: `SaveIndicator` owns _persistent_
+    state (this document is dirty / saving / invalid), toasts own _events_ that
+    happened once (published, downloaded, deleted, failed). Do not toast on
+    autosave — a notification on every keystroke pause is noise.
 - **Motion** (doc 08 → "Motion contract"). Easing/duration are tokens in
   `@resfolio/design`; never inline a cubic-bezier or a magic ms. `ease-out`
   resolves to the platform curve (the `@theme` block overrides Tailwind's).
@@ -152,7 +166,7 @@ features.
       its own `inline-flex` with no tailwind-merge, so `hidden` would tie with
       it and the winner would be Tailwind's emit order.
     - **Tailwind preflight's `img { max-width: 100% }` beats `width`**, so an
-      `<img>` avatar in a narrow box renders as a vertical *ellipse* (13×28)
+      `<img>` avatar in a narrow box renders as a vertical _ellipse_ (13×28)
       while `size-7` holds the height — and `shrink-0` can't stop it, since
       that's flex shrink. Hiding the identity block and chevron is the fix;
       `max-w-none` pins the invariant. Note the fallback `<span>` avatar is
@@ -160,7 +174,7 @@ features.
       the spec forces the `<img>` branch via the DB.
   - **The nav's active and hover states are overridden in `sidebar.tsx`, and
     both must stay overridden.** The registry spends one token on both
-    (`hover:bg-sidebar-accent` *and* `data-active:bg-sidebar-accent`), which
+    (`hover:bg-sidebar-accent` _and_ `data-active:bg-sidebar-accent`), which
     made the current page indistinguishable from whatever the mouse was over —
     and that token bridges to `surface-warm`, 2% off the sidebar's own
     background. Active is now a **brand** wash, hover a **neutral ink** wash:
@@ -208,6 +222,28 @@ features.
   an unchanged draft can't be re-snapshotted. Mutations go through
   `app/(dashboard)/profile/actions.ts` (thin `createAction` adapters over the
   domain) — **never** query the DB or put business logic in the app.
+  - **Every field renders its own error, and this is not optional.** The save
+    indicator's `invalid` copy says "check highlighted fields"; for a long time
+    nothing highlighted anything — the resolver computed errors that no
+    component read. `FieldInput` now subscribes per-field
+    (`useFormState({ name })` for the subscription, `getFieldState` for the
+    dotted-path lookup) and renders `aria-invalid` + a message. `aria-invalid`
+    is the **single source of truth** for the error state in `@resfolio/ui`;
+    style off anything else and the visual and the screen reader disagree.
+  - **`invalid` does not disable Publish.** It used to, which made the button
+    dead at exactly the moment the user needed to be told what was wrong.
+    Clicking now runs `form.trigger()` (the resolver is `onChange`, so an
+    untouched seeded field can be invalid with no error recorded yet) and jumps
+    to the first bad field via the pure `lib/form-errors.ts`. The save
+    indicator's `invalid` state is also a button for the same jump.
+  - **Dates are `MonthYearPicker`, never a text input.** A `date` descriptor
+    declares `dateBound: { field, direction }` naming its sibling, and the
+    picker **disables** the impossible months — an end before its start is
+    prevented, not validated after the fact. Bounds are `YYYY-MM` strings
+    compared lexicographically (`lib/month-year.ts`, pure + tested): that
+    format sorts in date order, so no `Date` and therefore no timezone can move
+    a value across a boundary. `present: true` marks a field where empty reads
+    as "Present".
 - **Resumes editor** (doc 08/09, 4E/4F): `/resumes` reads documents via
   `@resfolio/document/server`; `/resumes/[id]` loads the document + the profile
   draft and hands both to the `ResumeEditor` client island
@@ -224,7 +260,7 @@ features.
     over the pure, tested `lib/resume-sections.ts`). It writes a
     **`ViewDefinition`** (`sectionOrder` / `include` / `order` / `exclude`) — the
     exact thing `buildProfileView` already read, which is why this needed no
-    migration and no domain change. Name/headline/contact/links/summary have
+    migration and no domain change. Name/contact/links/summary have
     **no controls** (they're `basics`). The default view is `{}` — everything on,
     empty sections auto-dropped — so the toggles exist to _hide_ content you have.
     - **Two levels of drag**: sections reorder against each other (writing
@@ -239,20 +275,44 @@ features.
       of the domain's `orderedSectionKeys`. `RESUME_SECTIONS`' own order means
       nothing and is a label/lock lookup only. It used to be presented as the
       render order while quietly disagreeing with it (Education sat second,
-      rendered fourth); a panel you can drag *must* show the truth.
+      rendered fourth); a panel you can drag _must_ show the truth.
     - **Default order is the template's** (`resumeClassic.defaultSectionOrder`),
       seeded into a new document by `createResumeAction` and then owned by the
       user. Nothing re-imposes it, which is why existing resumes keep the order
       they have rather than silently rearranging on deploy.
-  - **Layout** — the template's own config schema (page size, margins, accent,
-    icons). Presentation only.
+  - **Layout** — the template's own config schema (page size, **font size**,
+    margins, accent, icons, **per-link visibility**). Presentation only.
+    Unlike the portfolio form these controls are **hand-written**, so a new key
+    in `resumeClassicConfigSchema` also needs a control here (and an entry in
+    the `PAGE_SIZES`/`MARGINS`/`FONT_SIZES` tuples).
+    - **Font size is `medium | small`**, implemented as a type scale in the
+      template (`TYPE_SCALE` in `templates/resume-classic/src/styles.ts`), not
+      as per-rule sizes. Every size is emitted as a `--rf-size-*` custom
+      property, so a hard-coded `pt` in a rule now reads as an inconsistency
+      rather than hiding as a missed edit. `small` is deliberately **not** a
+      uniform multiplier: body copy takes the full reduction, section titles
+      only about half, because shrinking the labels at the same rate flattens
+      the hierarchy that makes the page scannable.
+    - **Link visibility is stored as `hiddenLinkIds` — a deny list.** The
+      default must be "show everything" (that is what every existing resume
+      does), and a link added to the profile later should appear rather than
+      stay invisible until someone remembers to tick it. An allow list would
+      silently drop new links, a bug the user only finds after sending the PDF.
+      The switches therefore read inverted in `LinkVisibility` and nowhere else.
   - **Sharing** — `visibility` (public/private) + the permanent public URL.
     Mutations go through `app/(dashboard)/resumes/actions.ts` (thin `createAction`
     adapters over `@resfolio/document/server`); `updateResumeAction` takes
     `name`/`config`/`view`/`visibility`.
     **Download PDF** is `GET /api/resumes/[id]/pdf` — a route handler, not an
     action, because the product need is a real browser download
-    (`Content-Disposition: attachment`). **This is the trust boundary**:
+    (`Content-Disposition: attachment`). The **client** fetches it and saves
+    the blob rather than using a plain `<a download>`: a PDF takes seconds
+    (Chromium boots) and the anchor gave no sign it had been pressed, so people
+    pressed again and queued a second render — and the route's real failure
+    modes (**501** export not configured, **502** render host down) answer with
+    JSON, which the browser navigated to and displayed as raw text. Fetching
+    buys a real in-flight state, click suppression, and a toast on failure; the
+    cost is buffering the file in memory, which is fine at resume size. **This is the trust boundary**:
     `apps/sites` has no sessions, so this route verifies the session, verifies it
     owns the document (`getDocument` is user-scoped), and only then calls the
     render host with the `RENDER_SECRET` bearer. Env-gated on
@@ -288,15 +348,15 @@ features.
   - **The page uses `safeParse`, not `.parse`.** `.parse` threw the entire
     settings page when stored config didn't fit the schema — precisely when the
     user most needs the page that could fix it. Autosave
-  persists config + discoverable; a **template switch** resets config to the new
-  template's defaults (URLs are unaffected — routes are platform-owned) and the
-  editor **remounts** on the template `key` (the `router.refresh()` after a switch
-  is a soft refresh that would otherwise keep stale client state). **Publish** is
-  gated on `SiteRecord.hasUnpublishedChanges` (+ the version pin), so it disables
-  when the live page is already up to date and re-enables on any presentation
-  edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`. The
-  preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
-  gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
+    persists config + discoverable; a **template switch** resets config to the new
+    template's defaults (URLs are unaffected — routes are platform-owned) and the
+    editor **remounts** on the template `key` (the `router.refresh()` after a switch
+    is a soft refresh that would otherwise keep stale client state). **Publish** is
+    gated on `SiteRecord.hasUnpublishedChanges` (+ the version pin), so it disables
+    when the live page is already up to date and re-enables on any presentation
+    edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`. The
+    preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
+    gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
 - **Sources section** (doc 12 import-first, Phase 6R): `/sources` is the
   **import workspace** — "Import from…" provider gallery on top (**four live
   `PublicConnectCard`s: GitHub, RSS, Dev.to, Stack Overflow — no teasers**; a
@@ -318,7 +378,7 @@ features.
   Nothing reaches the profile without an explicit Import click; imported items
   are ordinary profile content, and publish stays at `/profile`.
   **A connector may never propose the user's identity** (2026-07-17): no
-  candidate kind carries name/headline/summary/location/avatar and `basics` is
+  candidate kind carries name/summary/location/avatar and `basics` is
   not a route target. The one non-section destination is `profileLink` →
   "Profile links" (`basics.links`, edited by `components/profile/links-editor.tsx`).
   Only its `label` is inline-editable — the url is a fact the connector derived,
@@ -389,7 +449,7 @@ Shared packages
   never fork a shared value.
 - `@resfolio/ui` — this app's shadcn/ui foundation. Hand-authored primitives
   (`Button`, `Input`, `Textarea`, `Label`, `Checkbox`, `Switch`, `Card`,
-  `TagInput`) plus registry components (`Sidebar`, `Sheet`, `Tooltip`,
+  `TagInput`, `Spinner`) plus registry components (`Sidebar`, `Sheet`, `Tooltip`,
   `Separator`, `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`).
   **Prefer a primitive over a raw HTML control** — the editors use these, not
   bare `<select>`/`<input>`. Import from `"@resfolio/ui"` only — never internal

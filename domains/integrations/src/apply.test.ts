@@ -209,9 +209,9 @@ describe("buildProfileLink", () => {
 
 describe("sameLinkUrl (the dedupe key — links carry no provenance)", () => {
   it("ignores a trailing slash and host case", () => {
-    expect(sameLinkUrl("https://github.com/ada", "https://GitHub.com/ada/")).toBe(
-      true,
-    );
+    expect(
+      sameLinkUrl("https://github.com/ada", "https://GitHub.com/ada/"),
+    ).toBe(true);
   });
 
   it("keeps distinct paths distinct", () => {
@@ -341,7 +341,10 @@ describe("detectUserEdit (the re-import warning's input)", () => {
     const section = profile.sections.projects.map((item) =>
       item.id === itemId ? { ...item, description: "My own words." } : item,
     );
-    const edited = { ...profile, sections: { ...profile.sections, projects: section } };
+    const edited = {
+      ...profile,
+      sections: { ...profile.sections, projects: section },
+    };
     expect(detectUserEdit(edited, "project", itemId, appliedFingerprint)).toBe(
       true,
     );

@@ -1,4 +1,7 @@
-import { darkAnime, darkAnimeConfigSchema } from "@resfolio/template-dark-anime";
+import {
+  darkAnime,
+  darkAnimeConfigSchema,
+} from "@resfolio/template-dark-anime";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -69,7 +72,10 @@ describe("describeConfigSchema", () => {
       options: ["centered", "aside"],
       defaultValue: "aside",
     });
-    expect(byKey.tint).toMatchObject({ kind: "color", defaultValue: "#e0603a" });
+    expect(byKey.tint).toMatchObject({
+      kind: "color",
+      defaultValue: "#e0603a",
+    });
   });
 
   it("humanizes camelCase keys into labels", () => {
@@ -111,9 +117,9 @@ describe("describeMissing", () => {
   });
 
   it("labels a config gap with the form's own label, so the two agree", () => {
-    expect(describeMissing({ scope: "config", key: "bannerImage" }, fields)).toEqual(
-      { label: "Banner image", where: "settings" },
-    );
+    expect(
+      describeMissing({ scope: "config", key: "bannerImage" }, fields),
+    ).toEqual({ label: "Banner image", where: "settings" });
   });
 
   it("labels a profile gap in plain English and points at /profile", () => {

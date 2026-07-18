@@ -3,7 +3,13 @@ import type { ReactElement } from "react";
 
 import { Reveal } from "../client/reveal";
 import type { DarkAnimeConfig } from "../config";
-import { ProjectCard, SectionHeading, Shell, getSection, href } from "../shared";
+import {
+  ProjectCard,
+  SectionHeading,
+  Shell,
+  getSection,
+  href,
+} from "../shared";
 
 /** Every project, in the order the view gives them (the user's order — set in
  * the dashboard's sections panel, not here). No banner: that's the home page's
@@ -23,7 +29,10 @@ export function ProjectsPage({
       basePath={basePath}
       showCommandHint={config.showCommandHint}
     >
-      <section className="rf-section" style={{ borderTop: 0, paddingTop: "3rem" }}>
+      <section
+        className="rf-section"
+        style={{ borderTop: 0, paddingTop: "3rem" }}
+      >
         <a className="rf-back" href={href(basePath, "home")}>
           ← Home
         </a>

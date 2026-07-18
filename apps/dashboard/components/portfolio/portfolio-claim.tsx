@@ -1,7 +1,7 @@
 "use client";
 
-import { Button, Card, cn, Input, Label } from "@resfolio/ui";
-import { Check, Globe, Loader2, X } from "lucide-react";
+import { Button, Card, cn, Input, Label, Spinner } from "@resfolio/ui";
+import { Check, Globe, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -204,11 +204,7 @@ export function PortfolioClaim({
           onClick={() => void create()}
           data-testid={TEST_IDS.portfolioCreateButton}
         >
-          {creating ? (
-            <Loader2 className="animate-spin" aria-hidden />
-          ) : (
-            <Globe aria-hidden />
-          )}
+          {creating ? <Spinner /> : <Globe aria-hidden />}
           Create site
         </Button>
         {error ? (
@@ -223,7 +219,9 @@ export function PortfolioClaim({
 
 function SlugIndicator({ state }: { state: SlugState }) {
   if (state.status === "checking") {
-    return <Loader2 className="size-4 animate-spin text-muted" aria-hidden />;
+    // The only signal that the availability check is running, so it carries a
+    // name rather than being decorative like the in-button spinners.
+    return <Spinner className="text-muted" label="Checking availability" />;
   }
   if (state.status === "ok") {
     return <Check className="size-4 text-brand" aria-hidden />;

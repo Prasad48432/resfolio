@@ -1,4 +1,7 @@
-import type { ConfigFieldMeta, TemplateRequirements } from "@resfolio/template-sdk";
+import type {
+  ConfigFieldMeta,
+  TemplateRequirements,
+} from "@resfolio/template-sdk";
 import type { z } from "zod";
 
 /**
@@ -236,12 +239,14 @@ export function describeMissing(
     const field = fields.find((entry) => entry.key === missing.key);
     return { label: field?.label ?? humanize(missing.key), where: "settings" };
   }
-  return { label: PROFILE_REQUIREMENT_LABELS[missing.key] ?? missing.key, where: "profile" };
+  return {
+    label: PROFILE_REQUIREMENT_LABELS[missing.key] ?? missing.key,
+    where: "profile",
+  };
 }
 
 const PROFILE_REQUIREMENT_LABELS: Record<string, string> = {
   "basics.name": "Your name",
-  "basics.headline": "Headline",
   "basics.summary": "Summary",
   "basics.location": "Location",
   "basics.avatarUrl": "Avatar",

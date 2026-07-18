@@ -31,6 +31,15 @@ export interface FieldDescriptor {
   wide?: boolean;
   /** Optional stable test id (registry value) for e2e selectors. */
   testId?: string;
+  /**
+   * `kind: "date"` only — the sibling field that bounds this one. `"after"`
+   * marks an end date (never earlier than its start), `"before"` a start date
+   * (never later than its end). The picker turns this into disabled cells, so
+   * an impossible range can't be entered in the first place.
+   */
+  dateBound?: { field: string; direction: "after" | "before" };
+  /** `kind: "date"` only — an empty value reads as "Present". */
+  present?: boolean;
 }
 
 export interface SectionConfig {
@@ -61,13 +70,6 @@ export const BASICS_FIELDS: FieldDescriptor[] = [
     kind: "text",
     placeholder: "Ada Lovelace",
     testId: TEST_IDS.basicsName,
-    wide: true,
-  },
-  {
-    name: "headline",
-    label: "Headline",
-    kind: "text",
-    placeholder: "Staff Engineer — distributed systems",
     wide: true,
   },
   {
@@ -131,9 +133,15 @@ export const SECTION_CONFIGS: SectionConfig[] = [
         name: "startDate",
         label: "Start",
         kind: "date",
-        placeholder: "2021-03",
+        dateBound: { field: "endDate", direction: "before" },
       },
-      { name: "endDate", label: "End (blank = present)", kind: "date" },
+      {
+        name: "endDate",
+        label: "End",
+        kind: "date",
+        dateBound: { field: "startDate", direction: "after" },
+        present: true,
+      },
       { name: "summary", label: "Summary", kind: "richtext", wide: true },
       {
         name: "highlights",
@@ -163,8 +171,19 @@ export const SECTION_CONFIGS: SectionConfig[] = [
       },
       { name: "url", label: "URL", kind: "url" },
       { name: "repoUrl", label: "Repository URL", kind: "url" },
-      { name: "startDate", label: "Start", kind: "date" },
-      { name: "endDate", label: "End", kind: "date" },
+      {
+        name: "startDate",
+        label: "Start",
+        kind: "date",
+        dateBound: { field: "endDate", direction: "before" },
+      },
+      {
+        name: "endDate",
+        label: "End",
+        kind: "date",
+        dateBound: { field: "startDate", direction: "after" },
+        present: true,
+      },
       {
         name: "description",
         label: "Description",
@@ -210,8 +229,19 @@ export const SECTION_CONFIGS: SectionConfig[] = [
       { name: "degree", label: "Degree", kind: "text", placeholder: "BSc" },
       { name: "area", label: "Area of study", kind: "text" },
       { name: "location", label: "Location", kind: "text" },
-      { name: "startDate", label: "Start", kind: "date" },
-      { name: "endDate", label: "End", kind: "date" },
+      {
+        name: "startDate",
+        label: "Start",
+        kind: "date",
+        dateBound: { field: "endDate", direction: "before" },
+      },
+      {
+        name: "endDate",
+        label: "End",
+        kind: "date",
+        dateBound: { field: "startDate", direction: "after" },
+        present: true,
+      },
       { name: "score", label: "Score / GPA", kind: "text" },
       { name: "summary", label: "Summary", kind: "richtext", wide: true },
     ],
@@ -297,8 +327,19 @@ export const CUSTOM_ITEM_FIELDS: FieldDescriptor[] = [
   { name: "title", label: "Title", kind: "text" },
   { name: "subtitle", label: "Subtitle", kind: "text" },
   { name: "url", label: "URL", kind: "url" },
-  { name: "startDate", label: "Start", kind: "date" },
-  { name: "endDate", label: "End", kind: "date" },
+  {
+    name: "startDate",
+    label: "Start",
+    kind: "date",
+    dateBound: { field: "endDate", direction: "before" },
+  },
+  {
+    name: "endDate",
+    label: "End",
+    kind: "date",
+    dateBound: { field: "startDate", direction: "after" },
+    present: true,
+  },
   { name: "summary", label: "Summary", kind: "richtext", wide: true },
 ];
 

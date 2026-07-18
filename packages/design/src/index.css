@@ -131,6 +131,79 @@
       0 8px 24px rgba(38, 32, 25, 0.05);
   }
 
+  /* ── Spinner ──────────────────────────────────────────────────────────
+     The platform's one loading indicator (`Spinner` in @resfolio/ui). Twelve
+     bars around a circle, each fading on the same 1.2s cycle offset by 0.1s,
+     which reads as a rotation without anything actually rotating.
+
+     Everything is proportional — bar size, radius and inset are percentages
+     of the container — so the size lives entirely in the root element's
+     width/height and a consumer can size it with any Tailwind `size-*`
+     utility. No JS, no inline style, no per-size CSS.
+
+     The colour is `currentColor` on purpose: the spinner inherits whatever
+     text colour it sits in, so it is correct inside a brand button, next to
+     `text-muted` status copy, and in dark mode, with nothing passed. */
+  .spinner {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    color: inherit;
+  }
+
+  .spinner-bar {
+    position: absolute;
+    top: 35%;
+    left: 45%;
+    width: 10%;
+    height: 30%;
+    border-radius: 9999px;
+    background: currentColor;
+    /* rotate first (about the bar's own centre), then push it out along that
+       rotated axis — translateY is a % of the bar's height, so the radius
+       scales with the container like everything else. */
+    transform: rotate(calc(var(--spinner-i) * 30deg)) translateY(-112%);
+    animation: spinner-fade 1.2s linear infinite;
+    animation-delay: calc((var(--spinner-i) - 11) * 0.1s);
+  }
+
+  .spinner-bar:nth-child(1) {
+    --spinner-i: 0;
+  }
+  .spinner-bar:nth-child(2) {
+    --spinner-i: 1;
+  }
+  .spinner-bar:nth-child(3) {
+    --spinner-i: 2;
+  }
+  .spinner-bar:nth-child(4) {
+    --spinner-i: 3;
+  }
+  .spinner-bar:nth-child(5) {
+    --spinner-i: 4;
+  }
+  .spinner-bar:nth-child(6) {
+    --spinner-i: 5;
+  }
+  .spinner-bar:nth-child(7) {
+    --spinner-i: 6;
+  }
+  .spinner-bar:nth-child(8) {
+    --spinner-i: 7;
+  }
+  .spinner-bar:nth-child(9) {
+    --spinner-i: 8;
+  }
+  .spinner-bar:nth-child(10) {
+    --spinner-i: 9;
+  }
+  .spinner-bar:nth-child(11) {
+    --spinner-i: 10;
+  }
+  .spinner-bar:nth-child(12) {
+    --spinner-i: 11;
+  }
+
   .label-eyebrow {
     font-size: 11px;
     letter-spacing: 0.24em;
@@ -193,6 +266,18 @@
 }
 .animate-focus-in {
   animation: focus-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The spinner's cycle (see `.spinner-bar` above). Bars fade toward — never to
+   — transparent: a bar that vanishes completely makes the ring look broken
+   rather than turning. */
+@keyframes spinner-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.2;
+  }
 }
 
 /* ── Product overlay motion ───────────────────────────────────────────
@@ -276,6 +361,14 @@
   .animate-modal-out,
   .animate-popover-out {
     animation: overlay-in var(--duration-press) var(--ease-out) reverse both;
+  }
+
+  /* The spinner keeps animating, slowly. It is not decoration: it is the only
+     signal that a request is still in flight, and freezing it would say the
+     opposite of what it means. Gentler, not none. */
+  .spinner-bar {
+    animation-duration: 2.4s;
+    animation-delay: calc((var(--spinner-i) - 11) * 0.2s);
   }
 
   /* A modal still needs its centring transform when its keyframe is gone. */

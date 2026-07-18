@@ -15,9 +15,7 @@ import {
 } from "./routing";
 import { CandidateApplyError } from "./errors";
 
-function articleCandidate(
-  route?: CandidateItem["route"],
-): CandidateItem {
+function articleCandidate(route?: CandidateItem["route"]): CandidateItem {
   return candidateItemSchema.parse({
     kind: "article",
     externalId: "post-1",

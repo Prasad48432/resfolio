@@ -157,7 +157,10 @@ export function defineConnector<Input, Raw>(
   if (typeof def.normalize !== "function") {
     throw new ConnectorDefinitionError(id, "normalize must be a function");
   }
-  if (def.profileLinks !== undefined && typeof def.profileLinks !== "function") {
+  if (
+    def.profileLinks !== undefined &&
+    typeof def.profileLinks !== "function"
+  ) {
     throw new ConnectorDefinitionError(
       id,
       "profileLinks must be a function when declared",
