@@ -36,6 +36,7 @@ export type ConfigFieldDescriptor =
   | (FieldBase & { kind: "color"; defaultValue: string })
   | (FieldBase & { kind: "text"; defaultValue: string })
   | (FieldBase & { kind: "textarea"; defaultValue: string })
+  | (FieldBase & { kind: "url"; defaultValue: string })
   | (FieldBase & {
       kind: "image";
       defaultValue: string;
@@ -178,6 +179,10 @@ export function describeConfigSchema(
     }
     if (meta?.kind === "textarea") {
       fields.push({ ...base, kind: "textarea", defaultValue: stringDefault });
+      continue;
+    }
+    if (meta?.kind === "url") {
+      fields.push({ ...base, kind: "url", defaultValue: stringDefault });
       continue;
     }
 

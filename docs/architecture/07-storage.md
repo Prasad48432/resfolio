@@ -34,8 +34,8 @@ sites         id, profileId, slug (unique), templateId, templateMajor,
               config JSONB, view JSONB, publishedVersionId,
               hasUnpublishedChanges, customDomain (unique, null),
               discoverable, updatedAt
-assets        id, ownerId, kind ('avatar'|'image'|'export'), r2Key,
-              contentHash, bytes, createdAt
+assets        id, ownerId (profile), kind (AssetKind), key (unique),
+              contentHash, contentType, bytes, referencedAt, createdAt
 subscriptions Stripe mirror (customer, plan, status)
 ```
 
@@ -88,10 +88,47 @@ revisit only if session reads show up in p99s).
   Objects are **immutable** — a new publish/config produces a new key, so
   stale delivery is impossible by construction and old objects are
   garbage-collected lazily. Cache-hit exports skip Chromium entirely.
-- **User uploads** (avatar, project images): uploaded via presigned URLs
-  (never proxied through the app), stored as `uploads/{userId}/{ulid}`,
-  recorded in `assets`, validated (type/size) before the presign and
-  post-upload.
+- **User uploads** (avatar, banners, project images): **proxied through the
+  app** and stored at `u/{profileId}/{kind-segment}/{sha256}.webp`, recorded
+  in `assets`. Implemented 2026-07-18 in `@resfolio/storage`; this bullet
+  previously specified presigned URLs, `uploads/{userId}/{ulid}` keys, and
+  "never proxied through the app". All three were revised, and the reasoning
+  is worth keeping:
+
+  - **Proxied, not presigned.** A presigned PUT means the server never sees
+    the bytes — and every property that makes an upload safe needs the bytes.
+    We decode and re-encode each image (`sharp`), which strips EXIF including
+    GPS coordinates, discards appended payloads and polyglot files, verifies
+    the file really is the type it claims, and compresses it. A content-type
+    header is a claim, not evidence. The cost is our bandwidth on a capped,
+    image-sized payload — worth paying to never serve back an unexamined file.
+  - **Owner-first keys, not type-first.** `u/{profileId}/…` makes "delete
+    everything this profile owns" a single prefix delete with no index to
+    consult and nothing to miss. Grouping by type first (`avatars/`,
+    `banners/`) reads better in a bucket browser and makes that same deletion
+    a scan of every prefix, forever. The obligation we must not fail wins.
+  - **Content hash, not ULID.** A ULID is unique but says nothing about
+    content, forfeiting both dedupe and the `immutable` cache header while
+    buying only creation-ordering the `assets` row already carries.
+
+- **Asset lifecycle** is part of the architecture, not a cleanup script:
+  singleton slots (avatar, banner) delete the previous object on replace;
+  `assets.referenced_at` marks a key as live when it is written into profile
+  or site content, so an upload never committed to anything is collectable;
+  profile deletion is a prefix delete. The orphan sweep runs with a **24-hour
+  grace period**, because there is a real window between an upload finishing
+  and the autosave that references it, and a sweep with no grace deletes live
+  assets mid-edit.
+- **Content stores absolute URLs; `assets` stores the key.** `basics.avatarUrl`
+  flows through the pure `buildProfileView`, and `config.bannerImage` is read
+  by templates — neither may know what R2 is, so threading a delivery origin
+  through them was rejected. The origin therefore appears in stored content,
+  which makes the eventual `r2.dev` → custom-domain move a one-time
+  `regexp_replace`. The one place that would have made dangerous is
+  reference-marking: `assetKeyFromUrl` matches the **key portion only**,
+  ignoring the origin, so already-stored URLs keep resolving after the swap.
+  Anchor that parse to the configured origin and the day it changes, every
+  live asset looks orphaned and the sweep deletes users' images.
 - **Derived images** (OG cards, template thumbnails): same content-hash
   pattern as exports.
 - Serving: public bucket domain behind Cloudflare CDN for site images;

@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createAction } from "@/lib/actions";
+import { markReferencedAssets } from "@/lib/assets";
 
 /**
  * Profile mutations (docs/architecture/06-api-architecture.md): thin
@@ -37,6 +38,13 @@ export const saveProfileDraftAction = createAction({
   handler: async ({ profile, baseRev }, ctx) => {
     try {
       const draft = await saveDraft(ctx.userId, profile, baseRev);
+      // Mark any uploaded images this draft points at as live (doc 07). This
+      // is the app layer's job rather than the domain's: the *profile* has no
+      // business knowing what R2 is, and coordinating two domains around one
+      // user action is exactly what an action is for. Best-effort — a failure
+      // here must never fail the save, because the only cost of missing a mark
+      // is that the next save catches it.
+      await markReferencedAssets(profile);
       return { status: "saved" as const, draftRev: draft.draftRev };
     } catch (error) {
       if (error instanceof StaleDraftError) {

@@ -72,8 +72,16 @@ export interface ConfigFieldMeta {
   label?: string;
   /** Help text under the control. */
   description?: string;
-  /** Forces a control the schema can't imply. */
-  kind?: "image" | "textarea";
+  /**
+   * Forces a control the schema can't imply.
+   *
+   * `url` matters more than it looks: the idiomatic "a URL or nothing" config
+   * field is `z.union([z.literal(""), z.url()])`, and a union is a shape
+   * introspection rightly refuses to guess at — so a URL field without this
+   * hint is skipped and **never renders a control at all**. The template can
+   * see the setting in its own schema while the user has no way to set it.
+   */
+  kind?: "image" | "textarea" | "url";
   /** For `kind: "image"` — the dimensions the template is designed around,
    * shown as guidance. Not enforced: we can't measure a pasted URL. */
   image?: { width: number; height: number };

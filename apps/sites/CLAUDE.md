@@ -10,8 +10,7 @@ routes, and screenshots all live here. Port **3002** (web=3000, dashboard=3001).
 `visibility`), its private `/draft` sibling and `POST /api/export/resume/[id]`
 (the real PDF path); the dev-only fixture route; the **public portfolio route**
 (`/p/[username]/[[...slug]]`, ISR-cached, indexable, DB- **or** fixture-backed);
-the **draft-preview route** (`/preview/portfolio/[[...slug]]`, private,
-token-guarded, iframed by the dashboard); platform **SEO** (`app/sitemap.ts`,
+platform **SEO** (`app/sitemap.ts`,
 `app/robots.ts`, JSON-LD on the portfolio home); and the on-demand
 **revalidation endpoint** (`app/api/revalidate`) the dashboard calls on publish.
 The R2 + Trigger.dev delivery adapters are later work.
@@ -78,11 +77,14 @@ Resolve and Deliver; Project and Render are shared code.
     which routes 404.
     `generateMetadata` sets canonical + honors `discoverable`; the home page
     emits a JSON-LD `Person`. The shared Render stage is `lib/render-portfolio-page.tsx`.
-  - `app/preview/portfolio/[[...slug]]` — the private **draft-preview route**.
-    Verifies the owner's `@resfolio/portfolio/token` preview token, loads their
-    **draft** profile + Site config, and runs the **same** `renderPortfolioPage`
-    as the public route (so preview == live). `force-dynamic`, `noindex`, framed
-    only by the dashboard (`frame-ancestors` in `next.config.ts`).
+  - ~~`app/preview/portfolio/[[...slug]]`~~ — **removed 2026-07-18.** The
+    dashboard iframed this to show a live draft, which meant re-rendering the
+    entire portfolio application after every save — a cost that grows with each
+    new template, paid to answer a question a screenshot answers as well. The
+    dashboard now shows a placeholder pane; a cheaper preview replaces it later.
+    Nothing frames this app any more, so the `frame-ancestors` carve-out and
+    `DASHBOARD_URL` went with it. The signing primitive
+    (`@resfolio/portfolio/token`) is parked, not deleted.
   - `app/api/revalidate` — `POST { siteId }`, bearer-guarded by the shared
     `RENDER_SECRET`; drops the `site:<id>` tag. The dashboard (a separate
     deployment) calls this on publish since an in-process `revalidateTag` can't
@@ -106,10 +108,11 @@ Resolve and Deliver; Project and Render are shared code.
     triggers (publish _and_ any editor edit) and `/api/revalidate` only knows
     `site:<id>`. Caching it before that plumbing exists serves stale content,
     or a private resume that stays readable. Correctness first.
-  - **Private**: `/preview/portfolio/*` (signed token — it goes in a browser
-    iframe URL), `/render/resume/*/draft` + `/api/export/*` + `/api/revalidate`
+  - **Private**: `/render/resume/*/draft` + `/api/export/*` + `/api/revalidate`
     (`RENDER_SECRET` bearer — server-to-server, never user-facing). All
-    `force-dynamic`, all noindex.
+    `force-dynamic`, all noindex. **Every private surface here is now
+    server-to-server**; nothing is loaded by a user's browser, which is why no
+    signed URL token is in play.
   - The app has **no global robots directive** — each surface declares its own.
 - **No marketing theme.** This app carries no cream/`@resfolio/design` theme.
   Templates ship their own self-contained styles; `app/globals.css` is only a

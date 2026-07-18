@@ -17,7 +17,6 @@ import {
 /** About — the long-form read: summary, the full timeline, education, languages. */
 export function AboutPage({
   view,
-  config,
   theme,
   basePath,
 }: PortfolioPageProps<DarkAnimeConfig>): ReactElement {
@@ -27,12 +26,7 @@ export function AboutPage({
   const languages = getSection(view, "languages")?.items ?? [];
 
   return (
-    <Shell
-      view={view}
-      theme={theme}
-      basePath={basePath}
-      showCommandHint={config.showCommandHint}
-    >
+    <Shell view={view} theme={theme} basePath={basePath}>
       <section
         className="rf-section"
         style={{ borderTop: 0, paddingTop: "3rem" }}

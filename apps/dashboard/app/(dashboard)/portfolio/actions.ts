@@ -10,12 +10,12 @@ import {
   SlugTakenError,
   updateSite,
 } from "@resfolio/portfolio/server";
-import { mintPreviewToken } from "@resfolio/portfolio/token";
 import { getOrCreateProfile } from "@resfolio/profile/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
+import { markReferencedAssets } from "@/lib/assets";
 import { env } from "@/lib/env";
 import { getDashboardPortfolioTemplate } from "@/lib/portfolio-templates";
 
@@ -153,6 +153,8 @@ export const updatePortfolioSiteAction = createAction({
         config: validatedConfig,
         discoverable,
       });
+      // Any uploaded image this config points at is now live (doc 07).
+      await markReferencedAssets(validatedConfig);
       revalidatePath("/portfolio");
       return { updatedAt: updated.updatedAt.toISOString() };
     } catch (error) {
@@ -173,38 +175,6 @@ export const publishPortfolioSiteAction = createAction({
     } catch (error) {
       toActionError(error);
     }
-  },
-});
-
-/**
- * Mint a short-lived signed URL to the `apps/sites` portfolio **draft-preview**
- * route (doc 08), rendering the user's current draft through their site's
- * template — the editor iframes this. Optional: requires `RENDER_SECRET` +
- * `SITES_URL`; absent, the UI hides the preview and this returns a friendly
- * error.
- */
-export const mintPortfolioPreviewUrlAction = createAction({
-  name: "portfolio.mintPreviewUrl",
-  input: z.object({}),
-  handler: async (_input, ctx) => {
-    const secret = env.RENDER_SECRET;
-    const sitesUrl = env.SITES_URL;
-    if (!secret || !sitesUrl) {
-      throw new ActionError("Preview isn't configured in this environment.");
-    }
-    // Confirm the user actually has a site before minting a preview for it.
-    const site = await getSiteForOwner(ctx.userId);
-    if (!site) {
-      throw new ActionError("You don't have a site yet.");
-    }
-    const token = mintPreviewToken(
-      { source: "draft", ref: ctx.userId },
-      secret,
-    );
-    const url = `${sitesUrl.replace(/\/$/, "")}/preview/portfolio?token=${encodeURIComponent(
-      token,
-    )}`;
-    return { url };
   },
 });
 

@@ -54,6 +54,7 @@ export {
   ITEM_SOURCES,
   calendarDateSchema,
   httpUrlSchema,
+  inlineRichTextSchema,
   itemSourceSchema,
   richTextSchema,
   safeLinkUrlSchema,

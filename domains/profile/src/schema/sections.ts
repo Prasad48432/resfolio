@@ -6,6 +6,7 @@ import {
   itemIdSchema,
   itemSourceSchema,
   optionalField,
+  inlineRichTextSchema,
   richTextSchema,
   safeLinkUrlSchema,
 } from "./primitives";
@@ -42,7 +43,9 @@ export const profileLinkSchema = z.object({
 
 export const basicsSchema = z.object({
   name: shortText(120),
-  summary: richTextSchema.default(""),
+  // Prose only — no bullets. A summary that opens with a list has no sentence
+  // in it, and this field is the one every output surface leads with.
+  summary: inlineRichTextSchema.default(""),
   location: shortText(120),
   avatarUrl: optionalField(httpUrlSchema),
   contacts: z

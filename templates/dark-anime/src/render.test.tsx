@@ -142,35 +142,27 @@ describe("dark-anime — config", () => {
     expect(html).toContain("Someone wise");
   });
 
-  it("honours featuredProjectCount on the home page", () => {
-    const all = render("projects", ada);
-    const one = render(
-      "home",
-      ada,
-      {},
-      {
-        ...defaultDarkAnimeConfig,
-        featuredProjectCount: 1,
-      },
-    );
+  it("caps the home page's featured projects and links them all from /projects", () => {
     const count = (html: string) =>
       html.split(`href="/p/ada/projects/prj-`).length - 1;
-    expect(count(one)).toBe(1);
-    expect(count(all)).toBeGreaterThanOrEqual(1);
+    const home = count(render("home", ada));
+    expect(home).toBeGreaterThan(0);
+    expect(home).toBeLessThanOrEqual(6);
+    expect(count(render("projects", ada))).toBeGreaterThanOrEqual(home);
   });
 
-  it("hides the avatar when showAvatar is off", () => {
+  // The avatar is driven by the data, not by a toggle (config.ts): present on
+  // a profile that has one, absent on one that doesn't.
+  it("shows the avatar when the profile has one and omits it when it doesn't", () => {
     expect(body(render("home", ada))).toContain("rf-avatar");
-    const html = render(
-      "home",
-      ada,
-      {},
-      {
-        ...defaultDarkAnimeConfig,
-        showAvatar: false,
-      },
-    );
-    expect(body(html)).not.toContain("rf-avatar");
+    expect(
+      body(
+        render("home", {
+          ...ada,
+          basics: { ...ada.basics, avatarUrl: undefined },
+        }),
+      ),
+    ).not.toContain("rf-avatar");
   });
 });
 

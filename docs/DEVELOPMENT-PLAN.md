@@ -278,6 +278,11 @@ params, basePath }`). `defineTemplate` enforces page coverage (`home`
 - ✅ Draft-preview route (`apps/sites/preview/portfolio`, signed preview token)
   - the portfolio preview **iframe** in the editor (CSP `frame-ancestors`
     carve-out; re-minted per save so it never expires mid-session).
+  - ⛔ **Both removed 2026-07-18.** Rendering the whole portfolio app after
+    every save is a cost that scales with the template catalogue, paid to
+    answer a question a cheaper artefact answers. The editor shows a
+    placeholder pane; the replacement (likely a stored snapshot rather than a
+    live iframe) is an open question in doc 09.
 - ✅ Platform SEO: per-page metadata + canonical URLs, JSON-LD `Person`
   (home only), `sitemap.xml` (discoverable sites, template-aware page set) and
   `robots.txt` honoring the discoverable toggle.

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" role="img" aria-hidden="true" fill="none">
+  <!--
+    A wireframe of the dark-anime layout: banner, avatar breaking its edge,
+    a reading column, an index rail. Deliberately abstract and monochrome —
+    it stands in for "your site", not for any one template, and uses
+    `currentColor` so it inherits the pane's text colour in both themes.
+  -->
+  <g stroke="currentColor" stroke-width="1.5" opacity="0.35">
+    <rect x="8" y="8" width="384" height="244" rx="8" />
+    <rect x="24" y="24" width="352" height="52" rx="4" />
+    <circle cx="64" cy="76" r="18" fill="none" />
+    <line x1="336" y1="112" x2="368" y2="112" />
+    <line x1="336" y1="128" x2="368" y2="128" />
+    <line x1="336" y1="144" x2="368" y2="144" />
+  </g>
+  <g fill="currentColor" opacity="0.18">
+    <rect x="94" y="66" width="104" height="10" rx="5" />
+    <rect x="94" y="84" width="64" height="8" rx="4" />
+    <rect x="24" y="116" width="288" height="8" rx="4" />
+    <rect x="24" y="132" width="264" height="8" rx="4" />
+    <rect x="24" y="148" width="192" height="8" rx="4" />
+    <rect x="24" y="180" width="136" height="48" rx="6" />
+    <rect x="176" y="180" width="136" height="48" rx="6" />
+  </g>
+</svg>

@@ -75,7 +75,7 @@ permanent public URLs ([02](02-resume-rendering.md)).
 | --------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------- | ---------------------- |
 | **Public, indexable** | `/p/[username]/[[...slug]]`                                                          | none                                                                              | yes, honoring `discoverable`           | ISR + `site:<id>` tags |
 | **Public, unlisted**  | `/render/resume/[documentId]`                                                        | the row's `visibility`                                                            | **no** — `X-Robots-Tag` + `robots.txt` | no (see below)         |
-| **Private**           | `/preview/portfolio/*`, `/render/resume/*/draft`, `/api/export/*`, `/api/revalidate` | signed token (portfolio preview) or the `RENDER_SECRET` bearer (server-to-server) | no                                     | never                  |
+| **Private**           | `/render/resume/*/draft`, `/api/export/*`, `/api/revalidate`                          | the `RENDER_SECRET` bearer (server-to-server)                                     | no                                     | never                  |
 
 Two things this table encodes that are easy to get wrong:
 
@@ -182,13 +182,18 @@ supplies the seam checklist:
 ## Open Questions
 
 - ~~Draft-preview token design (lifetime, per-user vs. per-session scope).~~
-  **Settled.** The portfolio preview keeps a short-lived signed token
-  (`@resfolio/portfolio/token`) because the dashboard hands it to a browser in
-  an iframe URL. The resume needed no token at all: it is public by
-  `visibility`, and its private draft render is reached only server-to-server,
-  where a `RENDER_SECRET` bearer is both simpler and stronger than an expiring
-  URL capability. Redis nonces remain available if a _user-facing_ token ever
-  needs replay protection.
+  **Settled, then moot (2026-07-18).** The portfolio draft-preview route was
+  removed: iframing it re-rendered the whole portfolio application on every
+  save, a cost that scales with the template catalogue to answer a question a
+  cheaper artefact can answer. Every private surface here is now
+  server-to-server, guarded by the `RENDER_SECRET` bearer — simpler and
+  stronger than an expiring URL capability. The signing primitive
+  (`@resfolio/portfolio/token`) is parked for whatever replaces the preview,
+  since **any** owner-only draft a browser loads will need one again.
+- **What replaces the portfolio draft preview?** Open. The dashboard shows a
+  placeholder pane today. The likely shape is a server-rendered snapshot
+  (screenshot on publish/save, stored in R2) rather than a live iframe — one
+  render per meaningful change instead of one per keystroke pause.
 - Whether the resume preview's in-browser rendering needs a Web Worker for
   large profiles (measure first; likely not).
 - ~~Exact renderKey canonicalization.~~ **Settled** in

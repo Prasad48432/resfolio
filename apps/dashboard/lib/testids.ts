@@ -59,7 +59,7 @@ export const TEST_IDS = {
   portfolioPublishState: "portfolio-publish-state",
   portfolioPublicUrl: "portfolio-public-url",
   portfolioDiscoverable: "portfolio-discoverable",
-  portfolioPreviewFrame: "portfolio-preview-frame",
+  portfolioPreviewPlaceholder: "portfolio-preview-placeholder",
   sourcesPage: "sources-page",
   sidebarTrigger: "sidebar-trigger",
   sourcesGallery: "sources-gallery",

@@ -11,6 +11,7 @@ import {
   type FieldValues,
 } from "react-hook-form";
 
+import { ImageUpload } from "@/components/upload/image-upload";
 import { boundsFor } from "@/lib/month-year";
 import type { FieldDescriptor } from "@/lib/profile-form";
 
@@ -23,8 +24,17 @@ const INPUT_TYPE: Partial<Record<FieldDescriptor["kind"], string>> = {
   tel: "tel",
 };
 
-const MARKDOWN_HELP =
-  "Markdown: **bold**, _italic_, [links](https://…), - list item";
+/**
+ * Two grammars, two hints. `richtext` is the long-form fields (a role, a
+ * project) where a bulleted list is the natural shape; `richtextInline` is
+ * short prose like the summary, where the domain schema rejects bullets
+ * outright — so advertising `- list item` there would document a feature that
+ * fails validation.
+ */
+const MARKDOWN_HELP: Partial<Record<FieldDescriptor["kind"], string>> = {
+  richtext: "Markdown: **bold**, _italic_, [links](https://…), - list item",
+  richtextInline: "Markdown: **bold**, _italic_, [links](https://…)",
+};
 
 /**
  * Renders one schema field descriptor bound to the enclosing React Hook Form
@@ -69,8 +79,8 @@ export function FieldInput<TValues extends FieldValues>({
         <p id={errorId} role="alert" className="text-[11px] text-destructive">
           {message}
         </p>
-      ) : field.kind === "richtext" ? (
-        <p className="text-[11px] text-muted/80">{MARKDOWN_HELP}</p>
+      ) : MARKDOWN_HELP[field.kind] ? (
+        <p className="text-[11px] text-muted/80">{MARKDOWN_HELP[field.kind]}</p>
       ) : null}
     </div>
   );
@@ -82,6 +92,10 @@ export function FieldInput<TValues extends FieldValues>({
 
     if (field.kind === "highlights") {
       return <HighlightsField name={path} />;
+    }
+
+    if (field.kind === "image") {
+      return <ImageField id={id} path={path} invalid={Boolean(message)} />;
     }
 
     if (field.kind === "date") {
@@ -106,12 +120,49 @@ export function FieldInput<TValues extends FieldValues>({
       ...form.register(path),
     };
 
-    return field.kind === "textarea" || field.kind === "richtext" ? (
+    return field.kind === "textarea" ||
+      field.kind === "richtext" ||
+      field.kind === "richtextInline" ? (
       <Textarea rows={4} {...shared} />
     ) : (
       <Input {...shared} type={INPUT_TYPE[field.kind] ?? "text"} />
     );
   }
+}
+
+/**
+ * An uploaded image bound to the form (doc 07).
+ *
+ * `useController` rather than `register`: the uploader is not an `<input>` the
+ * form can read a value off — it produces a URL out of band — so the value has
+ * to be written through RHF explicitly. Empty is written as `undefined`, not
+ * `""`, because the profile schema treats an absent avatar as absent and an
+ * empty string would fail URL validation.
+ */
+function ImageField<TValues extends FieldValues>({
+  id,
+  path,
+  invalid,
+}: {
+  id: string;
+  path: FieldPath<TValues>;
+  invalid: boolean;
+}) {
+  const form = useFormContext<TValues>();
+  const { field: controlled } = useController({
+    control: form.control,
+    name: path,
+  });
+
+  return (
+    <ImageUpload
+      id={id}
+      kind="avatar"
+      value={typeof controlled.value === "string" ? controlled.value : ""}
+      onChange={(url) => controlled.onChange(url === "" ? undefined : url)}
+      invalid={invalid}
+    />
+  );
 }
 
 /**

@@ -12,18 +12,26 @@ describe("describeConfigSchema", () => {
     const fields = describeConfigSchema(darkAnimeConfigSchema);
     const byKey = Object.fromEntries(fields.map((f) => [f.key, f]));
 
-    // The templates are opinionated: config is content/visibility only, no
-    // styling knobs (colors/layout are the template's own).
-    expect(byKey.showAvatar).toMatchObject({
-      kind: "boolean",
-      defaultValue: true,
+    expect(byKey.tagline).toMatchObject({ kind: "text", defaultValue: "" });
+    expect(byKey.quoteAttribution).toMatchObject({ kind: "text" });
+  });
+
+  // A template asks for content it can't render without, never for a decision
+  // it should be making itself (templates/dark-anime/src/config.ts, 2026-07-18).
+  it("exposes no visibility toggles or count knobs", () => {
+    const fields = describeConfigSchema(darkAnimeConfigSchema, {
+      configFields: darkAnime.configFields,
+      requirements: darkAnime.requirements,
     });
-    expect(byKey.featuredProjectCount).toMatchObject({
-      kind: "number",
-      min: 1,
-      max: 12,
-      defaultValue: 6,
-    });
+    expect(fields.map((f) => f.kind)).not.toContain("boolean");
+    expect(fields.map((f) => f.kind)).not.toContain("number");
+    expect(fields.map((f) => f.key).sort()).toEqual([
+      "bannerImage",
+      "introCallUrl",
+      "quote",
+      "quoteAttribution",
+      "tagline",
+    ]);
   });
 
   it("merges the template's declared metadata over the inferred shape", () => {
@@ -42,6 +50,9 @@ describe("describeConfigSchema", () => {
       image: { width: 1200, height: 260 },
     });
     expect(byKey.quote).toMatchObject({ kind: "textarea" });
+    // A `"" | url` union: without the declared kind it renders no control at
+    // all, so the user can never set it. Regression guard.
+    expect(byKey.introCallUrl).toMatchObject({ kind: "url" });
     // Not declared required → no flag, not `required: false`.
     expect(byKey.quote?.required).toBeUndefined();
   });

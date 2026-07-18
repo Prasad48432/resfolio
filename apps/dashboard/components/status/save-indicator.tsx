@@ -4,7 +4,6 @@ import { AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   Check,
-  CircleDashed,
   CloudOff,
   RefreshCw,
   type LucideIcon,

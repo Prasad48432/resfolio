@@ -21,7 +21,6 @@ import {
  */
 export function ResumePage({
   view,
-  config,
   theme,
   basePath,
 }: PortfolioPageProps<DarkAnimeConfig>): ReactElement {
@@ -33,12 +32,7 @@ export function ResumePage({
   const certifications = getSection(view, "certifications")?.items ?? [];
 
   return (
-    <Shell
-      view={view}
-      theme={theme}
-      basePath={basePath}
-      showCommandHint={config.showCommandHint}
-    >
+    <Shell view={view} theme={theme} basePath={basePath}>
       <section
         className="rf-section"
         style={{ borderTop: 0, paddingTop: "3rem" }}

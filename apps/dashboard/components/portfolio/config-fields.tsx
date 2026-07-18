@@ -12,6 +12,7 @@ import {
   Textarea,
 } from "@resfolio/ui";
 
+import { ImageUpload } from "@/components/upload/image-upload";
 import type { ConfigFieldDescriptor } from "@/lib/config-form";
 import { portfolioConfigFieldTestId } from "@/lib/testids";
 
@@ -172,40 +173,23 @@ function ConfigField({
         </div>
       );
 
+    // An upload, never a pasted URL (doc 07). The template declares the
+    // dimensions it is designed around; the uploader reports them and the
+    // server resizes to fit, so "1200×260" is guidance the user cannot get
+    // wrong rather than a measurement we were never able to take.
     case "image":
       return (
         <div className="flex flex-col gap-1.5">
           <FieldLabel field={field} htmlFor={id} />
-          <Input
+          <ImageUpload
             id={id}
-            type="url"
-            inputMode="url"
-            placeholder="https://…"
+            kind="portfolioBanner"
             value={String(value ?? field.defaultValue)}
-            onChange={(event) => onChange(field.key, event.target.value)}
-            aria-invalid={missing || undefined}
-            data-testid={testId}
+            onChange={(url) => onChange(field.key, url)}
+            invalid={missing}
+            testId={testId}
+            recommended={field.image}
           />
-          <p className="text-xs text-muted">
-            {field.image
-              ? `Paste an image URL. Designed for ${field.image.width}×${field.image.height}px.`
-              : "Paste an image URL."}
-          </p>
-          {/* A preview, not a validator: we can't measure a pasted URL, and a
-              broken one should look broken here rather than on the live site.
-              (Uploads land when R2 does — doc 07; the field shape won't change.) */}
-          {String(value ?? "").trim() ? (
-            <span className="mt-1 overflow-hidden rounded-lg border border-border bg-surface-warm">
-              {/* eslint-disable-next-line @next/next/no-img-element -- an
-                  arbitrary user-pasted origin; next/image would need every host
-                  allowlisted, which is exactly what we can't know here. */}
-              <img
-                src={String(value)}
-                alt=""
-                className="block max-h-32 w-full object-cover"
-              />
-            </span>
-          ) : null}
         </div>
       );
 
@@ -216,6 +200,22 @@ function ConfigField({
           <Textarea
             id={id}
             rows={3}
+            value={String(value ?? field.defaultValue)}
+            onChange={(event) => onChange(field.key, event.target.value)}
+            aria-invalid={missing || undefined}
+            data-testid={testId}
+          />
+        </div>
+      );
+
+    case "url":
+      return (
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel field={field} htmlFor={id} />
+          <Input
+            id={id}
+            type="url"
+            placeholder="https://…"
             value={String(value ?? field.defaultValue)}
             onChange={(event) => onChange(field.key, event.target.value)}
             aria-invalid={missing || undefined}

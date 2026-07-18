@@ -102,6 +102,14 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   edge-safe cookie check (`@resfolio/auth/cookies`)
 - `@resfolio/observability` — `createLogger(scope)` (Pino, redacted) and
   Sentry init/capture helpers; everything no-ops without configuration
+- `@resfolio/storage` — binary storage over Cloudflare R2 (doc 07); the only
+  code touching R2 or the `assets` table. Pure root (the `ASSET_KIND_SPECS`
+  policy table, owner-first key construction, URL resolution), `./server`
+  (upload + `sharp` re-encode, the asset ledger, cleanup). Uploads are
+  **proxied, never presigned** — re-encoding is what strips EXIF and rejects
+  polyglot files, and that needs the bytes. Keys are `u/{profileId}/…` so
+  deleting a profile's assets is one prefix delete. Optional: absent
+  credentials hide the upload UI. See `packages/storage/CLAUDE.md`
 - `@resfolio/fixtures` — the shared sample-data corpus (realistic Profiles
   and their ProfileViews), validated through `@resfolio/profile`; feeds
   unit, template, and e2e tests so sample data exists exactly once
@@ -233,10 +241,10 @@ Examples
   `/p/[username]/[[...slug]]` (ISR-cached, indexable); the **public resume
   route** `/render/resume/[documentId]` (permanent URL, gated by the document's
   own `visibility`, noindex, not cached); and the **private** surfaces — the
-  portfolio draft preview `/preview/portfolio` (signed token, iframed by the
-  dashboard), the resume draft render + `POST /api/export/resume/[id]` (PDF)
-  and `POST /api/revalidate`, all bearer-guarded server-to-server with
-  `RENDER_SECRET`. This app has **no sessions**: ownership is checked in the
+  resume draft render + `POST /api/export/resume/[id]` (PDF) and
+  `POST /api/revalidate`, all bearer-guarded server-to-server with
+  `RENDER_SECRET`. (The iframed portfolio draft preview was removed
+  2026-07-18 — see `apps/sites/CLAUDE.md`.) This app has **no sessions**: ownership is checked in the
   dashboard before it calls here. Plus platform SEO (`sitemap.xml`,
   `robots.txt`, JSON-LD). Cloud (R2/Trigger.dev) delivery is later. See
   `apps/sites/CLAUDE.md`

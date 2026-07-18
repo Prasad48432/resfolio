@@ -19,7 +19,6 @@ import { Highlights, Shell, displayUrl, getSection, href } from "../shared";
  */
 export function ProjectDetailPage({
   view,
-  config,
   theme,
   params,
   basePath,
@@ -29,12 +28,7 @@ export function ProjectDetailPage({
   );
 
   return (
-    <Shell
-      view={view}
-      theme={theme}
-      basePath={basePath}
-      showCommandHint={config.showCommandHint}
-    >
+    <Shell view={view} theme={theme} basePath={basePath}>
       <section
         className="rf-section"
         style={{ borderTop: 0, paddingTop: "3rem" }}

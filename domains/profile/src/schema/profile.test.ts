@@ -6,6 +6,7 @@ import { PROFILE_SCHEMA_VERSION, profileSchema } from "./profile";
 import {
   calendarDateSchema,
   httpUrlSchema,
+  inlineRichTextSchema,
   richTextSchema,
   safeLinkUrlSchema,
 } from "./primitives";
@@ -86,6 +87,45 @@ describe("rich text (doc 01: constrained markdown subset)", () => {
     expect(
       richTextSchema.safeParse("[click](javascript:alert(1))").success,
     ).toBe(false);
+  });
+
+  it("accepts a hyphen list in long-form rich text", () => {
+    expect(richTextSchema.safeParse("- one\n- two").success).toBe(true);
+  });
+});
+
+describe("inline rich text (prose only — no lists)", () => {
+  it("accepts bold/italic/link markdown", () => {
+    const value = "Shipped **fast** and _clean_ — see [docs](https://x.com).";
+    expect(inlineRichTextSchema.safeParse(value).success).toBe(true);
+  });
+
+  it("rejects a list, wherever it appears", () => {
+    expect(inlineRichTextSchema.safeParse("- one\n- two").success).toBe(false);
+    expect(
+      inlineRichTextSchema.safeParse("I build things.\n- and ship them")
+        .success,
+    ).toBe(false);
+  });
+
+  it("still rejects raw HTML and unsafe links", () => {
+    expect(inlineRichTextSchema.safeParse("<b>bold</b>").success).toBe(false);
+    expect(
+      inlineRichTextSchema.safeParse("[x](javascript:alert(1))").success,
+    ).toBe(false);
+  });
+
+  it("does not mistake a hyphenated word or an em-dash for a bullet", () => {
+    expect(
+      inlineRichTextSchema.safeParse("A full-stack engineer — pragmatic.")
+        .success,
+    ).toBe(true);
+  });
+
+  it("does not treat a trailing bare hyphen as a bullet", () => {
+    expect(inlineRichTextSchema.safeParse("Sentence one.\n-").success).toBe(
+      true,
+    );
   });
 });
 

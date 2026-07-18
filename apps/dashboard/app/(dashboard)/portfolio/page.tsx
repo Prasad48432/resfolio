@@ -96,7 +96,6 @@ export default async function PortfolioPage() {
       initialMissing={missing}
       discoverable={site.discoverable}
       publicBaseUrl={publicBaseUrl()}
-      previewEnabled={Boolean(env.RENDER_SECRET && env.SITES_URL)}
       profilePublished={draft.publishedVersionId !== null}
       sitePublished={site.publishedVersionId !== null}
       siteUpToDate={

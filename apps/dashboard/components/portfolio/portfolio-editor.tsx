@@ -17,13 +17,12 @@ import {
   Spinner,
   Switch,
 } from "@resfolio/ui";
-import { ExternalLink, Globe, Rocket, TriangleAlert } from "lucide-react";
+import { ExternalLink, Rocket, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  mintPortfolioPreviewUrlAction,
   publishPortfolioSiteAction,
   updatePortfolioSiteAction,
 } from "@/app/(dashboard)/portfolio/actions";
@@ -72,7 +71,6 @@ export function PortfolioEditor({
   initialMissing,
   discoverable: initialDiscoverable,
   publicBaseUrl,
-  previewEnabled,
   profilePublished,
   sitePublished,
   siteUpToDate,
@@ -86,7 +84,6 @@ export function PortfolioEditor({
   initialMissing: MissingRequirementView[];
   discoverable: boolean;
   publicBaseUrl: string;
-  previewEnabled: boolean;
   profilePublished: boolean;
   sitePublished: boolean;
   siteUpToDate: boolean;
@@ -95,7 +92,6 @@ export function PortfolioEditor({
   const [config, setConfig] = useState(initialConfig);
   const [discoverable, setDiscoverable] = useState(initialDiscoverable);
   const [status, setStatus] = useState<SaveStatus>("idle");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [switching, setSwitching] = useState(false);
   const firstRender = useRef(true);
 
@@ -126,23 +122,6 @@ export function PortfolioEditor({
   const latest = useRef({ config, discoverable });
   latest.current = { config, discoverable };
 
-  // Mint (and re-mint) the draft-preview iframe URL — a fresh short-TTL token
-  // each time, so the iframe reloads to the just-saved draft and never expires
-  // mid-session.
-  const refreshPreview = useCallback(async () => {
-    if (!previewEnabled) {
-      return;
-    }
-    try {
-      const result = await mintPortfolioPreviewUrlAction({});
-      if (result.ok) {
-        setPreviewUrl(result.data.url);
-      }
-    } catch {
-      // Leave the previous preview in place.
-    }
-  }, [previewEnabled]);
-
   const save = useCallback(async () => {
     setStatus("saving");
     try {
@@ -151,13 +130,10 @@ export function PortfolioEditor({
         discoverable: latest.current.discoverable,
       });
       setStatus(result.ok ? "saved" : "offline");
-      if (result.ok) {
-        void refreshPreview();
-      }
     } catch {
       setStatus("offline");
     }
-  }, [refreshPreview]);
+  }, []);
 
   // Switching templates resets config server-side; reload the editor so the
   // form reflects the new template's fields + defaults.
@@ -179,11 +155,6 @@ export function PortfolioEditor({
       setSwitching(false);
     }
   }
-
-  // Initial preview render on mount.
-  useEffect(() => {
-    void refreshPreview();
-  }, [refreshPreview]);
 
   useEffect(() => {
     if (firstRender.current) {
@@ -278,17 +249,7 @@ export function PortfolioEditor({
               </label>
             </div>
           }
-          preview={
-            previewEnabled && previewUrl ? (
-              <PreviewFrame previewUrl={previewUrl} publicUrl={publicUrl} />
-            ) : (
-              <SiteCard
-                publicUrl={publicUrl}
-                sitePublished={sitePublished}
-                discoverable={discoverable}
-              />
-            )
-          }
+          preview={<PreviewPlaceholder publicUrl={publicUrl} />}
         />
       </FadeIn>
     </Page>
@@ -553,13 +514,21 @@ function PublishButton({
   );
 }
 
-function PreviewFrame({
-  previewUrl,
-  publicUrl,
-}: {
-  previewUrl: string;
-  publicUrl: string;
-}) {
+/**
+ * The preview pane — **a placeholder, deliberately** (2026-07-18).
+ *
+ * This used to iframe `apps/sites/preview/portfolio`, re-minting a signed
+ * token and re-rendering the entire portfolio application after every save.
+ * That is a whole second render of a whole second app to answer "what does
+ * this look like?", and the cost grows with every template we add — the wrong
+ * shape to keep paying for while the template system is still moving.
+ *
+ * The **bar is unchanged on purpose**: "Draft preview" and "Open live site"
+ * are the two things the user came here to do, and Open live site is a real
+ * link to a real site. Only the pane between them is stubbed, so restoring a
+ * real preview later is a swap of this one component's body.
+ */
+function PreviewPlaceholder({ publicUrl }: { publicUrl: string }) {
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
@@ -575,52 +544,25 @@ function PreviewFrame({
           <ExternalLink className="size-3" aria-hidden />
         </a>
       </div>
-      <iframe
-        // A fresh token URL after each save reloads the iframe to the latest
-        // draft — the real template, rendered by `apps/sites` (doc 08/09).
-        key={previewUrl}
-        src={previewUrl}
-        title="Portfolio draft preview"
-        className="min-h-0 w-full flex-1 bg-white"
-        sandbox="allow-scripts allow-same-origin"
-        data-testid={TEST_IDS.portfolioPreviewFrame}
-      />
-    </Card>
-  );
-}
-
-function SiteCard({
-  publicUrl,
-  sitePublished,
-  discoverable,
-}: {
-  publicUrl: string;
-  sitePublished: boolean;
-  discoverable: boolean;
-}) {
-  return (
-    <Card className="flex h-full flex-col items-center justify-center gap-5 p-8 text-center">
-      <Globe className="size-8 text-muted/70" aria-hidden />
-      <div className="flex flex-col gap-1.5">
-        <p className="label-section">Your site is at</p>
-        <a
-          href={publicUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 font-mono text-sm text-foreground transition-colors duration-(--duration-fast) ease-out hover:text-brand"
-          data-testid={TEST_IDS.portfolioPublicUrl}
-        >
-          {publicUrl.replace(/^https?:\/\//, "")}
-          <ExternalLink className="size-3.5" aria-hidden />
-        </a>
+      <div
+        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 bg-surface-warm p-8 text-center"
+        data-testid={TEST_IDS.portfolioPreviewPlaceholder}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- a static
+            decorative asset, not a user image; next/image buys nothing here. */}
+        <img
+          src="/portfolio/preview-placeholder.svg"
+          alt=""
+          className="max-h-64 w-full max-w-md object-contain opacity-80"
+        />
+        <div className="flex flex-col gap-1.5">
+          <p className="label-section">Preview coming soon</p>
+          <p className="max-w-xs text-xs leading-relaxed text-muted">
+            Your settings save as you type. Open the live site to see them — a
+            faster in-place preview is on the way.
+          </p>
+        </div>
       </div>
-      <p className="max-w-xs text-xs leading-relaxed text-muted">
-        {sitePublished
-          ? discoverable
-            ? "Live and indexable. Changes go live when you publish."
-            : "Live but hidden from search engines (not discoverable)."
-          : "Not published yet — publish to make this URL live."}
-      </p>
     </Card>
   );
 }

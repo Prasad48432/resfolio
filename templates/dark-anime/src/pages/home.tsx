@@ -29,6 +29,13 @@ import {
  * a rail pointing at nothing. That's also why `requirements` in `index.ts` asks
  * for the few things the hero genuinely can't do without.
  */
+/**
+ * How many projects the home page features before "View all". A template
+ * decision, not a config knob: the grid is built for two rows of three, and
+ * asking the user to pick a number only invites them to break the layout.
+ */
+const FEATURED_PROJECT_COUNT = 6;
+
 export function HomePage({
   view,
   config,
@@ -37,7 +44,7 @@ export function HomePage({
 }: PortfolioPageProps<DarkAnimeConfig>): ReactElement {
   const { basics } = view;
   const projects = getSection(view, "projects")?.items ?? [];
-  const featured = projects.slice(0, config.featuredProjectCount);
+  const featured = projects.slice(0, FEATURED_PROJECT_COUNT);
   const experience = getSection(view, "experience")?.items ?? [];
   const skills = getSection(view, "skills")?.items ?? [];
   const writing = getSection(view, "writing")?.items ?? [];
@@ -57,12 +64,11 @@ export function HomePage({
       theme={theme}
       basePath={basePath}
       bannerImage={config.bannerImage || undefined}
-      showCommandHint={config.showCommandHint}
       rail={rail}
     >
       <header className="rf-hero">
         <div className="rf-hero-id">
-          {config.showAvatar && basics.avatarUrl ? (
+          {basics.avatarUrl ? (
             <img className="rf-avatar" src={basics.avatarUrl} alt="" />
           ) : null}
           <div>

@@ -354,9 +354,27 @@ features.
     is a soft refresh that would otherwise keep stale client state). **Publish** is
     gated on `SiteRecord.hasUnpublishedChanges` (+ the version pin), so it disables
     when the live page is already up to date and re-enables on any presentation
-    edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`. The
-    preview iframe re-mints a `@resfolio/portfolio/token` URL after each save (env-
-    gated like print view). Mutations go through `app/(dashboard)/portfolio/actions.ts`.
+    edit; it calls `publishSite` then `apps/sites`'s `/api/revalidate`.
+    Mutations go through `app/(dashboard)/portfolio/actions.ts`.
+  - **The preview pane is a placeholder, deliberately (2026-07-18).** It used
+    to iframe `apps/sites`'s draft-preview route, re-minting a signed token
+    after every save — a full re-render of a second application to answer "what
+    does this look like?", at a cost that grows with every template. The route
+    is gone; `PreviewPlaceholder` keeps the **bar unchanged** ("Draft preview"
+    + a real "Open live site" link) and stubs only the pane between them, so
+    restoring a real preview is a swap of one component's body.
+  - **A template asks only for what it genuinely can't render without.** The
+    generic visibility toggles and count knobs (`showAvatar`,
+    `showCommandHint`, `featuredProjectCount`, `showGithubGraph`) were removed
+    from `dark-anime`: templates are opinionated (doc 03), so they decide, and
+    anything genuinely absent is driven by absent *data*, not by a switch.
+    Reusable visibility toggles may return as a platform concern once two
+    templates want the same one — not as per-template booleans.
+  - **A config field whose Zod shape is a union renders no control unless the
+    template declares a `kind`.** `introCallUrl` (`"" | url`) was invisible in
+    this form for exactly that reason — the template could see the setting; the
+    user had no way to set it. `ConfigFieldMeta.kind` now carries `url`
+    alongside `image`/`textarea`, and `config-form.test.ts` guards it.
 - **Sources section** (doc 12 import-first, Phase 6R): `/sources` is the
   **import workspace** — "Import from…" provider gallery on top (**four live
   `PublicConnectCard`s: GitHub, RSS, Dev.to, Stack Overflow — no teasers**; a

@@ -3,24 +3,24 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
 /**
- * Signed, short-lived tokens that guard the private portfolio **draft-preview**
- * route (docs/architecture/08-dashboard-ux.md, 09-rendering-pipeline.md). The
- * dashboard mints one for the signed-in owner; `apps/sites` verifies it before
- * rendering that user's *draft* portfolio inside the editor iframe — the "never
- * edit blindly" split workspace, rendered by the real template.
+ * Signed, short-lived capability tokens for a private portfolio **draft**
+ * surface (docs/architecture/08-dashboard-ux.md, 09-rendering-pipeline.md).
  *
  * Stateless HMAC-SHA256 over a `{ source: "draft", ref: userId, exp }` payload.
  * Server-only (`node:crypto`); never bundle into a client.
  *
- * This is now the platform's **only** signed URL token. Its resume counterpart
- * was deleted when resumes moved to permanent URLs gated by `visibility`
- * (doc 02) — but the reasoning that killed that one *justifies* this one: a
- * resume URL exists to be sent to people, so expiry fought its purpose, whereas
- * this token guards an owner-only draft that the dashboard hands to a browser
- * in an iframe `src`. A URL a browser must load, showing content nobody else
- * may see, is exactly what a short-lived capability is for. Server-to-server
- * calls use the plain `RENDER_SECRET` bearer instead — no token needed when
- * no browser is involved.
+ * **Currently unused — parked, not dead (2026-07-18.)** Its only consumer was
+ * the iframed draft-preview route, removed when re-rendering the whole
+ * portfolio app on every keystroke proved the wrong shape to keep paying for.
+ * It is kept because the preview system that replaces it will need exactly
+ * this: any owner-only draft surface a *browser* must load — an iframe, an
+ * `<img>` pointing at a screenshot service — needs a capability in the URL,
+ * and this one is written and tested. Server-to-server calls
+ * (`/api/revalidate`, PDF export) use the plain `RENDER_SECRET` bearer
+ * instead; no token is needed when no browser is involved.
+ *
+ * If the new preview lands without needing it, delete this file and its test
+ * rather than leaving it here indefinitely.
  */
 
 export const previewTokenPayloadSchema = z.object({

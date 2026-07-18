@@ -30,17 +30,16 @@ of `@resfolio/profile` and `@resfolio/document`.
   `SiteRecord.hasUnpublishedChanges` tells the dashboard the live page is stale
   even when the pinned profile version is unchanged (a profile republish is
   caught separately by comparing the pin to the profile's published version).
-- **`./token` is the signed preview token** (`node:crypto`, server-only):
-  `{ source: "draft", ref: userId, exp }`. The dashboard mints it; `apps/sites`
-  verifies it to render the owner's draft in the editor preview iframe.
-  It is the platform's **only** signed URL token — the resume's was deleted
-  when resumes moved to permanent URLs gated by `visibility` (doc 02). The same
-  reasoning keeps this one: a resume URL exists to be _sent to people_, so
-  expiry fought its purpose; this token guards an owner-only draft that the
-  dashboard puts in an iframe `src`, which is precisely the job of a
-  short-lived capability. Server-to-server calls (`/api/revalidate`, PDF
-  export) use the plain `RENDER_SECRET` bearer — no token when no browser is
-  involved.
+- **`./token` is the signed draft-capability token** (`node:crypto`,
+  server-only): `{ source: "draft", ref: userId, exp }`. **Currently unused —
+  parked, not dead (2026-07-18).** Its consumer was the iframed draft-preview
+  route, removed because re-rendering the whole portfolio app on every save was
+  the wrong cost to keep paying while templates are still moving. Kept because
+  the replacement preview will need it: any owner-only draft surface a
+  *browser* must load needs a capability in the URL, and this one is written
+  and tested. Server-to-server calls (`/api/revalidate`, PDF export) use the
+  plain `RENDER_SECRET` bearer — no token when no browser is involved. **If the
+  new preview lands without needing it, delete it** rather than letting it sit.
 
 ## Rules
 

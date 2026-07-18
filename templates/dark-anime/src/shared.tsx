@@ -232,7 +232,6 @@ export function Shell({
   theme,
   basePath,
   bannerImage,
-  showCommandHint,
   rail,
   children,
 }: {
@@ -241,7 +240,6 @@ export function Shell({
   basePath: string;
   /** Empty on inner pages — the banner is the home page's signature. */
   bannerImage?: string;
-  showCommandHint: boolean;
   /** Which sections the INDEX rail lists; empty hides it. Passed in rather
    * than hardcoded: which sections exist depends on the profile, and a rail
    * advertising an empty section is worse than no rail. */
@@ -263,10 +261,10 @@ export function Shell({
 
         <div className="rf-col">
           <div className="rf-topbar">
-            <CommandPalette
-              items={paletteItems(view, basePath)}
-              showHint={showCommandHint}
-            />
+            {/* The ⌘K badge is always shown: the palette is the primary way
+                around this template, and a shortcut nobody is told about is a
+                shortcut nobody uses. */}
+            <CommandPalette items={paletteItems(view, basePath)} showHint />
             {/* Namespaced by basePath so two Resfolio sites in one browser
                 don't overwrite each other's choice. */}
             <ThemeToggle storageKey={`rf-theme:${basePath}`} />

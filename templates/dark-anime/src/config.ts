@@ -5,13 +5,25 @@ import { z } from "zod";
  * github.com/Ashutoshx7/Portfolio-v2- (**the trailing-dash repo**; the one
  * without it is a different, unrelated site).
  *
- * Config is **knobs and template-specific content**, never a copy of the
- * Profile: everything about *you* comes from the ProfileView, and nothing here
- * duplicates it. The fields below exist because this layout needs content the
- * Profile has no place for — a banner, a pull-quote, an intro-call link, a
- * tagline. They are this template's furniture, not facts about a career, and
- * would pollute the shared profile model (doc 01) if they lived there. A
- * template that wants none of them simply declares none of them.
+ * Config is **template-specific content the Profile has no place for**, never
+ * a copy of the Profile: everything about *you* comes from the ProfileView,
+ * and nothing here duplicates it. The fields below exist because this layout
+ * needs a banner, a pull-quote, an intro-call link, a tagline — this
+ * template's furniture, not facts about a career, which would pollute the
+ * shared profile model (doc 01) if they lived there. A template that wants
+ * none of them simply declares none of them.
+ *
+ * **Visibility toggles are deliberately absent** (2026-07-18). `showAvatar`,
+ * `showCommandHint`, `featuredProjectCount` and `showGithubGraph` were asking
+ * the user to design the template — questions with an obviously right answer
+ * that only added surface to the settings form. A template is opinionated
+ * (doc 03), so it decides; anything genuinely absent is driven by the data
+ * being absent, not by a switch. Reusable visibility toggles may return as a
+ * platform-level concern once more than one template wants the same one — but
+ * they will not come back as per-template booleans.
+ *
+ * Removed keys need no migration: Zod strips unknown keys, so a stored config
+ * carrying them still parses and simply drops them on the next save.
  *
  * **Every field carries a default** — `defineTemplate` requires `defaultConfig`
  * to parse clean, so a genuinely required field is unrepresentable here. That's
@@ -32,14 +44,6 @@ export const darkAnimeConfigSchema = z.object({
   quoteAttribution: z.string().trim().max(80).default(""),
   /** "Book an intro call" — a Cal.com/Calendly URL. Empty hides the button. */
   introCallUrl: urlOrEmpty.default(""),
-  /** Render the GitHub contribution graph. The username comes from the
-   * profile's GitHub link, so there's no second copy to fall out of sync. */
-  showGithubGraph: z.boolean().default(true),
-  /** How many projects the home page features before "View all". */
-  featuredProjectCount: z.number().int().min(1).max(12).default(6),
-  showAvatar: z.boolean().default(true),
-  /** The ⌘K badge in the nav. The shortcut works either way. */
-  showCommandHint: z.boolean().default(true),
 });
 
 export type DarkAnimeConfig = z.infer<typeof darkAnimeConfigSchema>;

@@ -26,6 +26,7 @@
     "@resfolio/observability": "workspace:*",
     "@resfolio/portfolio": "workspace:*",
     "@resfolio/profile": "workspace:*",
+    "@resfolio/storage": "workspace:*",
     "@resfolio/template-dark-anime": "workspace:*",
     "@resfolio/template-resume-classic": "workspace:*",
     "@resfolio/template-sdk": "workspace:*",

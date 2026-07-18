@@ -16,19 +16,13 @@ import {
  * signature and repeating it would flatten the site. */
 export function ProjectsPage({
   view,
-  config,
   theme,
   basePath,
 }: PortfolioPageProps<DarkAnimeConfig>): ReactElement {
   const projects = getSection(view, "projects")?.items ?? [];
 
   return (
-    <Shell
-      view={view}
-      theme={theme}
-      basePath={basePath}
-      showCommandHint={config.showCommandHint}
-    >
+    <Shell view={view} theme={theme} basePath={basePath}>
       <section
         className="rf-section"
         style={{ borderTop: 0, paddingTop: "3rem" }}

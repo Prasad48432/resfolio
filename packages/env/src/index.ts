@@ -19,3 +19,4 @@ export { ratelimit } from "./slices/ratelimit";
 export { observability } from "./slices/observability";
 export { render } from "./slices/render";
 export { integrations } from "./slices/integrations";
+export { r2 } from "./slices/r2";

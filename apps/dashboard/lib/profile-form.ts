@@ -13,7 +13,16 @@ import { TEST_IDS } from "./testids";
 export type FieldKind =
   | "text"
   | "textarea"
+  /** Long-form rich text: bold, italic, links, **and `- ` lists**. */
   | "richtext"
+  /**
+   * Short-form rich text: bold, italic and links only. Backed by the domain's
+   * `inlineRichTextSchema`, so a pasted bullet is a real validation error
+   * rather than a hint the editor quietly ignores.
+   */
+  | "richtextInline"
+  /** An uploaded image (R2, doc 07) — never a pasted URL. */
+  | "image"
   | "date"
   | "url"
   | "email"
@@ -65,6 +74,12 @@ const provenance = () => ({ id: createItemId(), source: "manual" as const });
 
 export const BASICS_FIELDS: FieldDescriptor[] = [
   {
+    name: "avatarUrl",
+    label: "Profile photo",
+    kind: "image",
+    wide: true,
+  },
+  {
     name: "name",
     label: "Full name",
     kind: "text",
@@ -75,7 +90,7 @@ export const BASICS_FIELDS: FieldDescriptor[] = [
   {
     name: "summary",
     label: "Summary",
-    kind: "richtext",
+    kind: "richtextInline",
     placeholder: "A few sentences on who you are and what you do.",
     wide: true,
   },
@@ -84,12 +99,6 @@ export const BASICS_FIELDS: FieldDescriptor[] = [
     label: "Location",
     kind: "text",
     placeholder: "Berlin, Germany",
-  },
-  {
-    name: "avatarUrl",
-    label: "Avatar URL",
-    kind: "url",
-    placeholder: "https://…",
   },
   {
     name: "contacts.email",

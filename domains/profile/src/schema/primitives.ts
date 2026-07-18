@@ -88,11 +88,15 @@ function markdownLinksAreSafe(value: string): boolean {
 
 /**
  * Rich text (doc 01 open question — decided): a constrained **Markdown
- * subset** — bold, italic, and `[label](url)` links only — stored as a
- * string, chosen over a structured AST for portability (JSON Resume export,
- * plain-text ATS extraction) and diffability. Never raw HTML; our own
- * renderer (Template SDK phase) converts it to React elements and re-checks
- * link schemes on output.
+ * subset** — bold, italic, `[label](url)` links, and `- ` unordered lists —
+ * stored as a string, chosen over a structured AST for portability (JSON
+ * Resume export, plain-text ATS extraction) and diffability. Never raw HTML;
+ * our own renderer (Template SDK phase) converts it to React elements and
+ * re-checks link schemes on output.
+ *
+ * This is the **long-form** grammar: descriptions and highlights, where a
+ * bulleted list is the natural shape. Short prose uses
+ * {@link inlineRichTextSchema} instead.
  */
 export const richTextSchema = z
   .string()
@@ -105,6 +109,34 @@ export const richTextSchema = z
   .refine(markdownLinksAreSafe, {
     message: "Links must be full http(s) or mailto URLs.",
   });
+
+/**
+ * A line that opens an unordered list item. Mirrors the Template SDK's
+ * `LIST_ITEM` grammar exactly — hyphen only, because `*` is the emphasis
+ * delimiter. Multiline so it matches a bullet anywhere in the value, not just
+ * at the start of the string.
+ */
+const LIST_ITEM_PATTERN = /^\s*-\s+\S/m;
+
+/**
+ * Rich text **without lists** — bold, italic, and links only.
+ *
+ * A summary is a paragraph of prose, not an outline: bullets belong to the
+ * long-form fields that describe a role or a project, where the reader is
+ * scanning for achievements. Allowing them in a summary produced résumés and
+ * portfolio headers that opened with a bare list and no sentence.
+ *
+ * This is enforced at the **schema**, not just in the editor's help text,
+ * because rich text also arrives from connectors (doc 12) — an imported bio
+ * must obey the same grammar as a typed one.
+ */
+export const inlineRichTextSchema = richTextSchema.refine(
+  (value) => !LIST_ITEM_PATTERN.test(value),
+  {
+    message:
+      "Lists aren't available here — use sentences. Bullets belong in description fields.",
+  },
+);
 
 /**
  * Optional form-facing field: the editor binds inputs whose empty value is

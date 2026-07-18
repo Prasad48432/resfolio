@@ -74,23 +74,9 @@ export const darkAnime = defineTemplate({
     introCallUrl: {
       label: "Intro call link",
       description: "Cal.com, Calendly, anything. Empty hides the button.",
-    },
-    showGithubGraph: {
-      label: "Show GitHub activity",
-      description:
-        "Uses the GitHub link on your profile — import it from Sources if it isn't there.",
-    },
-    featuredProjectCount: {
-      label: "Featured projects",
-      description: "How many to show on the home page before “View all”.",
-    },
-    showAvatar: {
-      label: "Show avatar",
-      description: "Your portrait, over the banner's edge.",
-    },
-    showCommandHint: {
-      label: "Show ⌘K hint",
-      description: "The shortcut badge in the nav. ⌘K works either way.",
+      // Without this the field renders *no control at all*: it's a
+      // `"" | url` union, a shape introspection refuses to guess at.
+      kind: "url",
     },
   },
 

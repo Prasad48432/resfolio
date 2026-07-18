@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      {
+        protocol: "https",
+        hostname: "pub-3cead1040c354464b9c7c42cbf00ecd6.r2.dev",
+      },
     ],
   },
   async headers() {
