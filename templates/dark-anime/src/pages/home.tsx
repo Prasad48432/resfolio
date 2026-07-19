@@ -14,6 +14,7 @@ import {
   SectionHeading,
   Shell,
   Socials,
+  WritingCard,
   getSection,
   href,
 } from "../shared";
@@ -164,23 +165,13 @@ export function HomePage({
       {writing.length > 0 ? (
         <section className="rf-section" id="writing">
           <SectionHeading title="Writing" />
-          <ul className="rf-list">
-            {writing.map((item) => (
-              <li className="rf-list-row" key={item.id}>
-                <div className="rf-list-main">
-                  <div className="rf-list-title">
-                    {item.url ? (
-                      <a href={item.url}>{item.title}</a>
-                    ) : (
-                      item.title
-                    )}
-                  </div>
-                  <div className="rf-list-detail">{item.publisher}</div>
-                </div>
-                <div className="rf-list-when">{item.date}</div>
-              </li>
+          <div className="rf-writing">
+            {writing.map((item, index) => (
+              <Reveal key={item.id} delay={Math.min(index, 6) * 0.04}>
+                <WritingCard item={item} basePath={basePath} />
+              </Reveal>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 

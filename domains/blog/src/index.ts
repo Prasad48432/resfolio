@@ -56,7 +56,17 @@ export {
   type UpdateBlogPostInput,
 } from "./schema/post";
 
-export { postToWritingItem, withNativePosts } from "./projection";
+export {
+  postToWritingItem,
+  withNativePosts,
+  type ProjectPostOptions,
+} from "./projection";
+
+export {
+  buildPostView,
+  type BuildPostViewOptions,
+  type PostView,
+} from "./view";
 
 export {
   BlogDataError,

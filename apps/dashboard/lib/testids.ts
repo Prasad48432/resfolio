@@ -25,6 +25,7 @@ export const TEST_IDS = {
   profileSaveIndicator: "profile-save-indicator",
   profilePublishButton: "profile-publish-button",
   profilePublishState: "profile-publish-state",
+  profileProjectedPosts: "profile-projected-posts",
   basicsName: "basics-name",
   resumesList: "resumes-list",
   resumesEmpty: "resumes-empty",

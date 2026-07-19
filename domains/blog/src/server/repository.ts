@@ -326,7 +326,13 @@ async function releaseKeysNoLongerUsed(
  * the set is the truth *after* this post is gone. Computing it first would
  * count this post's own keys as live and delete nothing.
  */
-export async function deletePost(userId: string, id: string): Promise<void> {
+/** Deletes the post and releases the images no *remaining* post references.
+ * Returns the owning `profileId` so the caller can invalidate the public
+ * site's cache without a second lookup — it is already resolved here. */
+export async function deletePost(
+  userId: string,
+  id: string,
+): Promise<{ profileId: string }> {
   const profileId = await requireProfileId(userId);
   const post = await getPost(userId, id);
 
@@ -346,6 +352,7 @@ export async function deletePost(userId: string, id: string): Promise<void> {
   }
 
   await releaseKeysNoLongerUsed(profileId, [...owned]);
+  return { profileId };
 }
 
 /** How many distinct images a post currently embeds — the upload route's

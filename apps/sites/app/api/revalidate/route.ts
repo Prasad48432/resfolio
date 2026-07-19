@@ -25,23 +25,34 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  let siteId: unknown;
+  let body: { siteId?: unknown; profileId?: unknown };
   try {
-    const body: unknown = await request.json();
-    siteId =
-      typeof body === "object" && body !== null
-        ? (body as { siteId?: unknown }).siteId
-        : undefined;
+    const parsed: unknown = await request.json();
+    body = typeof parsed === "object" && parsed !== null ? parsed : {};
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  if (typeof siteId !== "string" || siteId.length === 0) {
+  // Two independent tags, because a portfolio render depends on two things
+  // that change on different events: the site's pinned profile version
+  // (`site:<id>`, a site publish) and the owner's posts (`blog:<id>`, any post
+  // write). A caller may drop either or both.
+  const tags: string[] = [];
+  if (typeof body.siteId === "string" && body.siteId.length > 0) {
+    tags.push(`site:${body.siteId}`);
+  }
+  if (typeof body.profileId === "string" && body.profileId.length > 0) {
+    tags.push(`blog:${body.profileId}`);
+  }
+
+  if (tags.length === 0) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  // `{ expire: 0 }`: this is an external webhook that needs the published
-  // change reflected immediately, not stale-while-revalidate (Next 16 docs).
-  revalidateTag(`site:${siteId}`, { expire: 0 });
-  return NextResponse.json({ ok: true, revalidated: `site:${siteId}` });
+  for (const tag of tags) {
+    // `{ expire: 0 }`: this is an external webhook that needs the published
+    // change reflected immediately, not stale-while-revalidate (Next 16 docs).
+    revalidateTag(tag, { expire: 0 });
+  }
+  return NextResponse.json({ ok: true, revalidated: tags });
 }

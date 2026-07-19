@@ -23,6 +23,7 @@ import { navItemTestId, TEST_IDS } from "@/lib/testids";
 import { UserMenu } from "./user-menu";
 import type { ShellUser } from "./app-shell";
 import ResfolioLogo from "../brand/resfolio-logo";
+import ResfolioMark from "../brand/resfolio-mark";
 
 /**
  * The primary navigation (docs/architecture/08-dashboard-ux.md), composed from
@@ -74,7 +75,7 @@ export function AppSidebar({ user }: { user: ShellUser }) {
           aria-label="Resfolio home"
         >
           <span className="group-data-[collapsible=icon]:hidden">
-            <ResfolioLogo size={28} />
+            <ResfolioLogo size={100} />
           </span>
           {/* `mark` is the variant the brand system already documents as "used
               wherever the wordmark won't fit". Static, not the pulsing ping:
@@ -82,7 +83,7 @@ export function AppSidebar({ user }: { user: ShellUser }) {
               icon that pulses forever in the corner of every screen is the
               clearest possible violation of that. */}
           <span className="hidden group-data-[collapsible=icon]:flex">
-            <ResfolioLogo variant="mark" size={26} />
+            <ResfolioMark size={26} />
           </span>
         </Link>
       </SidebarHeader>

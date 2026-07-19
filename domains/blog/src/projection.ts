@@ -1,4 +1,5 @@
 import type { Profile, WritingItem } from "@resfolio/profile";
+import { assetUrl } from "@resfolio/storage";
 
 import type { BlogPostRecord } from "./schema/post";
 
@@ -40,12 +41,28 @@ import type { BlogPostRecord } from "./schema/post";
  * `publisher` is deliberately empty — the author *is* the publisher, and
  * writing "Resfolio" there would put our brand in the user's résumé.
  *
- * `url` is absent for now. A post's public URL is a function of the owner's
- * site slug, which does not exist at this layer and is not resolved until
- * rendering ships. Absent is honest; a wrong URL would be worse than none, and
- * `optionalField` already models "no link yet" throughout the schema.
+ * `url` stays absent, and `slug` carries the post instead. A post's public
+ * address is a function of the owner's site base path, which does not exist at
+ * this layer — the renderer builds it (`<basePath>/blog/<slug>`). Writing an
+ * absolute URL here would mean guessing the origin and baking a wrong one into
+ * the profile; `url` keeps meaning "somewhere else on the internet", which is
+ * what an imported reference has and a native post does not.
+ *
+ * The cover is resolved here rather than stored as a key because a `WritingItem`
+ * is consumed by templates, and a template may not know what R2 is (doc 07).
+ * Without a base URL the cover is simply omitted — a broken `<img>` is worse
+ * than no image, and the caller that has no storage configured has no image to
+ * show anyway.
  */
-export function postToWritingItem(post: BlogPostRecord): WritingItem {
+export interface ProjectPostOptions {
+  /** Public base URL for stored assets; absent omits covers. */
+  assetBaseUrl?: string;
+}
+
+export function postToWritingItem(
+  post: BlogPostRecord,
+  options: ProjectPostOptions = {},
+): WritingItem {
   return {
     // The post id doubles as the item id: stable, already unique, and it makes
     // a Writing entry traceable back to the post it came from.
@@ -55,6 +72,15 @@ export function postToWritingItem(post: BlogPostRecord): WritingItem {
     publisher: "",
     date: toCalendarDate(post.publishedAt),
     summary: post.excerpt,
+    slug: post.slug,
+    coverImage:
+      post.coverAssetKey && options.assetBaseUrl
+        ? assetUrl(post.coverAssetKey, options.assetBaseUrl)
+        : undefined,
+    tags: post.tags,
+    // `0` is a real value the schema rejects (a post always takes *some* time
+    // to read), so a zero here means "not computed" and is left absent.
+    readingMinutes: post.readingMinutes > 0 ? post.readingMinutes : undefined,
   };
 }
 
@@ -88,13 +114,14 @@ function toCalendarDate(value: Date | null): string | undefined {
 export function withNativePosts(
   profile: Profile,
   posts: readonly BlogPostRecord[],
+  options: ProjectPostOptions = {},
 ): Profile {
   const published = posts.filter((post) => post.status === "published");
   if (published.length === 0) {
     return profile;
   }
 
-  const projected = published.map(postToWritingItem);
+  const projected = published.map((post) => postToWritingItem(post, options));
   // A post id colliding with an existing writing item's id would produce two
   // entries React renders under one key; the post wins, since it is the live
   // record and the reference is a stale import of the same thing.

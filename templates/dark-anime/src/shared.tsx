@@ -1,4 +1,5 @@
 import {
+  formatCalendarDate,
   formatDateRange,
   renderRichText,
   themeToStyle,
@@ -6,7 +7,7 @@ import {
   type ProfileView,
   type ResolvedTheme,
 } from "@resfolio/template-sdk";
-import { Github, Globe, Link2, Linkedin } from "lucide-react";
+import { ArrowUpRight, Github, Globe, Link2, Linkedin } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 
 import { CommandPalette, type PaletteItem } from "./client/command-palette";
@@ -155,6 +156,92 @@ export function ProjectCard({
         </div>
       ) : null}
     </a>
+  );
+}
+
+/**
+ * One Writing entry.
+ *
+ * The Writing section is deliberately **one list of one shape**: a post written
+ * natively in Resfolio and an article imported from RSS arrive here identical
+ * (the blog domain projects posts into the ProfileView before this template
+ * ever runs), so nothing below asks where an entry came from. The only thing
+ * that differs is the destination, and that falls out of the data:
+ *
+ * - `slug` present → a native post, read on this site at `<basePath>/blog/<slug>`.
+ * - `url` present → it lives somewhere else; link out and mark it so.
+ * - neither → a talk or a publication with no link. Still worth listing.
+ *
+ * Cover, tags and reading time are all optional and each collapses cleanly,
+ * because a Profile is allowed to be sparse (the `jun` fixture is the test).
+ */
+export function WritingCard({
+  item,
+  basePath,
+}: {
+  item: ItemOf<"writing">;
+  basePath: string;
+}): ReactElement {
+  const destination = item.slug
+    ? href(basePath, "blogPost", item.slug)
+    : item.url;
+  const external = !item.slug && Boolean(item.url);
+
+  const meta = [
+    formatCalendarDate(item.date),
+    item.readingMinutes ? `${item.readingMinutes} min read` : "",
+    item.publisher,
+  ].filter(Boolean);
+
+  const body = (
+    <>
+      {item.coverImage ? (
+        <div className="rf-write-cover">
+          {/* A plain <img> for the same reason the banner is one: a template
+              renders on hosts that may not be Next at all (doc 05). */}
+          <img src={item.coverImage} alt="" loading="lazy" />
+        </div>
+      ) : null}
+      <div className="rf-write-body">
+        <div className="rf-write-title">
+          {item.title}
+          {external ? <ArrowUpRight className="rf-write-out" aria-hidden /> : null}
+        </div>
+        {item.summary ? (
+          <div className="rf-write-excerpt">{renderRichText(item.summary)}</div>
+        ) : null}
+        {meta.length > 0 ? (
+          <div className="rf-write-meta">
+            {meta.map((entry) => (
+              <span key={entry}>{entry}</span>
+            ))}
+          </div>
+        ) : null}
+        {item.tags.length > 0 ? (
+          <div className="rf-tags">
+            {item.tags.slice(0, 4).map((tag) => (
+              <span className="rf-tag" key={tag}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  // An unlinked entry must not render an <a> with no href — it would be
+  // focusable, announced as a link, and go nowhere.
+  return destination ? (
+    <a
+      className="rf-write"
+      href={destination}
+      {...(external ? { rel: "noopener noreferrer" } : {})}
+    >
+      {body}
+    </a>
+  ) : (
+    <div className="rf-write">{body}</div>
   );
 }
 

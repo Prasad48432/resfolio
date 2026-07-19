@@ -47,7 +47,7 @@ export default function Nav() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
         <a href="#top" data-testid={TEST_IDS.navLogo} className="group">
-          <ResfolioLogo size={28} className="text-foreground" />
+          <ResfolioLogo size={100} className="mt-1" />
         </a>
 
         <nav

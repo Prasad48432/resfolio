@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@resfolio/blog": "workspace:*",
     "@resfolio/profile": "workspace:*",
     "react": "^19.2.0",
     "zod": "^4.1.0"

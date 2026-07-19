@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import type { z } from "zod";
 
+import type { PostView } from "@resfolio/blog";
 import type { ProfileView, SectionKey } from "@resfolio/profile";
 
 /**
@@ -21,6 +22,9 @@ export const SDK_VERSION = 1;
 
 /** Re-exported so templates import the view contract from the SDK only. */
 export type { ProfileView, SectionKey } from "@resfolio/profile";
+/** Likewise the post contract — the `blogPost` route's render input. Templates
+ * never import `@resfolio/blog`; the platform resolves a post and passes it. */
+export type { PostView, BlogBody, BlogNode, BlogMark } from "@resfolio/blog";
 
 export type PageSize = "A4" | "LETTER";
 
@@ -228,6 +232,23 @@ export interface PortfolioPageProps<Config> {
   theme: ResolvedTheme;
   params: Record<string, string>;
   basePath: string;
+  /**
+   * The resolved post — **only** on the `blogPost` route, and only when the
+   * slug matched a published post.
+   *
+   * A post body is not part of the Profile and deliberately never will be: it
+   * lives in its own table because the profile document is rewritten in full on
+   * every autosave and snapshotted in full on every publish (doc 07). So the
+   * ProfileView cannot carry it, and the rule that renderers never fetch data
+   * still holds — **the platform resolves this and passes it in**, exactly as
+   * it does `params` and `basePath`.
+   *
+   * Optional because every other page kind renders without it. A `blogPost`
+   * renderer must still handle `undefined`: the platform 404s an unknown slug
+   * before rendering, but a template is not entitled to assume that, for the
+   * same reason `projectDetail` renders a not-found body rather than crashing.
+   */
+  post?: PostView;
 }
 
 /** A portfolio page renderer is a **universal component** (doc 05):

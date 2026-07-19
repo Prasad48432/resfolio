@@ -263,15 +263,30 @@ export async function publishSite(userId: string): Promise<PublishSiteResult> {
  * which one" — the question the cache tag needs.
  */
 export async function getSiteIdBySlug(slug: string): Promise<string | null> {
+  const ref = await getSiteRefBySlug(slug);
+  return ref?.siteId ?? null;
+}
+
+/** A claimed slug's site **and owning profile** ids. The render host needs both
+ * to derive its cache tags before the cached work runs: a portfolio render
+ * depends on the site (`site:<id>`, dropped on publish) *and* on the owner's
+ * posts (`blog:<id>`, dropped on any post write), and a tag can't be read out
+ * of the value it is tagging. Answers for any claimed slug regardless of
+ * publish state — see `getSiteIdBySlug`. */
+export async function getSiteRefBySlug(
+  slug: string,
+): Promise<{ siteId: string; profileId: string } | null> {
   const row = await db.query.site.findFirst({
     where: eq(schema.site.slug, slug.trim().toLowerCase()),
-    columns: { id: true },
+    columns: { id: true, profileId: true },
   });
-  return row?.id ?? null;
+  return row ? { siteId: row.id, profileId: row.profileId } : null;
 }
 
 export interface SiteRenderData {
   siteId: string;
+  /** The owning profile — what the render host keys native blog posts off. */
+  profileId: string;
   slug: string;
   templateId: string;
   templateMajor: number;
@@ -306,6 +321,7 @@ export async function getSiteForRender(
   }
   return {
     siteId: row.id,
+    profileId: row.profileId,
     slug: row.slug,
     templateId: row.templateId,
     templateMajor: row.templateMajor,

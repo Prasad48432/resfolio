@@ -10,6 +10,7 @@ export {
   getSiteForOwner,
   getSiteForRender,
   getSiteIdBySlug,
+  getSiteRefBySlug,
   isSlugAvailable,
   listDiscoverableSites,
   publishSite,

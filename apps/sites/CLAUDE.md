@@ -77,6 +77,21 @@ Resolve and Deliver; Project and Render are shared code.
     which routes 404.
     `generateMetadata` sets canonical + honors `discoverable`; the home page
     emits a JSON-LD `Person`. The shared Render stage is `lib/render-portfolio-page.tsx`.
+    **The `blogPost` route is the one place Resolve differs per page kind**:
+    `loadPost(profileId, slug)` runs only there, because a post body is
+    unbounded prose and folding every post into the portfolio load would put
+    the whole blog in the cache entry behind every page. It returns a
+    `PostView`, and the Render stage 404s a `blogPost` route with no post — the
+    template's own "Post not found" body is robustness, not the behaviour.
+    A post also gets **its own metadata** (title, description, cover,
+    `og:type=article`); inheriting the profile's would give every post on a
+    site an identical title and social card.
+    **Two cache tags, not one.** A portfolio render depends on the site's
+    pinned profile version *and* on the owner's posts, which change on
+    different events — so the caches carry `site:<id>` **and**
+    `blog:<profileId>`, and `/api/revalidate` accepts `{ siteId }`,
+    `{ profileId }`, or both. Tagging only the site left a newly published post
+    invisible (and an unpublished one readable) for the full 24h fallback.
   - ~~`app/preview/portfolio/[[...slug]]`~~ — **removed 2026-07-18.** The
     dashboard iframed this to show a live draft, which meant re-rendering the
     entire portfolio application after every save — a cost that grows with each

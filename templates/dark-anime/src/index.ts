@@ -2,6 +2,8 @@ import { defineTemplate } from "@resfolio/template-sdk";
 
 import { defaultDarkAnimeConfig, darkAnimeConfigSchema } from "./config";
 import { AboutPage } from "./pages/about";
+import { BlogPage } from "./pages/blog";
+import { BlogPostPage } from "./pages/blog-post";
 import { HomePage } from "./pages/home";
 import { ProjectDetailPage } from "./pages/project-detail";
 import { ProjectsPage } from "./pages/projects";
@@ -16,7 +18,8 @@ import { themes } from "./theme";
  * `Portfolio-v2` without the dash is a different, unrelated site). A dark-first
  * developer site: a full-bleed banner, an avatar breaking its lower edge, a
  * dashed reading column, a fixed INDEX rail, and a single-scroll home —
- * Experience, Projects, Skills, Writing, a pull-quote.
+ * Experience, Projects, Skills, Writing, a pull-quote — plus `/blog` and
+ * `/blog/<slug>` for posts written natively in Resfolio.
  *
  * **What we kept and what we changed.** The reference is a personal site: its
  * name, bio, experience list, skills and socials are hardcoded arrays inside
@@ -97,7 +100,15 @@ export const darkAnime = defineTemplate({
   },
 
   capabilities: {
-    pages: ["home", "projects", "projectDetail", "about", "resume"],
+    pages: [
+      "home",
+      "projects",
+      "projectDetail",
+      "about",
+      "resume",
+      "blog",
+      "blogPost",
+    ],
   },
 
   pages: {
@@ -106,6 +117,8 @@ export const darkAnime = defineTemplate({
     projectDetail: ProjectDetailPage,
     about: AboutPage,
     resume: ResumePage,
+    blog: BlogPage,
+    blogPost: BlogPostPage,
   },
 });
 

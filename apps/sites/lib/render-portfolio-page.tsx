@@ -2,6 +2,7 @@ import { resolvePortfolioRoute } from "@resfolio/portfolio";
 import {
   PROFILE_VIEW_VERSION,
   resolveTheme,
+  type PostView,
   type ProfileView,
 } from "@resfolio/template-sdk";
 import { notFound } from "next/navigation";
@@ -29,6 +30,13 @@ export function renderPortfolioPage(input: {
   config: unknown;
   slug: string[] | undefined;
   basePath: string;
+  /**
+   * The resolved post for a `blogPost` route. Resolved by the caller (the
+   * Resolve stage) rather than here, because Render is pure and synchronous —
+   * loading it here would make this async and break the property that Render
+   * is the same code on every surface.
+   */
+  post?: PostView;
 }): ReactElement {
   const route = resolvePortfolioRoute(input.slug);
   if (!route) {
@@ -80,6 +88,17 @@ export function renderPortfolioPage(input: {
   // there are no user token overrides — the chosen preset resolves as-is.
   const theme = resolveTheme(template, {});
 
+  // A `blogPost` route whose slug matched nothing is a 404, decided here so
+  // every surface answers identically — the template's own "Post not found"
+  // body exists for robustness, not as the product behaviour.
+  if (route.page === "blogPost" && !input.post) {
+    log.debug(
+      { slug: route.params["slug"] },
+      "render 404: no published post with this slug",
+    );
+    notFound();
+  }
+
   return (
     <Page
       view={input.view}
@@ -87,6 +106,7 @@ export function renderPortfolioPage(input: {
       theme={theme}
       params={route.params}
       basePath={input.basePath}
+      post={input.post}
     />
   );
 }

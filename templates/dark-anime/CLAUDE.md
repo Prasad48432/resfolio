@@ -72,6 +72,28 @@ Two deliberate departures:
 - **The rail lists only sections that exist.** Built from the same conditions as
   the sections themselves — a rail pointing at an empty anchor is worse than no
   rail.
+- **Writing is one list of one shape.** A post written natively in Resfolio and
+  an article imported from RSS arrive identically (the blog domain projects
+  posts into the ProfileView before this template runs), so `WritingCard` never
+  asks where an entry came from — it reads the shape. `slug` → a native post at
+  `<basePath>/blog/<slug>`; `url` → link out, marked external; neither → an
+  inert `<div>`, because an `<a>` with no `href` is focusable, announced as a
+  link, and goes nowhere. Cover, tags and reading time are each optional and
+  collapse cleanly.
+  - **Row separators sit on `.rf-writing > *`, not on `.rf-write`.** Each card
+    is wrapped by the `Reveal` island, so `.rf-write:first-child` is true for
+    *every* card — each is the only child of its own wrapper — and styling the
+    card directly erases every rule in the list.
+  - **`styles.ts` is one template literal: no backticks in its comments.** A
+    stray pair closes the string and the file stops parsing.
+- **`/blog` and `/blog/<slug>`.** The index (`pages/blog.tsx`) renders the
+  **Writing section of the ProfileView** — not a separate post list — so it is
+  the same `WritingCard` the home page uses and needed no new data source. The
+  detail page (`pages/blog-post.tsx`) takes `props.post`, resolved by the
+  platform, and renders the body through the SDK's `renderPostBody`. It styles
+  the `rf-post-*` class contract in `styles.ts`; the SDK picks the elements,
+  this template picks the look. No INDEX rail on a post: the rail indexes
+  sections of a long scroll, and a post is one continuous piece of prose.
 - **`requirements` is advisory** (doc 05). The dashboard prompts and gates
   Publish; nothing blocks a render. Every renderer must still tolerate every
   field being absent — the sparse `jun` fixture is the test that they do.

@@ -25,7 +25,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <ResfolioLogo size={32} className="text-foreground" />
+            <ResfolioLogo size={100} className="text-foreground" />
             <p className="mt-4 max-w-sm text-[14px] text-muted">
               A career OS for people who make things. One profile you own —
               resume, portfolio and API generated from it.

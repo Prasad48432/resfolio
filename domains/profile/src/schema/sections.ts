@@ -102,6 +102,24 @@ export const skillGroupSchema = z.object({
   skills: z.array(z.string().trim().max(60)).max(50).default([]),
 });
 
+/**
+ * A published piece of writing — an external article, a talk, or a post
+ * authored natively in Resfolio and projected in by `@resfolio/blog`.
+ *
+ * The last four fields exist so a **native post and an imported reference are
+ * the same shape** (doc 01): a renderer reads one Writing list and never learns
+ * that the blog domain exists. They are all optional/defaulted, so every
+ * profile stored before they existed still parses unchanged — additive, no
+ * migration, no `PROFILE_SCHEMA_VERSION` bump.
+ *
+ * `slug` rather than a second URL is deliberate. A native post's public address
+ * is `<site>/blog/<slug>`, and the site's base path is known only to the
+ * renderer — the projection runs long before it. Storing a URL here would mean
+ * guessing the origin and writing a wrong one into the profile; storing the
+ * slug lets the template build the right one from its own `basePath`, which is
+ * the same reason project detail pages take an id rather than a URL. `url`
+ * stays for *external* writing, where the destination is the whole point.
+ */
 export const writingItemSchema = z.object({
   ...provenanceFields,
   title: requiredText(200),
@@ -109,6 +127,12 @@ export const writingItemSchema = z.object({
   url: optionalField(httpUrlSchema),
   date: optionalField(calendarDateSchema),
   summary: richTextSchema.default(""),
+  /** Set only on natively authored posts — the key to their on-site URL. */
+  slug: optionalField(z.string().trim().max(80)),
+  coverImage: optionalField(httpUrlSchema),
+  tags: z.array(z.string().trim().max(40)).max(12).default([]),
+  /** Derived from the body by the blog domain; never typed by hand. */
+  readingMinutes: z.number().int().positive().max(999).optional(),
 });
 
 export const certificationItemSchema = z.object({

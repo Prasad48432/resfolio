@@ -16,8 +16,8 @@ import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
 import { markReferencedAssets } from "@/lib/assets";
-import { env } from "@/lib/env";
 import { getDashboardPortfolioTemplate } from "@/lib/portfolio-templates";
+import { revalidatePublicSite } from "@/lib/revalidate-site";
 
 /**
  * Portfolio Site mutations (docs/architecture/06-api-architecture.md): thin
@@ -39,32 +39,8 @@ function toActionError(error: unknown): never {
   throw error;
 }
 
-/**
- * Ask `apps/sites` to drop this site's ISR cache after a publish (doc 04). The
- * two apps are separate deployments, so an in-process `revalidateTag` can't
- * reach the render host — we POST its on-demand revalidation route, guarded by
- * the shared render secret. Optional: absent config, the site still updates via
- * the 24h fallback TTL, so this is best-effort and never fails the publish.
- */
-async function revalidatePublishedSite(siteId: string): Promise<void> {
-  const sitesUrl = env.SITES_URL;
-  const secret = env.RENDER_SECRET;
-  if (!sitesUrl || !secret) {
-    return;
-  }
-  try {
-    await fetch(`${sitesUrl.replace(/\/$/, "")}/api/revalidate`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${secret}`,
-      },
-      body: JSON.stringify({ siteId }),
-    });
-  } catch {
-    // Best-effort — the fallback TTL covers a missed invalidation.
-  }
-}
+// Cache invalidation for the public site lives in `lib/revalidate-site.ts`,
+// shared with the blog actions — a post write invalidates the same host.
 
 export const createPortfolioSiteAction = createAction({
   name: "portfolio.create",
@@ -169,7 +145,7 @@ export const publishPortfolioSiteAction = createAction({
   handler: async (_input, ctx) => {
     try {
       const result = await publishSite(ctx.userId);
-      await revalidatePublishedSite(result.siteId);
+      await revalidatePublicSite({ siteId: result.siteId });
       revalidatePath("/portfolio");
       return { publishedVersionId: result.publishedVersionId };
     } catch (error) {

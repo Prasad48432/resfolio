@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Button } from "@resfolio/ui";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 
 import { EmptyState } from "@/components/layout/empty-state";
@@ -45,7 +45,19 @@ import { SortableItem } from "./sortable-item";
  * `append`/`remove`. Item ids come from the domain (`createItemId`) via the
  * config's `makeBlank`, so they're stable and never reused.
  */
-export function SectionEditor({ config }: { config: SectionConfig }) {
+export function SectionEditor({
+  config,
+  projected,
+}: {
+  config: SectionConfig;
+  /**
+   * Read-only rows rendered above the editable ones — content the section
+   * shows but does not own. Writing uses it for natively authored blog posts,
+   * which are projected in at read time and edited at `/blog`. Kept as a slot
+   * rather than a `blog` prop so this component stays section-agnostic.
+   */
+  projected?: ReactNode;
+}) {
   const { control } = useFormContext<ProfileFormValues>();
   const { fields, append, remove, move } = useFieldArray({
     control,
@@ -102,11 +114,17 @@ export function SectionEditor({ config }: { config: SectionConfig }) {
         </Button>
       </div>
 
+      {projected}
+
       {fields.length === 0 ? (
-        <EmptyState
-          size="inline"
-          title={`No ${config.title.toLowerCase()} yet.`}
-        />
+        // Only genuinely empty when nothing is projected either — a Writing
+        // section carrying three published posts is not "no writing yet".
+        projected ? null : (
+          <EmptyState
+            size="inline"
+            title={`No ${config.title.toLowerCase()} yet.`}
+          />
+        )
       ) : (
         <DndContext
           sensors={sensors}

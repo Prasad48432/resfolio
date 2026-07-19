@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { TEST_IDS } from "@/lib/testids";
 
 import { LoginButtons } from "./login-buttons";
+import ResfolioLogo from "@/components/brand/resfolio-logo";
+import ResfolioMark from "@/components/brand/resfolio-mark";
 
 export const metadata: Metadata = {
   title: "Sign in — Resfolio",
@@ -28,20 +30,19 @@ export default async function LoginPage({
 
   return (
     <div
-      className="flex w-full max-w-sm flex-col items-center gap-8"
+      className="flex w-full max-w-md flex-col items-center gap-8"
       data-testid={TEST_IDS.loginPage}
     >
-      <div className="flex flex-col items-center gap-3 text-center">
-        <p className="label-eyebrow">Resfolio</p>
-        <h1 className="font-display text-4xl text-foreground">
+      <div className="flex flex-col items-center gap-2 md:gap-3 text-center w-full">
+        <h1 className="font-display text-3xl md:text-4xl text-foreground">
           Sign in to your <em className="text-brand">Career OS</em>
         </h1>
-        <p className="max-w-xs text-sm leading-relaxed text-muted">
+        <p className="text-xs md:text-sm leading-relaxed text-muted">
           One profile that powers your resume, portfolio, and personal site.
         </p>
       </div>
 
-      <div className="card-surface flex w-full flex-col gap-3 p-6">
+      <div className="card-surface flex w-full flex-col gap-3 p-6 shadow-none">
         <LoginButtons providers={providers} />
         {error ? (
           <p

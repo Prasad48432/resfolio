@@ -291,6 +291,87 @@ export function buildPortfolioStyles(): string {
   color: var(--rf-faint);
 }
 
+/* ── Writing ─────────────────────────────────────────────────────────
+   Deliberately *not* the project card grid. Writing is read in a column —
+   a headline, a line of prose, and the two facts that decide whether to
+   click (when, how long). Two of these side by side would halve the
+   measure of the excerpt, which is the part doing the persuading.
+
+   The cover is a narrow leading thumbnail rather than a full-bleed header
+   for the same reason: it sits inside a 46rem reading column, and a wide
+   image at the top of every entry turns a scannable list into a stack of
+   billboards. It also keeps rows the same height whether or not a post
+   has one, so a mixed list still reads as a list. */
+.rf-writing { display: flex; flex-direction: column; }
+/* The separator and rhythm sit on the *direct child*, not on .rf-write,
+   because each card is wrapped by the Reveal island. Targeting the card
+   itself would make :first-child true for every one of them — each is the
+   only child of its own wrapper — and quietly erase every rule in the list.
+   Anchoring here works whether or not the wrapper is there.
+   (No backticks in this file: it is one template literal.) */
+.rf-writing > * { padding: 1rem 0; border-top: 1px dashed var(--rf-rule); }
+.rf-writing > *:first-child { padding-top: 0; border-top: 0; }
+.rf-write {
+  display: flex;
+  gap: 0.875rem;
+  align-items: flex-start;
+}
+a.rf-write { transition: opacity 140ms ease; }
+a.rf-write:hover { opacity: 0.72; }
+a.rf-write:hover .rf-write-title { text-decoration: underline; text-underline-offset: 0.2em; }
+
+.rf-write-cover {
+  width: 6.5rem;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.375rem;
+  background: var(--rf-surface-2);
+}
+.rf-write-cover img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 30rem) {
+  /* Below this the thumbnail eats the excerpt's measure. Drop it rather
+     than shrink it — a 3rem image communicates nothing. */
+  .rf-write-cover { display: none; }
+}
+
+.rf-write-body { flex: 1; min-width: 0; }
+.rf-write-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3125rem;
+}
+.rf-write-out { width: 0.6875rem; height: 0.6875rem; flex-shrink: 0; color: var(--rf-faint); align-self: center; }
+.rf-write-excerpt {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--rf-muted);
+  /* Two lines is the most an excerpt earns in a scannable list; the full
+     piece is one click away. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.rf-write-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4375rem;
+  font-family: var(--rf-font-mono);
+  font-size: 0.6875rem;
+  color: var(--rf-faint);
+}
+/* A middot between facts, drawn by the separator rather than typed into the
+   data — so the last item never trails one and an absent fact leaves no gap. */
+.rf-write-meta span + span::before { content: "·"; margin-right: 0.5rem; }
+.rf-write .rf-tags { margin-top: 0.5rem; padding-top: 0; }
+
 /* ── Skills ──────────────────────────────────────────────────────── */
 .rf-skill-group + .rf-skill-group { margin-top: 1rem; }
 .rf-skill-name { font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.375rem; }
@@ -305,6 +386,145 @@ export function buildPortfolioStyles(): string {
   font-size: 0.75rem;
   color: var(--rf-muted);
 }
+
+/* ── Post detail ─────────────────────────────────────────────────────
+   The reading surface. Everything below styles the rf-post-* class
+   contract the SDK's renderPostBody emits — the template owns the look
+   entirely; the SDK only decides the elements and the class names.
+
+   Body copy steps up from the site's 15px: this column exists to be read
+   for several minutes, unlike a project card scanned in two seconds. */
+.rf-post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-family: var(--rf-font-mono);
+  font-size: 0.6875rem;
+  color: var(--rf-faint);
+}
+.rf-post-meta span + span::before,
+.rf-post-meta time + span::before { content: "·"; margin-right: 0.5rem; }
+
+.rf-post-cover {
+  margin: 1.5rem 0;
+  overflow: hidden;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.5rem;
+  background: var(--rf-surface-2);
+}
+.rf-post-cover img { width: 100%; height: auto; }
+
+.rf-post-standfirst {
+  margin-top: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--rf-muted);
+}
+
+.rf-post-body { margin-top: 1.75rem; font-size: 1rem; line-height: 1.75; }
+.rf-post-p { margin: 0 0 1.15em; }
+.rf-post-body > :last-child { margin-bottom: 0; }
+
+/* Headings are h2/h3/h4 in the markup — the post title is the page's only
+   h1. Sized by rank rather than by tag so the scale stays legible if the
+   SDK's demotion mapping ever changes. */
+.rf-post-body :where(h2, h3, h4) {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 2em 0 0.6em;
+}
+.rf-post-body h2 { font-size: 1.3125rem; }
+.rf-post-body h3 { font-size: 1.0625rem; }
+.rf-post-body h4 { font-size: 0.9375rem; color: var(--rf-muted); }
+.rf-post-body > :where(h2, h3, h4):first-child { margin-top: 0; }
+
+.rf-post-link { color: var(--rf-fg); text-decoration: underline; text-underline-offset: 0.15em; text-decoration-color: var(--rf-faint); }
+.rf-post-link:hover { text-decoration-color: var(--rf-fg); }
+.rf-post-underline { text-decoration: underline; text-underline-offset: 0.15em; }
+
+.rf-post-code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.25rem;
+  background: var(--rf-surface-2);
+  font-family: var(--rf-font-mono);
+  font-size: 0.85em;
+}
+.rf-post-pre {
+  margin: 1.5em 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.5rem;
+  background: var(--rf-surface);
+  /* Code is the one thing here that may not wrap — breaking a line changes
+     what it means. It scrolls in its own box so the page never does. */
+  overflow-x: auto;
+}
+.rf-post-codeblock {
+  font-family: var(--rf-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre;
+  color: var(--rf-fg);
+}
+
+.rf-post-quote {
+  margin: 1.5em 0;
+  padding-left: 1rem;
+  border-left: 2px solid var(--rf-rule);
+  color: var(--rf-muted);
+}
+.rf-post-quote > :last-child { margin-bottom: 0; }
+
+/* The site-wide :where(ul, ol) reset strips markers, so both lists restate
+   them. Padding, not a ::before, so wrapped lines align under the text. */
+.rf-post-ul, .rf-post-ol { margin: 1.15em 0; padding-left: 1.35em; }
+.rf-post-ul { list-style: disc; }
+.rf-post-ol { list-style: decimal; }
+.rf-post-li { margin-bottom: 0.4em; }
+.rf-post-li::marker { color: var(--rf-faint); }
+.rf-post-li > .rf-post-p { margin-bottom: 0.4em; }
+
+.rf-post-tasks { margin: 1.15em 0; padding-left: 0; list-style: none; }
+.rf-post-task { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.4em; }
+.rf-post-task input { margin-top: 0.4em; flex-shrink: 0; accent-color: var(--rf-muted); }
+.rf-post-task[data-checked="true"] > span { color: var(--rf-faint); text-decoration: line-through; }
+.rf-post-task > span > .rf-post-p { margin-bottom: 0; }
+
+.rf-post-callout {
+  margin: 1.5em 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--rf-rule);
+  border-left-width: 2px;
+  border-radius: 0.375rem;
+  background: var(--rf-surface);
+  font-size: 0.9375rem;
+}
+.rf-post-callout > :last-child { margin-bottom: 0; }
+/* Tone is carried by the left edge only. A filled panel per tone would fight
+   the template's near-monochrome palette; a coloured rule reads at a glance
+   and survives both keys. */
+.rf-post-callout[data-tone="info"] { border-left-color: #4b8bd6; }
+.rf-post-callout[data-tone="success"] { border-left-color: #4c9a68; }
+.rf-post-callout[data-tone="warning"] { border-left-color: #c08a3e; }
+.rf-post-callout[data-tone="danger"] { border-left-color: #c4574f; }
+
+.rf-post-figure { margin: 1.75em 0; }
+.rf-post-image {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.5rem;
+  background: var(--rf-surface-2);
+}
+.rf-post-figure > .rf-post-image { margin-bottom: 0.5rem; }
+.rf-post-caption {
+  font-size: 0.75rem;
+  color: var(--rf-faint);
+  text-align: center;
+}
+.rf-post-hr { margin: 2.5em 0; border: 0; border-top: 1px dashed var(--rf-rule); }
 
 /* ── Quote ───────────────────────────────────────────────────────── */
 .rf-quote-text { font-family: var(--rf-font-display); font-size: 1.375rem; line-height: 1.35; color: var(--rf-fg); }

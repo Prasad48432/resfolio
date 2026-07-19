@@ -85,6 +85,69 @@ validation error.
   written by the user here, which is what that value means; adding a
   `"resfolio"` source would widen an additive-only enum to describe something
   the vocabulary already covers.
+- **The projection carries `slug`, never a `url`.** A native post's public
+  address is `<basePath>/blog/<slug>`, and the base path belongs to the
+  renderer — the projection runs long before one exists. Writing an absolute
+  URL here would mean guessing the origin and baking a wrong one into the
+  profile. `url` keeps meaning "somewhere else on the internet", which is what
+  an imported reference has and a native post does not. Templates branch on
+  which of the two is present; nothing asks where an entry came from.
+- **The cover is resolved to a URL here, not passed as a key.** `WritingItem`
+  is consumed by templates, and a template may not know what R2 is (doc 07).
+  `withNativePosts` takes an optional `assetBaseUrl`; absent, covers are
+  omitted — a broken `<img>` is worse than no image, and a deployment with no
+  storage configured has no image to show.
+
+## Sync is a read, not a write
+
+There is **no write-back**: nothing copies a post into the profile JSON when it
+is created, edited, published or deleted. `withNativePosts` merges published
+posts into `sections.writing` at read time, which is what makes every case in
+"keep the Writing section in sync" fall out for free — unpublish and the entry
+is filtered; delete and it is gone; retitle and the next render shows the new
+title. There is one copy of every fact, so there is no drift to reconcile.
+
+The cost is that projected entries are **not in the profile draft**, so they
+cannot be edited at `/profile`. The dashboard therefore renders them there as
+read-only rows badged "From blog", linking to `/blog/[id]` — an automatic
+behaviour nobody can see reads as a broken one.
+
+**Call `withNativePosts` before `buildProfileView` on every surface that
+renders Writing.** Today that is `apps/sites/lib/resolve-site.ts` (the public
+portfolio). A surface that forgets does not fail — it silently renders a
+Writing section with the posts missing.
+
+## `PostView` — the render contract for one post
+
+`view.ts` is to a post what `buildProfileView` is to a Profile, and exists for
+the same reason: a renderer must never receive a database record.
+`BlogPostRecord` carries `profileId`, `coverAssetKey`, `status` and lifecycle
+timestamps — ownership facts a template has no business seeing and that we are
+not willing to freeze into a public contract. Same rules: pure, synchronous,
+additive-only, dates as calendar strings, keys already resolved to URLs.
+
+**The body stays a node tree, not HTML.** Flattening it to a string here would
+mean the whitelist stopped being what makes markup unrepresentable and became a
+string that merely happens to be safe today. The SDK's `renderPostBody` turns
+the tree into React.
+
+`buildPostView` deliberately does **not** check `status`. Callers decide what
+may render, and the only readers that reach a template
+(`getPublishedPostBySlug`, `listPublishedPosts`) return published rows by
+construction. Re-checking here would imply a caller could safely pass a draft.
+
+## Cache invalidation is the caller's job, and it is not optional
+
+The public portfolio render depends on these rows, so `apps/sites` tags both
+its portfolio and post caches with **`blog:<profileId>`** — separate from
+`site:<id>`, because the two change on different events: a site publish pins a
+new profile version, while a post write changes nothing about the site. The
+dashboard's blog actions call the render host's `/api/revalidate` with
+`{ profileId }` after every create/update/delete (`lib/revalidate-site.ts`).
+
+Drop that call and a newly published post stays invisible for the full 24-hour
+fallback window — and an unpublished or deleted one stays **readable**, which is
+the failure that actually matters.
 
 ## Tests
 

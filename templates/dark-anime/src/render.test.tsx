@@ -3,6 +3,7 @@ import {
   checkTemplateRequirements,
   resolveTheme,
   type PortfolioPageKind,
+  type PostView,
   type ProfileView,
 } from "@resfolio/template-sdk";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -74,7 +75,15 @@ describe("dark-anime — definition", () => {
 
   it("declares the same pages as the platform route table (URL-stable switch)", () => {
     expect([...darkAnime.capabilities.pages].sort()).toEqual(
-      ["about", "home", "projectDetail", "projects", "resume"].sort(),
+      [
+        "about",
+        "blog",
+        "blogPost",
+        "home",
+        "projectDetail",
+        "projects",
+        "resume",
+      ].sort(),
     );
   });
 
@@ -163,6 +172,197 @@ describe("dark-anime — config", () => {
         }),
       ),
     ).not.toContain("rf-avatar");
+  });
+});
+
+/**
+ * Writing carries entries from two places that must render as one list: posts
+ * written natively in Resfolio (projected in by `@resfolio/blog`, identified by
+ * a `slug`) and articles imported from elsewhere (identified by a `url`). The
+ * template never asks which is which — it reads the shape.
+ */
+/** A view whose Writing section holds exactly the given items. */
+function withWriting(items: unknown[]): ProfileView {
+  return {
+    ...ada,
+    sections: [
+      ...ada.sections.filter((section) => section.key !== "writing"),
+      { key: "writing", title: "Writing", items },
+    ],
+  } as ProfileView;
+}
+
+/** A text node, for building post bodies. */
+const t = (value: string) => ({ type: "text", text: value });
+
+/** Render the `blogPost` page with a given post (or none). */
+function renderPost(post: PostView | undefined): string {
+  const Page = darkAnime.pages.blogPost;
+  if (!Page) throw new Error("no blogPost renderer");
+  return renderToStaticMarkup(
+    <Page
+      view={ada}
+      config={defaultDarkAnimeConfig}
+      theme={theme}
+      params={{ slug: post?.slug ?? "missing" }}
+      basePath={BASE}
+      post={post}
+    />,
+  );
+}
+
+const nativePost = {
+  id: "post-1",
+  source: "manual",
+  title: "On Observability",
+  publisher: "",
+  summary: "Why boring systems win.",
+  date: "2026-03-04",
+  slug: "on-observability",
+  coverImage: "https://cdn.example.com/cover.webp",
+  tags: ["rust", "ops"],
+  readingMinutes: 7,
+};
+
+describe("dark-anime — writing", () => {
+  it("links a native post to its on-site URL, built from the base path", () => {
+    const html = render("home", withWriting([nativePost]));
+    expect(html).toContain(`href="/p/ada/blog/on-observability"`);
+    expect(html).toContain("On Observability");
+  });
+
+  it("renders cover, excerpt, date, reading time and tags", () => {
+    const html = body(render("home", withWriting([nativePost])));
+    expect(html).toContain("https://cdn.example.com/cover.webp");
+    expect(html).toContain("Why boring systems win.");
+    expect(html).toContain("7 min read");
+    expect(html).toContain("rust");
+    expect(html).toContain("Mar 2026");
+  });
+
+  it("links an imported article out and marks it external", () => {
+    const html = render(
+      "home",
+      withWriting([
+        {
+          id: "ref-1",
+          source: "rss",
+          title: "Elsewhere",
+          publisher: "Some Blog",
+          summary: "",
+          url: "https://example.com/post",
+          tags: [],
+        },
+      ]),
+    );
+    expect(html).toContain(`href="https://example.com/post"`);
+    expect(html).toContain("rel="); // noopener on the outbound link
+    expect(body(html)).toContain("rf-write-out");
+  });
+
+  it("renders an entry with neither slug nor url as inert, not a dead link", () => {
+    // A talk with no recording is still worth listing — but an <a> with no
+    // href is focusable, announced as a link, and goes nowhere.
+    const html = body(
+      render(
+        "home",
+        withWriting([
+          {
+            id: "talk-1",
+            source: "manual",
+            title: "A Talk",
+            publisher: "SomeConf",
+            summary: "",
+            tags: [],
+          },
+        ]),
+      ),
+    );
+    expect(html).toContain("A Talk");
+    expect(html).toContain(`<div class="rf-write"`);
+  });
+
+  it("survives a post with no cover, tags or reading time", () => {
+    const html = render(
+      "home",
+      withWriting([
+        {
+          id: "post-2",
+          source: "manual",
+          title: "Bare Post",
+          publisher: "",
+          summary: "",
+          slug: "bare-post",
+          tags: [],
+        },
+      ]),
+    );
+    expect(html).toContain("Bare Post");
+    expect(body(html)).not.toContain("rf-write-cover");
+  });
+});
+
+describe("dark-anime — blog index & post", () => {
+  const post = {
+    id: "post-1",
+    title: "On Observability",
+    slug: "on-observability",
+    excerpt: "Why boring systems win.",
+    body: {
+      type: "doc",
+      content: [
+        { type: "heading", attrs: { level: 2 }, content: [t("A Section")] },
+        { type: "paragraph", content: [t("Body prose here.")] },
+        { type: "codeBlock", content: [t("cargo build")] },
+      ],
+    },
+    coverImage: "https://cdn.example.com/cover.webp",
+    tags: ["rust"],
+    readingMinutes: 7,
+    publishedOn: "2026-03-04",
+    seo: { title: "On Observability", description: "Why boring systems win." },
+  } as PostView;
+
+  it("the index lists writing and links each entry", () => {
+    const html = render("blog", withWriting([nativePost]));
+    expect(html).toContain("Writing");
+    expect(html).toContain(`href="/p/ada/blog/on-observability"`);
+  });
+
+  it("the index degrades to an empty state, not a crash", () => {
+    expect(render("blog", withWriting([]))).toContain("Nothing published yet");
+  });
+
+  it("renders the post title, meta, cover, tags and body", () => {
+    const html = renderPost(post);
+    expect(html).toContain("On Observability");
+    expect(html).toContain("7 min read");
+    // The machine-readable date rides on <time>; HTML attribute names are
+    // case-insensitive, so React's `dateTime` spelling is matched either way.
+    expect(html).toMatch(/<time [^>]*datetime="2026-03-04"/i);
+    expect(html).toContain("Mar 2026");
+    expect(html).toContain("https://cdn.example.com/cover.webp");
+    expect(html).toContain("Body prose here.");
+    expect(html).toContain("cargo build");
+    expect(html).toContain("rust");
+  });
+
+  it("keeps the post title as the only h1 on the page", () => {
+    // The body's own h2 is demoted by the SDK; two h1s would be a real
+    // accessibility and SEO fault on the page people actually read.
+    const html = renderPost(post);
+    expect(html.split("<h1").length - 1).toBe(1);
+    expect(html).toContain("A Section");
+  });
+
+  it("degrades to a readable not-found body when no post is passed", () => {
+    // The platform 404s an unknown slug before rendering; a template is not
+    // entitled to assume that, and must not throw over a stale link.
+    expect(renderPost(undefined)).toContain("Post not found");
+  });
+
+  it("links back to the index", () => {
+    expect(renderPost(post)).toContain(`href="/p/ada/blog"`);
   });
 });
 

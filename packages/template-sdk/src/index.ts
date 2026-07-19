@@ -15,6 +15,7 @@ export {
   type DateRangeOptions,
 } from "./format";
 export { renderRichText, richTextToPlainText } from "./rich-text";
+export { renderPostBody, postBodyToPlainText } from "./post-body";
 export { TemplateDefinitionError, TemplateThemeError } from "./errors";
 
 export {
@@ -29,6 +30,7 @@ export {
   type PortfolioPageProps,
   type PortfolioPageRenderer,
   type PortfolioTemplateDefinition,
+  type PostView,
   type ProfileRequirementKey,
   type ProfileView,
   type ResolvedTheme,

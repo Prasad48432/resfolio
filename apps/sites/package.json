@@ -13,6 +13,7 @@
     "check:ats": "tsx scripts/ats-check.mts"
   },
   "dependencies": {
+    "@resfolio/blog": "workspace:*",
     "@resfolio/document": "workspace:*",
     "@resfolio/env": "workspace:*",
     "@resfolio/fixtures": "workspace:*",

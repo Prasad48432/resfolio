@@ -28,14 +28,39 @@ function post(overrides: Partial<BlogPostRecord> = {}): BlogPostRecord {
 
 describe("postToWritingItem", () => {
   it("maps a post onto the Writing item shape", () => {
-    expect(postToWritingItem(post())).toEqual({
+    expect(postToWritingItem(post({ tags: ["essays"] }))).toEqual({
       id: "post-1",
       source: "manual",
       title: "On Writing",
       publisher: "",
       date: "2026-03-04",
       summary: "A short excerpt.",
+      slug: "on-writing",
+      coverImage: undefined,
+      tags: ["essays"],
+      readingMinutes: 3,
     });
+  });
+
+  it("carries the slug, not a url — the renderer owns the base path", () => {
+    const item = postToWritingItem(post());
+    expect(item.slug).toBe("on-writing");
+    // A native post is read on the owner's own site. Writing an absolute URL
+    // here would mean guessing the origin; `url` means "somewhere else".
+    expect(item.url).toBeUndefined();
+  });
+
+  it("resolves the cover against the asset base url", () => {
+    const item = postToWritingItem(post({ coverAssetKey: "u/p1/blog/x.webp" }), {
+      assetBaseUrl: "https://cdn.example.com/",
+    });
+    expect(item.coverImage).toBe("https://cdn.example.com/u/p1/blog/x.webp");
+  });
+
+  it("omits the cover when no asset base url is configured", () => {
+    // Storage is optional (doc 07) — a broken <img> is worse than no image.
+    const item = postToWritingItem(post({ coverAssetKey: "u/p1/blog/x.webp" }));
+    expect(item.coverImage).toBeUndefined();
   });
 
   it("leaves the date absent for a never-published post", () => {
@@ -80,6 +105,7 @@ describe("withNativePosts", () => {
         title: "Imported",
         publisher: "Some Blog",
         summary: "",
+        tags: [],
       },
     ];
     const merged = withNativePosts(profile, [post({ id: "native-1" })]);
@@ -98,6 +124,7 @@ describe("withNativePosts", () => {
         title: "Stale copy",
         publisher: "X",
         summary: "",
+        tags: [],
       },
     ];
     const merged = withNativePosts(profile, [post({ id: "post-1" })]);

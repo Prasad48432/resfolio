@@ -21,6 +21,7 @@ import { z } from "zod";
 import { createAction } from "@/lib/actions";
 import { markReferencedAssets } from "@/lib/assets";
 import { maxImagesPerPost } from "@/lib/blog-config";
+import { revalidatePublicSite } from "@/lib/revalidate-site";
 
 /**
  * Blog post mutations (docs/architecture/06-api-architecture.md): thin adapters
@@ -77,6 +78,17 @@ export const updatePostAction = createAction({
       revalidatePath("/blog");
     }
 
+    // The public site renders published posts, so any edit to one can change
+    // what a visitor sees — the Writing list on the home page, the post itself,
+    // or both. Unconditional rather than gated on `status`: a retitled or
+    // re-tagged published post is just as stale, and the check for "did this
+    // change anything public?" is the cache's job, not this action's.
+    //
+    // The profile draft's Writing section is projected from these rows too, so
+    // the editor's read-only rows refresh with it.
+    await revalidatePublicSite({ profileId: post.profileId });
+    revalidatePath("/profile");
+
     return {
       updatedAt: post.updatedAt.toISOString(),
       // Echoed back because both are *derived* server-side: the editor renders
@@ -95,8 +107,13 @@ export const deletePostAction = createAction({
   handler: async ({ id }, ctx) => {
     // Deletes the row *and* releases the images no other post is using — the
     // whole reason this goes through the domain rather than a bare delete.
-    await deletePost(ctx.userId, id);
+    const { profileId } = await deletePost(ctx.userId, id);
     revalidatePath("/blog");
+    // A deleted post must disappear from the live site and from the Writing
+    // section immediately — this is the case where staleness is most visible,
+    // because the reason people delete a post is that it should not be up.
+    await revalidatePublicSite({ profileId });
+    revalidatePath("/profile");
     return { deleted: true as const };
   },
 });

@@ -1,3 +1,4 @@
+import { buildPostView, withNativePosts, type PostView } from "@resfolio/blog";
 import { getProfileFixture } from "@resfolio/fixtures";
 import { createLogger } from "@resfolio/observability";
 import {
@@ -78,6 +79,9 @@ export const FIXTURE_SITE_USERNAMES = Object.keys(FIXTURE_SITES);
 
 export interface LoadedPortfolio {
   siteId: string;
+  /** The owning profile — what a post lookup and the `blog:<id>` tag key off.
+   * Absent for fixture sites, which have no database rows behind them. */
+  profileId?: string;
   templateId: string;
   templateMajor: number;
   config: unknown;
@@ -124,14 +128,15 @@ async function loadFromDatabase(
     return null;
   }
 
-  const { getSiteIdBySlug, getSiteForRender } =
+  const { getSiteRefBySlug, getSiteForRender } =
     await import("@resfolio/portfolio/server");
 
-  const siteId = await getSiteIdBySlug(username);
-  if (!siteId) {
+  const ref = await getSiteRefBySlug(username);
+  if (!ref) {
     log.debug({ username }, "portfolio 404: no site owns this slug");
     return null;
   }
+  const { siteId, profileId } = ref;
 
   const load = unstable_cache(
     async (): Promise<LoadedPortfolio | null> => {
@@ -145,20 +150,84 @@ async function loadFromDatabase(
         );
         return null;
       }
+      // Natively authored posts become Writing entries *before* the
+      // projection, so the template reads one Writing list in which a post
+      // written here and an article imported from RSS are the same shape
+      // (domains/blog). Posts live in their own table, so this is the read
+      // that keeps the section in sync with no write-back and no way to drift.
+      const { listPublishedPosts } = await import("@resfolio/blog/server");
+      const posts = await listPublishedPosts(data.profileId);
+
       return {
         siteId: data.siteId,
+        profileId: data.profileId,
         templateId: data.templateId,
         templateMajor: data.templateMajor,
         config: data.config,
         discoverable: data.discoverable,
-        view: buildProfileView(data.profile, data.view),
+        view: buildProfileView(
+          withNativePosts(data.profile, posts, {
+            assetBaseUrl: env.R2_PUBLIC_BASE_URL,
+          }),
+          data.view,
+        ),
       };
     },
     ["portfolio-render-db", siteId],
-    { tags: [`site:${siteId}`], revalidate: 86400 },
+    // **Two tags, and the second is load-bearing.** This render now depends on
+    // the blog table as well as the pinned profile version, and the two change
+    // on different events: `site:<id>` drops on a site publish, `blog:<id>` on
+    // any post write. Tagging only the site would leave a newly published post
+    // invisible for the full 24-hour fallback window, with nothing able to
+    // clear it — the same class of bug as caching an unpublished 404.
+    {
+      tags: [`site:${siteId}`, `blog:${profileId}`],
+      revalidate: 86400,
+    },
   );
 
   return load();
+}
+
+/**
+ * Load one published post for the `/blog/<slug>` route.
+ *
+ * Separate from `loadPortfolio` and only called on that route, because a post
+ * body is unbounded prose: folding every post into the portfolio load would
+ * put the whole blog in the cache entry behind every page of the site. This is
+ * the one place the Resolve stage differs per page kind.
+ *
+ * Returns undefined for an unknown or draft slug — `getPublishedPostBySlug`
+ * filters by status in the query, so there is no posture in which a draft can
+ * be reached by guessing its URL.
+ */
+export async function loadPost(
+  profileId: string,
+  slug: string,
+): Promise<PostView | undefined> {
+  if (!env.DATABASE_URL) {
+    return undefined;
+  }
+
+  const load = unstable_cache(
+    async (): Promise<PostView | null> => {
+      const { getPublishedPostBySlug } = await import("@resfolio/blog/server");
+      const post = await getPublishedPostBySlug(profileId, slug);
+      if (!post) {
+        log.debug({ profileId, slug }, "post 404: no published post by slug");
+        return null;
+      }
+      return buildPostView(post, { assetBaseUrl: env.R2_PUBLIC_BASE_URL });
+    },
+    ["blog-post", profileId, slug],
+    // Same `blog:<id>` tag the portfolio load carries, so one revalidation
+    // call from the dashboard clears the index and every post together.
+    // Unpublishing must take the page down immediately, which is exactly why
+    // the null is cached under the tag rather than returned before it.
+    { tags: [`blog:${profileId}`], revalidate: 86400 },
+  );
+
+  return (await load()) ?? undefined;
 }
 
 /**

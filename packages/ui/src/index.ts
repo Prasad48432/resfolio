@@ -131,3 +131,13 @@ export {
   useSidebar,
 } from "./components/sidebar";
 export { useIsMobile } from "./hooks/use-mobile";
+
+export {
+  type CarouselApi,
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+  useCarousel,
+} from "./components/carousel";

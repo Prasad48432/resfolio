@@ -16,6 +16,7 @@ import { TEST_IDS } from "@/lib/testids";
 
 import { BasicsEditor } from "./basics-editor";
 import { CustomSectionsEditor } from "./custom-sections-editor";
+import { ProjectedPosts, type ProjectedPost } from "./projected-posts";
 import { PublishButton } from "./publish-button";
 import { SectionEditor } from "./section-editor";
 import { useProfileAutosave } from "./use-profile-autosave";
@@ -32,11 +33,19 @@ export function ProfileEditor({
   initialRev,
   publishedVersion,
   initialHasUnpublishedChanges,
+  nativePosts = [],
 }: {
   initialDraft: Profile;
   initialRev: number;
   publishedVersion: number | null;
   initialHasUnpublishedChanges: boolean;
+  /**
+   * Published blog posts, shown read-only in Writing. They are not part of the
+   * draft and never enter the form — the form's values are what autosave
+   * writes back, so a projected row landing in it would copy a post into the
+   * profile JSON and create the duplicate the projection exists to avoid.
+   */
+  nativePosts?: readonly ProjectedPost[];
 }) {
   const form = useForm<ProfileFormValues>({
     defaultValues: initialDraft,
@@ -111,7 +120,18 @@ export function ProfileEditor({
           >
             <BasicsEditor />
             {SECTION_CONFIGS.map((config) => (
-              <SectionEditor key={config.key} config={config} />
+              <SectionEditor
+                key={config.key}
+                config={config}
+                // Published blog posts show in Writing as read-only rows.
+                // Passed as `undefined` (not an empty component) when there
+                // are none, so the section's empty state still appears.
+                projected={
+                  config.key === "writing" && nativePosts.length > 0 ? (
+                    <ProjectedPosts posts={nativePosts} />
+                  ) : undefined
+                }
+              />
             ))}
             <CustomSectionsEditor />
           </form>
