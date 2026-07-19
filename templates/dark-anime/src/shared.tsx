@@ -10,6 +10,7 @@ import {
 import { ArrowUpRight, Github, Globe, Link2, Linkedin } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 
+import { BannerEmbers } from "./client/banner-embers";
 import { CommandPalette, type PaletteItem } from "./client/command-palette";
 import { IndexRail, type RailSection } from "./client/index-rail";
 import { ThemeToggle } from "./client/theme-toggle";
@@ -343,6 +344,15 @@ export function Shell({
                 may not be Next at all, and the SDK is framework-light by
                 contract (doc 05). */}
             <img src={bannerImage} alt="" />
+            {/* Atmosphere only — see the island's header for why this one is
+                allowed to render nothing without costing the page anything. */}
+            <BannerEmbers />
+            {/* Edge falloff. The banner is a hard-cropped photo the user chose
+                and we didn't; feathering it into the page background is what
+                keeps an arbitrary image from reading as a pasted rectangle,
+                and it's the same reason the bottom fade is heavier than the
+                sides — that edge meets the hero. */}
+            <div className="rf-banner-fade" aria-hidden />
           </div>
         ) : null}
 

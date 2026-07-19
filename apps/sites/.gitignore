@@ -1,5 +1,9 @@
 # Next.js
 /.next/
+# The dev server's own output tree — kept out of `.next/` so that building (or
+# restoring a Turbo build cache) can never prune the manifests a running dev
+# server is writing. See the comment in next.config.ts.
+/.next-dev/
 next-env.d.ts
 
 # Local PDF-export spike output (content-addressed PDFs; regenerate on demand)

@@ -16,8 +16,9 @@ import { themes } from "./theme";
  *
  * Adapted from **github.com/Ashutoshx7/Portfolio-v2-** (the trailing-dash repo;
  * `Portfolio-v2` without the dash is a different, unrelated site). A dark-first
- * developer site: a full-bleed banner, an avatar breaking its lower edge, a
- * dashed reading column, a fixed INDEX rail, and a single-scroll home —
+ * developer site: a full-bleed banner drifting with embers, a centred profile
+ * header below it, a dashed reading column, a fixed INDEX rail, and a
+ * single-scroll home —
  * Experience, Projects, Skills, Writing, a pull-quote — plus `/blog` and
  * `/blog/<slug>` for posts written natively in Resfolio.
  *
@@ -28,9 +29,9 @@ import { themes } from "./theme";
  * home in a Profile — the banner, the tagline, the quote, the intro-call link —
  * is template `config`, declared below and collected by the dashboard.
  *
- * Server-first with three client islands (theme toggle, ⌘K palette, INDEX
- * rail) — each an enhancement over markup already in the HTML, so the site
- * reads, navigates and indexes with no JS at all.
+ * Server-first with four client islands (theme toggle, ⌘K palette, INDEX rail,
+ * banner embers) — each an enhancement over markup already in the HTML, so the
+ * site reads, navigates and indexes with no JS at all.
  *
  * Validated + frozen by `defineTemplate` at load — a contract violation fails
  * loudly in CI, never at request time.

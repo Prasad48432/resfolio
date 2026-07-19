@@ -20,9 +20,18 @@ import {
 } from "../shared";
 
 /**
- * Home — the whole site in one scroll, as the reference has it: banner, avatar
- * over its edge, name + tagline, bio, CTAs, socials, then Experience, Projects,
- * Skills, Writing, and an optional quote.
+ * Home — the whole site in one scroll: banner, then a left-anchored profile
+ * header (framed avatar with the name beside it, tagline, bio, CTAs, socials)
+ * entirely *below* it, then Experience, Projects, Skills, Writing, and an
+ * optional quote.
+ *
+ * The reference hangs the avatar over the banner's lower edge and we did too
+ * until the banner became the centrepiece. Overlapping cost the image its
+ * bottom strip; below it, the banner is a whole picture.
+ *
+ * The header stays an avatar-left **row**. A centred stack was tried and reads
+ * as a marketing hero rather than a profile — the banner is the only thing
+ * here that spans the column.
  *
  * Every section is conditional on the ProfileView actually having the content,
  * and the INDEX rail is built from the same conditions — so a sparse profile
@@ -70,7 +79,12 @@ export function HomePage({
       <header className="rf-hero">
         <div className="rf-hero-id">
           {basics.avatarUrl ? (
-            <img className="rf-avatar" src={basics.avatarUrl} alt="" />
+            // The frame is a real element, not a border on the <img>: the mat
+            // between frame and photo is padding, and padding on the image
+            // itself would be eaten by `object-fit: cover`.
+            <span className="rf-avatar-frame">
+              <img className="rf-avatar" src={basics.avatarUrl} alt="" />
+            </span>
           ) : null}
           <div>
             <h1 className="rf-hero-name">{basics.name}</h1>

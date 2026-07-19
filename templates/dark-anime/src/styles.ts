@@ -97,18 +97,52 @@ export function buildPortfolioStyles(): string {
   color: var(--rf-faint);
 }
 
-/* ── Banner ──────────────────────────────────────────────────────── */
+/* ── Banner ──────────────────────────────────────────────────────────
+   The centrepiece. Nothing overlaps it any more: the hero begins below the
+   image, so the photo the user chose is shown whole rather than with a hole
+   punched in its lower edge for an avatar. */
 .rf-banner {
   position: relative;
   width: 100%;
   max-width: var(--rf-col);
   margin: 0 auto;
-  aspect-ratio: 1200 / 260;
+  aspect-ratio: 1200 / 300;
   overflow: hidden;
   border-bottom: 1px dashed var(--rf-rule);
   background: var(--rf-surface);
+  box-shadow: 0 4px 12px rgba(2, 6, 23, 0.1);
 }
-.rf-banner img { width: 100%; height: 100%; object-fit: cover; }
+@media (prefers-color-scheme: light) {
+  .rf-site:not([data-theme="dark"]) .rf-banner { box-shadow: 0 4px 12px rgba(2, 6, 23, 0.04); }
+}
+.rf-site[data-theme="light"] .rf-banner { box-shadow: 0 4px 12px rgba(2, 6, 23, 0.04); }
+.rf-banner img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+
+/* The ember field sits above the photo and below the falloff, so sparks are
+   feathered out at the edges exactly like the image is. Never interactive:
+   the topbar lives over this. */
+.rf-banner-embers {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* One element, three gradients — sides and bottom. Separate elements per edge
+   would be three more boxes in the layout for no gain. */
+.rf-banner-fade {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, var(--rf-bg) 0%, transparent 28%),
+    linear-gradient(to right, var(--rf-bg) 0%, transparent 9%),
+    linear-gradient(to left, var(--rf-bg) 0%, transparent 9%);
+  opacity: 0.85;
+}
 
 /* ── Topbar ──────────────────────────────────────────────────────── */
 .rf-topbar {
@@ -174,29 +208,70 @@ export function buildPortfolioStyles(): string {
 .rf-rail-dash { width: 0; height: 1px; background: transparent; transition: width 300ms ease, background 300ms ease; }
 .rf-rail-link[data-active="true"] .rf-rail-dash { width: 0.75rem; background: var(--rf-rule); }
 
-/* ── Hero ────────────────────────────────────────────────────────── */
-.rf-hero { padding: 2rem 0; }
-.rf-hero-id { display: flex; align-items: flex-end; gap: 1rem; }
-.rf-avatar {
-  width: 5.25rem;
-  height: 5.25rem;
-  border-radius: 0.25rem;
-  object-fit: cover;
+/* ── Hero ────────────────────────────────────────────────────────────
+   Profile content, not a landing page. Everything is anchored left; the
+   banner is the only thing that spans the column.
+
+   Two revisions live in this block and both matter:
+
+   1. The hero sits *below* the banner. It used to hang the avatar across the
+      banner's lower edge, which cost the image its bottom strip. That's why
+      no .rf-banner + .rf-col special-casing survives here — spacing no longer
+      depends on whether a banner exists above, one fewer way a profile
+      without one renders wrong.
+   2. The identity is a **row**, not a centred stack. A centred column with a
+      big headline reads as a marketing hero; avatar-left with the name beside
+      it reads as a profile. Same content, and the axis is the whole
+      difference. Don't centre it again. */
+.rf-hero { padding: 1.75rem 0 2.5rem; }
+.rf-hero-id {
+  display: flex;
+  align-items: center;
+  gap: 1.125rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px dashed var(--rf-rule);
+}
+/* The frame: a mat of padding between a ring and the photo. Reads as a
+   mounted print rather than a cropped thumbnail. */
+.rf-avatar-frame {
+  display: inline-block;
+  padding: 0.3125rem;
+  border-radius: 0.625rem;
   border: 1px solid var(--rf-rule);
-  background: var(--rf-surface-2);
+  background: var(--rf-surface);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.32);
   flex-shrink: 0;
 }
-/* The avatar breaks the banner's lower edge — but *only* when there is a
-   banner. Unconditionally, the negative margin drags it off the top of the
-   page, which is what happens to every site before its owner uploads one.
-   Keyed off the banner's presence as a sibling so no prop has to carry it. */
-.rf-banner + .rf-col .rf-hero { padding-top: 0; }
-.rf-banner + .rf-col .rf-avatar { margin-top: -2.5rem; }
-.rf-hero-name { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; }
-.rf-hero-tagline { font-size: 0.8125rem; color: var(--rf-muted); }
-.rf-hero-summary { margin-top: 0.5rem; color: var(--rf-muted); }
+@media (prefers-color-scheme: light) {
+  .rf-site:not([data-theme="dark"]) .rf-avatar-frame { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08); }
+}
+.rf-site[data-theme="light"] .rf-avatar-frame { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08); }
+.rf-avatar {
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 0.375rem;
+  object-fit: cover;
+  background: var(--rf-surface-2);
+}
+.rf-hero-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.rf-hero-tagline {
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--rf-muted);
+}
+.rf-hero-summary {
+  margin-top: 1.5rem;
+  font-size: 0.9375rem;
+  color: var(--rf-muted);
+  text-wrap: pretty;
+}
 
-.rf-cta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.25rem; }
+.rf-cta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.75rem; }
 .rf-btn {
   display: inline-flex;
   align-items: center;
@@ -214,8 +289,8 @@ export function buildPortfolioStyles(): string {
 .rf-btn-primary { background: var(--rf-fg); color: var(--rf-bg); border-color: var(--rf-fg); }
 .rf-btn-primary:hover { opacity: 0.88; background: var(--rf-fg); }
 
-.rf-socials-label { margin-top: 1.5rem; font-size: 0.8125rem; color: var(--rf-muted); }
-.rf-socials { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
+.rf-socials-label { margin-top: 1.75rem; font-size: 0.8125rem; color: var(--rf-muted); }
+.rf-socials { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.625rem; }
 .rf-social {
   display: inline-flex;
   align-items: center;

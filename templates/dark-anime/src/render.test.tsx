@@ -135,6 +135,25 @@ describe("dark-anime — config", () => {
     expect(html).toContain("https://example.com/banner.jpg");
   });
 
+  // The ember canvas is decoration on the banner, so it must not outlive it:
+  // a canvas floating over a page with no banner would sit on the hero.
+  it("mounts the ember canvas only alongside a banner", () => {
+    expect(body(render("home", ada))).not.toContain("rf-banner-embers");
+    expect(
+      body(
+        render(
+          "home",
+          ada,
+          {},
+          {
+            ...defaultDarkAnimeConfig,
+            bannerImage: "https://example.com/banner.jpg",
+          },
+        ),
+      ),
+    ).toContain("rf-banner-embers");
+  });
+
   it("shows the quote only when configured, with its attribution", () => {
     expect(body(render("home", ada))).not.toContain("rf-quote-text");
     const html = render(
@@ -172,6 +191,12 @@ describe("dark-anime — config", () => {
         }),
       ),
     ).not.toContain("rf-avatar");
+  });
+
+  // The frame is a wrapper element rather than a border on the <img>, because
+  // the mat between them is padding and object-fit: cover would eat it.
+  it("wraps the avatar in its frame", () => {
+    expect(body(render("home", ada))).toContain("rf-avatar-frame");
   });
 });
 

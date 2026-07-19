@@ -8,8 +8,9 @@ dash**. `Portfolio-v2` without it is a different, unrelated site (it hardcodes
 "Hi, I'm Piyush", has no banner, no index rail and no experience list). If you
 are comparing against the reference, make sure you cloned the right one.
 
-A dark-first developer site: a full-bleed banner, an avatar breaking its lower
-edge, a dashed reading column, a fixed INDEX rail, and a single-scroll home.
+A dark-first developer site: a full-bleed banner drifting with embers, a centred
+profile header below it, a dashed reading column, a fixed INDEX rail, and a
+single-scroll home.
 
 ## What we kept, and what we changed
 
@@ -55,11 +56,33 @@ Two deliberate departures:
 - **`shared.tsx`** — `href` (the one place URLs are built), ProfileView
   accessors, rows/cards, and the `Shell`.
 - **`client/`** — the islands: `theme-toggle`, `command-palette`, `index-rail`,
-  `reveal`.
+  `reveal`, `banner-embers`.
 - **`pages/`** — one renderer per `PortfolioPageKind` this template declares.
 
 ## Rules
 
+- **The hero sits below the banner, never over it.** The reference hangs the
+  avatar across the banner's lower edge; we stopped, because the banner is the
+  page's centrepiece and an avatar punches a hole in it. The old rules were
+  keyed off `.rf-banner + .rf-col` so the negative margin only applied when a
+  banner existed — that whole special case is gone, and with it the class of
+  bug where a profile without a banner renders its avatar off the top of the
+  page. Don't reintroduce the overlap.
+- **The hero is left-anchored, and the identity is a row.** Avatar left, name
+  beside it, tagline under the name, then a dashed rule and content starting
+  almost immediately — everything else left too. A centred stack with a large
+  headline was tried and rejected: same content, but the axis alone makes it
+  read as a SaaS marketing hero instead of profile content. The banner is the
+  only thing in the hero that spans the column.
+- **`banner-embers` is the one island allowed to render nothing.** Every other
+  island here enhances markup that is already in the HTML; this one *is* the
+  effect. That's only acceptable because it is pure atmosphere over a
+  decorative image — no content, no destination — so `prefers-reduced-motion`
+  bailing out early costs the page literally nothing. It also stops its rAF
+  loop (not throttles it) when the canvas scrolls out of view or the tab
+  hides, and it holds no React state, so the component renders once per page.
+  If anything readable ever ends up drawn on that canvas, this stops being
+  defensible.
 - **Islands are enhancements, never the page.** Every destination is a real
   `<a href>` in the server HTML; `Reveal` takes content as **children** so the
   markup is server-rendered and only _animated_ on the client; the INDEX rail's

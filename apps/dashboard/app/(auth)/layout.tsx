@@ -93,13 +93,10 @@ export default function AuthLayout({
         <div className="relative flex-1 flex flex-col items-center justify-center px-12 xl:px-20">
           <div className="w-full">
             {/* Logo */}
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 mb-12 group"
-            >
+            <div className="inline-flex items-center gap-2 mb-12 group">
               <ResfolioMark size={35} />
               <ResfolioLogo size={110} className="translate-y-[5px]" />
-            </Link>
+            </div>
 
             {/* Tagline */}
             <div className="mb-12">
@@ -156,7 +153,7 @@ export default function AuthLayout({
                         target="_blank"
                         className="block group/testimonial"
                       >
-                        <div className="p-5 rounded-xl border border-border/50 bg-background/70 hover:bg-card hover:border-border transition-all duration-300">
+                        <div className="p-5 rounded-xl border border-border/50 bg-background/70 hover:bg-background hover:border-border transition-all duration-300">
                           <blockquote className="text-sm leading-relaxed text-muted-foreground group-hover/testimonial:text-foreground/80 transition-colors mb-4 line-clamp-3">
                             &ldquo;{testimonial.content}&rdquo;
                           </blockquote>
@@ -217,10 +214,10 @@ export default function AuthLayout({
       <div className="flex-1 lg:w-[55%] xl:w-[50%] flex flex-col bg-background lg:border-l lg:border-border/50">
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center justify-between h-16 border-b border-border/50 px-6">
-          <Link href="/" className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             <ResfolioMark size={26.25} />
             <ResfolioLogo size={82.5} className="translate-y-[3px]" />
-          </Link>
+          </div>
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
             <span className="font-pixel">Resume</span>
             <span className="w-px h-3 bg-border/50" />
