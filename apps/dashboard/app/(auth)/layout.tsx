@@ -95,7 +95,7 @@ export default function AuthLayout({
             {/* Logo */}
             <div className="inline-flex items-center gap-2 mb-12 group">
               <ResfolioMark size={35} />
-              <ResfolioLogo size={110} className="translate-y-[5px]" />
+              <ResfolioLogo size={110} className="translate-y-1.25" />
             </div>
 
             {/* Tagline */}
@@ -216,7 +216,7 @@ export default function AuthLayout({
         <header className="lg:hidden flex items-center justify-between h-16 border-b border-border/50 px-6">
           <div className="flex items-center gap-1.5">
             <ResfolioMark size={26.25} />
-            <ResfolioLogo size={82.5} className="translate-y-[3px]" />
+            <ResfolioLogo size={82.5} className="translate-y-0.75" />
           </div>
           <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
             <span className="font-pixel">Resume</span>

@@ -2,6 +2,7 @@
 
 import {
   documentVisibilitySchema,
+  DuplicateTemplateError,
   newResumeDocumentInput,
 } from "@resfolio/document";
 import {
@@ -19,7 +20,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createAction } from "@/lib/actions";
+import { ActionError, createAction } from "@/lib/actions";
 
 /**
  * Resume document mutations (docs/architecture/06-api-architecture.md): thin
@@ -43,21 +44,30 @@ export const createResumeAction = createAction({
       name: ctx.session.user.name,
       email: ctx.session.user.email,
     });
-    const doc = await createDocument(
-      ctx.userId,
-      newResumeDocumentInput({
-        name,
-        templateId: resumeClassic.id,
-        templateMajor: TEMPLATE_MAJOR,
-        config: { ...defaultResumeClassicConfig },
-        // The template's preferred reading order, seeded once. From here it is
-        // the user's data: the Sections panel drags it and nothing re-imposes
-        // it — which is also why existing resumes keep the order they have.
-        sectionOrder: resumeClassic.defaultSectionOrder,
-      }),
-    );
-    revalidatePath("/resumes");
-    return { id: doc.id };
+    try {
+      const doc = await createDocument(
+        ctx.userId,
+        newResumeDocumentInput({
+          name,
+          templateId: resumeClassic.id,
+          templateMajor: TEMPLATE_MAJOR,
+          config: { ...defaultResumeClassicConfig },
+          // The template's preferred reading order, seeded once. From here it is
+          // the user's data: the Sections panel drags it and nothing re-imposes
+          // it — which is also why existing resumes keep the order they have.
+          sectionOrder: resumeClassic.defaultSectionOrder,
+        }),
+      );
+      revalidatePath("/resumes");
+      return { id: doc.id };
+    } catch (error) {
+      if (error instanceof DuplicateTemplateError) {
+        throw new ActionError(
+          "You already have a resume using this template. Please edit your existing resume instead.",
+        );
+      }
+      throw error;
+    }
   },
 });
 

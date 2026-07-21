@@ -40,6 +40,12 @@ future document types (cover letters, …); only `resume` exists today.
   / `ViewDefinition`) — never on any template or app.
 - Do not add content fields. If a resume needs different content, that is a
   ViewDefinition delta on the Profile, not a copy of the data.
+- **One document per template.** `createDocument` refuses a second document on a
+  `templateId` the profile already uses (`DuplicateTemplateError`) — a template
+  already renders the whole profile, so a second copy on it is a duplicate view,
+  not a new document. Enforced in the server layer so it holds for every caller;
+  the dashboard also disables the "New resume" affordance when every available
+  template is taken and turns the error into "edit your existing one".
 - **`visibility` is two states on purpose**: `public` (default) | `private`.
   No "unlisted" tier — the id is already unguessable, so it would add ceremony
   without a capability. Public is _not_ indexable; that is `apps/sites`' job

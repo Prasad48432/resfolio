@@ -56,7 +56,7 @@ Two deliberate departures:
 - **`shared.tsx`** — `href` (the one place URLs are built), ProfileView
   accessors, rows/cards, and the `Shell`.
 - **`client/`** — the islands: `theme-toggle`, `command-palette`, `index-rail`,
-  `reveal`, `banner-embers`.
+  `reveal`, `banner-embers`, `github-graph`.
 - **`pages/`** — one renderer per `PortfolioPageKind` this template declares.
 
 ## Rules
@@ -117,6 +117,22 @@ Two deliberate departures:
   the `rf-post-*` class contract in `styles.ts`; the SDK picks the elements,
   this template picks the look. No INDEX rail on a post: the rail indexes
   sections of a long scroll, and a post is one continuous piece of prose.
+- **The GitHub activity graph is data-driven, and its data is client-fetched.**
+  The section renders **only when the profile has a `github.com/<user>` profile
+  link** (`githubUsername` in `shared.tsx`), directly below Experience — no
+  config toggle, the same rule every other section follows (`config.ts` records
+  why the removed `showGithubGraph` toggle is not coming back). A repo link
+  (`github.com/<user>/<repo>`) is a project, not an identity, and is ignored. The
+  `github-graph` island fetches the contribution calendar from the **host's
+  `/api/github` proxy** — this template's one runtime dependency on its host,
+  because GitHub's calendar is authenticated-GraphQL-only and the token must stay
+  server-side. Where that route is absent or `GITHUB_TOKEN` is unset the graph
+  degrades to a short note; the rest of the page is untouched. **Its SSR output
+  is a static, date-less skeleton** — the reference seeded its empty grid from
+  `new Date()`, which would break the determinism test _and_ mismatch on
+  hydration; real data is fetched only in `useEffect`. The five intensity levels
+  are a `color-mix` ramp over the palette tokens (`--rf-cell-*` in `styles.ts`),
+  so the graph re-keys with the theme rather than shipping a second table.
 - **`requirements` is advisory** (doc 05). The dashboard prompts and gates
   Publish; nothing blocks a render. Every renderer must still tolerate every
   field being absent — the sparse `jun` fixture is the test that they do.

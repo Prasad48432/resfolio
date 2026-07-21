@@ -49,6 +49,15 @@ export function buildPortfolioStyles(): string {
 .rf-site {
   ${DARK}
   --rf-col: 46rem;
+  /* The GitHub graph's five-step intensity ramp, mixed from the palette so it
+     re-keys with the theme for free. Defined once here (not per-palette)
+     because color-mix resolves --rf-fg / --rf-surface-2 to whichever values the
+     active theme cascaded onto this same element. */
+  --rf-cell-0: var(--rf-surface-2);
+  --rf-cell-1: color-mix(in srgb, var(--rf-fg) 22%, var(--rf-surface-2));
+  --rf-cell-2: color-mix(in srgb, var(--rf-fg) 44%, var(--rf-surface-2));
+  --rf-cell-3: color-mix(in srgb, var(--rf-fg) 68%, var(--rf-surface-2));
+  --rf-cell-4: var(--rf-fg);
   background: var(--rf-bg);
   color: var(--rf-fg);
   font-family: var(--rf-font-body);
@@ -339,6 +348,84 @@ export function buildPortfolioStyles(): string {
 .rf-exp-meta { text-align: right; flex-shrink: 0; }
 .rf-exp-when { font-size: 0.75rem; color: var(--rf-muted); white-space: nowrap; }
 .rf-exp-where { font-size: 0.75rem; color: var(--rf-faint); }
+
+/* ── GitHub activity graph ────────────────────────────────────────────
+   A client island (client/github-graph.tsx) styled here so it needs no host
+   utilities — the reference is Tailwind; this is the same design in the
+   template's own tokens. The five intensity levels are a monochrome ramp mixed
+   from the palette, so the graph re-keys with the rest of the page for free
+   rather than shipping a second dark/light table. */
+.rf-gh { display: flex; flex-direction: column; gap: 0.875rem; }
+.rf-gh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.rf-gh-user { font-family: var(--rf-font-mono); font-size: 0.8125rem; color: var(--rf-muted); }
+.rf-gh-user:hover { color: var(--rf-fg); }
+.rf-gh-status { font-family: var(--rf-font-mono); font-size: 0.6875rem; color: var(--rf-faint); text-align: right; }
+
+/* Horizontal scroll below the reading column's width keeps the 53 columns from
+   collapsing into unreadable slivers on a phone. */
+.rf-gh-cal { overflow-x: auto; padding-bottom: 0.25rem; }
+.rf-gh-months {
+  display: flex;
+  justify-content: space-between;
+  min-width: 34rem;
+  margin-bottom: 0.375rem;
+  font-family: var(--rf-font-mono);
+  font-size: 0.5625rem;
+  color: var(--rf-faint);
+}
+.rf-gh-grid {
+  display: grid;
+  grid-template-columns: repeat(53, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 34rem;
+}
+.rf-gh-week { display: flex; flex-direction: column; gap: 2px; }
+.rf-gh-cell {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--rf-cell-0);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.rf-gh-cell[data-level="0"] { background: var(--rf-cell-0); }
+.rf-gh-cell[data-level="1"] { background: var(--rf-cell-1); }
+.rf-gh-cell[data-level="2"] { background: var(--rf-cell-2); }
+.rf-gh-cell[data-level="3"] { background: var(--rf-cell-3); }
+.rf-gh-cell[data-level="4"] { background: var(--rf-cell-4); }
+.rf-gh-cell[data-level]:hover { transform: scale(1.25); }
+.rf-gh-cell[data-skeleton] { background: var(--rf-surface-2); animation: rf-gh-pulse 1.4s ease-in-out infinite; }
+@keyframes rf-gh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+.rf-gh-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  font-family: var(--rf-font-mono);
+  font-size: 0.625rem;
+  color: var(--rf-faint);
+}
+.rf-gh-legend .rf-gh-cell { width: 0.625rem; height: 0.625rem; flex-shrink: 0; aspect-ratio: auto; }
+
+.rf-gh-note { font-size: 0.8125rem; color: var(--rf-muted); }
+.rf-gh-note a { color: var(--rf-fg); text-decoration: underline; text-underline-offset: 0.15em; }
+
+/* Fixed to the viewport, positioned from the hovered cell's rect (the island
+   passes coordinates). Never interactive. */
+.rf-gh-tip {
+  position: fixed;
+  z-index: 100;
+  transform: translate(-50%, calc(-100% - 8px));
+  padding: 0.3125rem 0.5rem;
+  border: 1px solid var(--rf-rule);
+  border-radius: 0.375rem;
+  background: var(--rf-surface);
+  color: var(--rf-fg);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
 
 /* ── Project cards ───────────────────────────────────────────────── */
 .rf-cards { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }

@@ -1,6 +1,7 @@
 import { requireSession } from "@resfolio/auth";
 import { listDocuments } from "@resfolio/document/server";
 import { getOrCreateProfile } from "@resfolio/profile/server";
+import { resumeClassic } from "@resfolio/template-resume-classic";
 import { Card } from "@resfolio/ui";
 import { FileText } from "lucide-react";
 import Link from "next/link";
@@ -24,12 +25,24 @@ export default async function ResumesPage() {
   await getOrCreateProfile(user.id, { name: user.name, email: user.email });
   const documents = await listDocuments(user.id);
 
+  // One resume per template (enforced in the document domain). The dashboard
+  // offers a single resume template today, so a new resume is only possible
+  // while at least one available template is still unused.
+  const usedTemplateIds = new Set(documents.map((doc) => doc.templateId));
+  const availableTemplateIds = [resumeClassic.id];
+  const canCreate = availableTemplateIds.some((id) => !usedTemplateIds.has(id));
+
   return (
     <Page>
       <PageHeader
         title="Resumes"
         description="Each resume renders from your profile — what you preview is pixel-for-pixel what the PDF exports."
-        actions={<CreateResumeButton hasExisting={documents.length > 0} />}
+        actions={
+          <CreateResumeButton
+            hasExisting={documents.length > 0}
+            canCreate={canCreate}
+          />
+        }
       />
 
       {documents.length === 0 ? (

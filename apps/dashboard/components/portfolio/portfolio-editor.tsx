@@ -93,7 +93,22 @@ export function PortfolioEditor({
   const [discoverable, setDiscoverable] = useState(initialDiscoverable);
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [switching, setSwitching] = useState(false);
-  const firstRender = useRef(true);
+
+  /**
+   * The last state the server is known to hold, as a stable serialization.
+   * Autosave fires only when the current form differs from this — so a plain
+   * remount, a `router.refresh()`, or React StrictMode's double-invoked effect
+   * never schedules a write, and therefore never marks the site as having
+   * unpublished changes. A `firstRender` ref can't do this: the ref survives
+   * StrictMode's mount→cleanup→mount, so the second invocation sees it already
+   * flipped and autosaves an unchanged config. Seeded from the server's values.
+   */
+  const savedSnapshot = useRef(
+    JSON.stringify({
+      config: initialConfig,
+      discoverable: initialDiscoverable,
+    }),
+  );
 
   /**
    * Config gaps are recomputed here rather than trusted from the server, so
@@ -119,21 +134,28 @@ export function PortfolioEditor({
     return [...configMissing, ...profileMissing];
   }, [fields, config, initialMissing]);
 
-  const latest = useRef({ config, discoverable });
-  latest.current = { config, discoverable };
-
-  const save = useCallback(async () => {
-    setStatus("saving");
-    try {
-      const result = await updatePortfolioSiteAction({
-        config: latest.current.config,
-        discoverable: latest.current.discoverable,
-      });
-      setStatus(result.ok ? "saved" : "offline");
-    } catch {
-      setStatus("offline");
-    }
-  }, []);
+  const save = useCallback(
+    async (
+      snapshot: string,
+      payload: { config: Record<string, unknown>; discoverable: boolean },
+    ) => {
+      setStatus("saving");
+      try {
+        const result = await updatePortfolioSiteAction(payload);
+        if (result.ok) {
+          // Only advance the baseline on a confirmed write, so a failed save
+          // stays dirty and retries on the next change.
+          savedSnapshot.current = snapshot;
+          setStatus("saved");
+        } else {
+          setStatus("offline");
+        }
+      } catch {
+        setStatus("offline");
+      }
+    },
+    [],
+  );
 
   // Switching templates resets config server-side; reload the editor so the
   // form reflects the new template's fields + defaults.
@@ -157,12 +179,17 @@ export function PortfolioEditor({
   }
 
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
+    const snapshot = JSON.stringify({ config, discoverable });
+    // Nothing actually changed (mount, refresh, or a StrictMode re-run): don't
+    // dirty the site or send a write.
+    if (snapshot === savedSnapshot.current) {
       return;
     }
     setStatus("dirty");
-    const timer = setTimeout(() => void save(), DEBOUNCE_MS);
+    const timer = setTimeout(
+      () => void save(snapshot, { config, discoverable }),
+      DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
   }, [config, discoverable, save]);
 

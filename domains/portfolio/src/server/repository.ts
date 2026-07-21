@@ -39,6 +39,27 @@ import {
  * draft state (doc 04).
  */
 
+/** Order-independent JSON, for comparing a config against its JSONB-stored copy
+ * (Postgres `jsonb` returns keys in its own order, not insertion order). Sorts
+ * object keys at every depth; arrays keep their order, which is meaningful. */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeys);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([key, inner]) => [key, sortKeys(inner)]),
+    );
+  }
+  return value;
+}
+
 function toRecord(row: typeof schema.site.$inferSelect): SiteRecord {
   return {
     id: row.id,
@@ -171,6 +192,13 @@ export async function updateSite(
   const profile = await requireProfile(userId);
   const validated = updateSiteSchema.parse(patch);
 
+  const current = await db.query.site.findFirst({
+    where: eq(schema.site.profileId, profile.id),
+  });
+  if (!current) {
+    throw new SiteNotFoundError();
+  }
+
   // A slug change must not collide with another profile's site.
   if (validated.slug !== undefined) {
     const holder = await db.query.site.findFirst({
@@ -185,11 +213,32 @@ export async function updateSite(
     }
   }
 
+  // Only a change to what the public page renders makes it stale. A save that
+  // re-sends identical presentation — an autosave fired by a remount, a config
+  // form that rebuilt with the same values — must not flip the flag, or the
+  // editor shows "Publish changes" for changes that were never made. Config is
+  // compared canonically (keys sorted): `config` is JSONB, which does not
+  // preserve key order, so the stored copy comes back reordered and a plain
+  // stringify would read an untouched config as "changed".
+  const presentationChanged =
+    (validated.slug !== undefined && validated.slug !== current.slug) ||
+    (validated.templateId !== undefined &&
+      validated.templateId !== current.templateId) ||
+    (validated.templateMajor !== undefined &&
+      validated.templateMajor !== current.templateMajor) ||
+    (validated.discoverable !== undefined &&
+      validated.discoverable !== current.discoverable) ||
+    (validated.config !== undefined &&
+      canonicalJson(validated.config) !== canonicalJson(current.config));
+
   try {
     const updated = await db
       .update(schema.site)
-      // Any presentation edit makes the live page stale until the next publish.
-      .set({ ...validated, hasUnpublishedChanges: true })
+      .set({
+        ...validated,
+        hasUnpublishedChanges:
+          current.hasUnpublishedChanges || presentationChanged,
+      })
       .where(eq(schema.site.profileId, profile.id))
       .returning();
     const row = updated[0];

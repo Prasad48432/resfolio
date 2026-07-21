@@ -17,3 +17,16 @@ export class DocumentDataError extends Error {
     this.name = "DocumentDataError";
   }
 }
+
+/**
+ * A user already has a document built on this template. Resumes are one-per
+ * template (a template already renders the whole profile — a second copy on the
+ * same template is a duplicate, not a new document), so `createDocument` refuses
+ * the second and the action turns this into a "edit your existing one" message.
+ */
+export class DuplicateTemplateError extends Error {
+  constructor(readonly templateId: string) {
+    super(`A document already exists for template "${templateId}".`);
+    this.name = "DuplicateTemplateError";
+  }
+}

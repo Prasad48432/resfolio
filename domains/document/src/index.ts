@@ -13,7 +13,11 @@
  * host use a plain bearer (`RENDER_SECRET`), and the portfolio draft preview
  * keeps its own token at `@resfolio/portfolio/token`.
  */
-export { DocumentNotFoundError, DocumentDataError } from "./errors";
+export {
+  DocumentNotFoundError,
+  DocumentDataError,
+  DuplicateTemplateError,
+} from "./errors";
 
 export {
   DOCUMENT_KINDS,

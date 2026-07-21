@@ -104,6 +104,15 @@ Resolve and Deliver; Project and Render are shared code.
     `RENDER_SECRET`; drops the `site:<id>` tag. The dashboard (a separate
     deployment) calls this on publish since an in-process `revalidateTag` can't
     reach this app's cache (doc 04).
+  - `app/api/github` — `POST { username }`, **public** (no bearer): the
+    `dark-anime` template's activity-graph island calls it same-origin so the
+    `GITHUB_TOKEN` never reaches the browser. Adapted from the reference's proxy
+    but it takes a validated username and builds the GraphQL query server-side
+    (the client can't borrow the token to run arbitrary queries), and soft
+    failures — no token, upstream error — return `200 { calendar: null }` so the
+    optional graph degrades to a note rather than logging a 500. `GITHUB_TOKEN`
+    is optional (shared with the imports rate-limit lever); absent, the graph
+    simply reports no data.
   - `app/sitemap.ts` / `app/robots.ts` — the platform SEO surface: every
     discoverable published site expanded to its template's listable pages;
     `robots` allows `/p/*`, disallows `/render/` + `/api/`.

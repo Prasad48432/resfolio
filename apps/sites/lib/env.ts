@@ -1,4 +1,10 @@
-import { createAppEnv, r2, render, sharedRuntime } from "@resfolio/env";
+import {
+  createAppEnv,
+  integrations,
+  r2,
+  render,
+  sharedRuntime,
+} from "@resfolio/env";
 import { z } from "zod";
 
 /**
@@ -13,6 +19,11 @@ import { z } from "zod";
  * key to a URL when projecting posts into the Writing section. It stays
  * optional — absent simply renders those cards without a cover, which is the
  * same posture the rest of storage takes (doc 07).
+ *
+ * `GITHUB_TOKEN` is read only by `/api/github`, the contribution-graph proxy the
+ * `dark-anime` template's activity island calls. Optional and shared with the
+ * imports domain's rate-limit lever (env integrations slice); absent, the graph
+ * simply reports no data and the section degrades to a note.
  */
 export const env = createAppEnv({
   server: {
@@ -20,6 +31,7 @@ export const env = createAppEnv({
     ...render.server,
     DATABASE_URL: z.string().url().optional(),
     R2_PUBLIC_BASE_URL: r2.server.R2_PUBLIC_BASE_URL,
+    GITHUB_TOKEN: integrations.server.GITHUB_TOKEN,
   },
   client: {},
   experimental__runtimeEnv: {},

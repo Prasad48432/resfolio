@@ -3,7 +3,11 @@ import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "@resfolio/database";
 import { viewDefinitionSchema, type ViewDefinition } from "@resfolio/profile";
 
-import { DocumentDataError, DocumentNotFoundError } from "../errors";
+import {
+  DocumentDataError,
+  DocumentNotFoundError,
+  DuplicateTemplateError,
+} from "../errors";
 import {
   documentConfigSchema,
   documentVisibilitySchema,
@@ -60,6 +64,22 @@ export async function createDocument(
   input: NewDocumentInput,
 ): Promise<DocumentRecord> {
   const profileId = await requireProfileId(userId);
+
+  // One document per template: a template already renders the entire profile,
+  // so a second document on the same template would be a duplicate view of the
+  // same content, not a new document. Enforced here (server-authoritative) so
+  // the rule holds regardless of which caller reaches it.
+  const existing = await db.query.document.findFirst({
+    where: and(
+      eq(schema.document.profileId, profileId),
+      eq(schema.document.templateId, input.templateId),
+    ),
+    columns: { id: true },
+  });
+  if (existing) {
+    throw new DuplicateTemplateError(input.templateId);
+  }
+
   const inserted = await db
     .insert(schema.document)
     .values({

@@ -5,6 +5,7 @@ import {
 import { CalendarDays, Mail } from "lucide-react";
 import type { ReactElement } from "react";
 
+import { GithubGraph } from "../client/github-graph";
 import type { RailSection } from "../client/index-rail";
 import { Reveal } from "../client/reveal";
 import type { DarkAnimeConfig } from "../config";
@@ -16,6 +17,7 @@ import {
   Socials,
   WritingCard,
   getSection,
+  githubUsername,
   href,
 } from "../shared";
 
@@ -58,10 +60,14 @@ export function HomePage({
   const experience = getSection(view, "experience")?.items ?? [];
   const skills = getSection(view, "skills")?.items ?? [];
   const writing = getSection(view, "writing")?.items ?? [];
+  // A GitHub profile link opts the activity graph in — data, not a config
+  // toggle, decides (see config.ts and `githubUsername`).
+  const github = githubUsername(basics);
 
   // The rail lists only what's actually on the page.
   const rail: RailSection[] = [
     experience.length > 0 && { id: "experience", label: "Experience" },
+    Boolean(github) && { id: "github", label: "GitHub" },
     featured.length > 0 && { id: "projects", label: "Projects" },
     skills.length > 0 && { id: "skills", label: "Skills" },
     writing.length > 0 && { id: "writing", label: "Writing" },
@@ -135,6 +141,13 @@ export function HomePage({
               <ExperienceRow key={item.id} item={item} />
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {github ? (
+        <section className="rf-section" id="github">
+          <SectionHeading title="GitHub Activity" />
+          <GithubGraph username={github} />
         </section>
       ) : null}
 

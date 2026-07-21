@@ -201,6 +201,52 @@ describe("dark-anime — config", () => {
 });
 
 /**
+ * The GitHub activity graph renders only when the profile has a github.com
+ * profile link (data drives presence, like every other section — there is no
+ * config toggle). Its data is a client-side fetch, so the server render is the
+ * static skeleton; these assert the section shell, which is what a crawler and a
+ * JS-off visitor see.
+ */
+describe("dark-anime — github activity", () => {
+  /** `ada`'s links include `https://github.com/example-ada`. */
+  it("renders the activity section when a GitHub profile link is present", () => {
+    const html = body(render("home", ada));
+    expect(html).toContain('id="github"');
+    expect(html).toContain("GitHub Activity");
+    expect(html).toContain("rf-gh-grid");
+    expect(html).toContain("@example-ada");
+  });
+
+  it("omits the section when there is no GitHub link", () => {
+    const html = body(
+      render("home", {
+        ...ada,
+        basics: { ...ada.basics, links: [] },
+      }),
+    );
+    expect(html).not.toContain('id="github"');
+    expect(html).not.toContain("rf-gh-grid");
+  });
+
+  // A repo link is a project, not an identity — it must not be mistaken for a
+  // profile and light up the graph.
+  it("ignores a github.com repo (multi-segment) link", () => {
+    const html = body(
+      render("home", {
+        ...ada,
+        basics: {
+          ...ada.basics,
+          links: [
+            { id: "lnk-repo", label: "Repo", url: "https://github.com/x/y" },
+          ],
+        },
+      }),
+    );
+    expect(html).not.toContain('id="github"');
+  });
+});
+
+/**
  * Writing carries entries from two places that must render as one list: posts
  * written natively in Resfolio (projected in by `@resfolio/blog`, identified by
  * a `slug`) and articles imported from elsewhere (identified by a `url`). The

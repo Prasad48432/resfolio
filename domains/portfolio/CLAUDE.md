@@ -39,6 +39,11 @@ of `@resfolio/profile` and `@resfolio/document`.
   `SiteRecord.hasUnpublishedChanges` tells the dashboard the live page is stale
   even when the pinned profile version is unchanged (a profile republish is
   caught separately by comparing the pin to the profile's published version).
+  **`updateSite` only sets the flag when a patch actually changes stored
+  presentation** — an autosave that re-sends identical config (a remount, a
+  StrictMode double-effect) leaves it untouched, so the dashboard never shows
+  "Publish changes" for changes that were never made. Config is compared through
+  the schema so key order isn't mistaken for a change.
 - **`./token` is the signed draft-capability token** (`node:crypto`,
   server-only): `{ source: "draft", ref: userId, exp }`. **Currently unused —
   parked, not dead (2026-07-18).** Its consumer was the iframed draft-preview
