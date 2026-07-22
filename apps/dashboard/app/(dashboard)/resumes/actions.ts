@@ -4,6 +4,7 @@ import {
   documentVisibilitySchema,
   DuplicateTemplateError,
   newResumeDocumentInput,
+  type DocumentConfig,
 } from "@resfolio/document";
 import {
   createDocument,
@@ -12,50 +13,55 @@ import {
 } from "@resfolio/document/server";
 import { getOrCreateProfile } from "@resfolio/profile/server";
 import { viewDefinitionSchema } from "@resfolio/profile";
-import {
-  defaultResumeClassicConfig,
-  resumeClassic,
-  resumeClassicConfigSchema,
-} from "@resfolio/template-resume-classic";
+import { resumeClassicConfigSchema } from "@resfolio/template-resume-classic";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
+import { getResumeTemplate } from "@/lib/resume-templates";
 
 /**
  * Resume document mutations (docs/architecture/06-api-architecture.md): thin
- * adapters over `@resfolio/document/server`. Only `resume-classic` exists, so
- * template choice is fixed here; the config is validated with the template's
- * own schema before it is stored (doc 05), and the `view` with the profile
- * engine's `viewDefinitionSchema`.
+ * adapters over `@resfolio/document/server`. The caller picks a template by id;
+ * its `defaultConfig` + `defaultSectionOrder` seed the new document, and the
+ * `view` is validated with the profile engine's `viewDefinitionSchema`. Config
+ * is validated on update with a resume config schema — every resume template
+ * shares one config shape (`resume-classic` and `resume-editorial` are
+ * structurally identical), so one schema validates them all (doc 05).
  */
-
-const TEMPLATE_MAJOR = Number.parseInt(
-  resumeClassic.version.split(".")[0] ?? "1",
-  10,
-);
 
 export const createResumeAction = createAction({
   name: "resume.create",
-  input: z.object({ name: z.string().trim().min(1).max(120) }),
-  handler: async ({ name }, ctx) => {
+  input: z.object({
+    name: z.string().trim().min(1).max(120),
+    templateId: z.string().min(1),
+  }),
+  handler: async ({ name, templateId }, ctx) => {
+    const template = getResumeTemplate(templateId);
+    if (!template) {
+      throw new ActionError("That template isn't available.");
+    }
     // Ensure the owning profile exists before attaching a document to it.
     await getOrCreateProfile(ctx.userId, {
       name: ctx.session.user.name,
       email: ctx.session.user.email,
     });
+    const templateMajor = Number.parseInt(
+      template.version.split(".")[0] ?? "1",
+      10,
+    );
     try {
       const doc = await createDocument(
         ctx.userId,
         newResumeDocumentInput({
           name,
-          templateId: resumeClassic.id,
-          templateMajor: TEMPLATE_MAJOR,
-          config: { ...defaultResumeClassicConfig },
+          templateId: template.id,
+          templateMajor,
+          config: { ...(template.defaultConfig as DocumentConfig) },
           // The template's preferred reading order, seeded once. From here it is
           // the user's data: the Sections panel drags it and nothing re-imposes
           // it — which is also why existing resumes keep the order they have.
-          sectionOrder: resumeClassic.defaultSectionOrder,
+          sectionOrder: template.defaultSectionOrder,
         }),
       );
       revalidatePath("/resumes");

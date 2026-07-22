@@ -7,7 +7,6 @@ import { BlogPostPage } from "./pages/blog-post";
 import { HomePage } from "./pages/home";
 import { ProjectDetailPage } from "./pages/project-detail";
 import { ProjectsPage } from "./pages/projects";
-import { ResumePage } from "./pages/resume";
 import { themes } from "./theme";
 
 /**
@@ -15,12 +14,14 @@ import { themes } from "./theme";
  * (docs/architecture/03-portfolio-rendering.md).
  *
  * Adapted from **github.com/Ashutoshx7/Portfolio-v2-** (the trailing-dash repo;
- * `Portfolio-v2` without the dash is a different, unrelated site). A dark-first
+ * `Portfolio-v2` without the dash is a different, unrelated site). A **dark-only**
  * developer site: a full-bleed banner drifting with embers, a centred profile
  * header below it, a dashed reading column, a fixed INDEX rail, and a
- * single-scroll home —
- * Experience, Projects, Skills, Writing, a pull-quote — plus `/blog` and
- * `/blog/<slug>` for posts written natively in Resfolio.
+ * single-scroll home — Experience, a GitHub activity graph, Projects, Skills,
+ * Writing, a pull-quote — plus `/blog` and `/blog/<slug>` for posts written
+ * natively in Resfolio. There is **no résumé route** and **no light mode**: the
+ * résumé lives in the dashboard's document surface, and the template ships one
+ * fixed palette.
  *
  * **What we kept and what we changed.** The reference is a personal site: its
  * name, bio, experience list, skills and socials are hardcoded arrays inside
@@ -29,9 +30,9 @@ import { themes } from "./theme";
  * home in a Profile — the banner, the tagline, the quote, the intro-call link —
  * is template `config`, declared below and collected by the dashboard.
  *
- * Server-first with four client islands (theme toggle, ⌘K palette, INDEX rail,
- * banner embers) — each an enhancement over markup already in the HTML, so the
- * site reads, navigates and indexes with no JS at all.
+ * Server-first with client islands (⌘K palette, INDEX rail, banner embers,
+ * scroll reveal, GitHub graph) — each an enhancement over markup already in the
+ * HTML, so the site reads, navigates and indexes with no JS at all.
  *
  * Validated + frozen by `defineTemplate` at load — a contract violation fails
  * loudly in CI, never at request time.
@@ -100,16 +101,11 @@ export const darkAnime = defineTemplate({
     ],
   },
 
+  // No `resume`: a portfolio presents the profile; the résumé is a separate
+  // document surface in the dashboard, not a page of the public site. The
+  // platform 404s `/resume` for this template because it isn't declared here.
   capabilities: {
-    pages: [
-      "home",
-      "projects",
-      "projectDetail",
-      "about",
-      "resume",
-      "blog",
-      "blogPost",
-    ],
+    pages: ["home", "projects", "projectDetail", "about", "blog", "blogPost"],
   },
 
   pages: {
@@ -117,7 +113,6 @@ export const darkAnime = defineTemplate({
     projects: ProjectsPage,
     projectDetail: ProjectDetailPage,
     about: AboutPage,
-    resume: ResumePage,
     blog: BlogPage,
     blogPost: BlogPostPage,
   },

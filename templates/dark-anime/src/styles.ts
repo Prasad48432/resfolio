@@ -12,17 +12,13 @@
  * self-contained sheet is what makes a template a drop-in (doc 05). The design
  * is the reference's; the delivery mechanism is ours.
  *
- * **Both palettes live here** rather than in theme presets, because this
- * template is dark/light toggleable at runtime and a preset resolves to an
- * inline style no stylesheet rule could override (see `theme.ts`). The cascade
- * order is load-bearing:
- *   1. `.rf-site`                       → dark, the default (it's dark-anime)
- *   2. `@media (prefers-color-scheme: light)` on `:not([data-theme="dark"])`
- *   3. `.rf-site[data-theme="light"]`   → an explicit choice always wins
- * Reorder 2 and 3 and an explicit Dark on a light OS silently stops working.
+ * **The palette lives here** rather than in a theme preset, because a preset
+ * resolves to an inline style no stylesheet rule could override (see
+ * `theme.ts`). This template is **dark only** — there is no light key and no
+ * runtime toggle, so the palette is a single set of tokens on `.rf-site`.
  */
 
-/** Dark. The default — the template is called dark-anime. */
+/** The template's one palette — it is called dark-anime. */
 const DARK = `
   --rf-bg: #050506;
   --rf-surface: #0d0d0f;
@@ -33,31 +29,11 @@ const DARK = `
   --rf-rule: #1e1e22;
 `;
 
-/** Light. Not an inversion — a separate key, tuned. */
-const LIGHT = `
-  --rf-bg: #fcfcfd;
-  --rf-surface: #ffffff;
-  --rf-surface-2: #f6f6f7;
-  --rf-fg: #101012;
-  --rf-muted: #6b6b73;
-  --rf-faint: #9a9aa2;
-  --rf-rule: #e6e6e9;
-`;
-
 export function buildPortfolioStyles(): string {
   return `
 .rf-site {
   ${DARK}
   --rf-col: 46rem;
-  /* The GitHub graph's five-step intensity ramp, mixed from the palette so it
-     re-keys with the theme for free. Defined once here (not per-palette)
-     because color-mix resolves --rf-fg / --rf-surface-2 to whichever values the
-     active theme cascaded onto this same element. */
-  --rf-cell-0: var(--rf-surface-2);
-  --rf-cell-1: color-mix(in srgb, var(--rf-fg) 22%, var(--rf-surface-2));
-  --rf-cell-2: color-mix(in srgb, var(--rf-fg) 44%, var(--rf-surface-2));
-  --rf-cell-3: color-mix(in srgb, var(--rf-fg) 68%, var(--rf-surface-2));
-  --rf-cell-4: var(--rf-fg);
   background: var(--rf-bg);
   color: var(--rf-fg);
   font-family: var(--rf-font-body);
@@ -66,10 +42,13 @@ export function buildPortfolioStyles(): string {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
-@media (prefers-color-scheme: light) {
-  .rf-site:not([data-theme="dark"]) { ${LIGHT} }
+.react-activity-calendar__scroll-container::-webkit-scrollbar {
+  display: none;
 }
-.rf-site[data-theme="light"] { ${LIGHT} }
+.react-activity-calendar__scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 .rf-site :where(*, *::before, *::after) { box-sizing: border-box; }
 .rf-site :where(a) { color: inherit; text-decoration: none; }
@@ -121,10 +100,6 @@ export function buildPortfolioStyles(): string {
   background: var(--rf-surface);
   box-shadow: 0 4px 12px rgba(2, 6, 23, 0.1);
 }
-@media (prefers-color-scheme: light) {
-  .rf-site:not([data-theme="dark"]) .rf-banner { box-shadow: 0 4px 12px rgba(2, 6, 23, 0.04); }
-}
-.rf-site[data-theme="light"] .rf-banner { box-shadow: 0 4px 12px rgba(2, 6, 23, 0.04); }
 .rf-banner img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
 /* The ember field sits above the photo and below the falloff, so sparks are
@@ -163,18 +138,6 @@ export function buildPortfolioStyles(): string {
   align-items: center;
   gap: 0.375rem;
 }
-.rf-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.875rem;
-  height: 1.875rem;
-  border-radius: 0.375rem;
-  color: var(--rf-muted);
-  transition: background 120ms ease, color 120ms ease;
-}
-.rf-icon-btn:hover { background: var(--rf-surface-2); color: var(--rf-fg); }
-.rf-icon-btn svg { width: 0.9375rem; height: 0.9375rem; }
 .rf-kbd-hint {
   display: none;
   align-items: center;
@@ -251,10 +214,6 @@ export function buildPortfolioStyles(): string {
   box-shadow: 0 8px 24px rgba(2, 6, 23, 0.32);
   flex-shrink: 0;
 }
-@media (prefers-color-scheme: light) {
-  .rf-site:not([data-theme="dark"]) .rf-avatar-frame { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08); }
-}
-.rf-site[data-theme="light"] .rf-avatar-frame { box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08); }
 .rf-avatar {
   width: 4.75rem;
   height: 4.75rem;
@@ -350,82 +309,21 @@ export function buildPortfolioStyles(): string {
 .rf-exp-where { font-size: 0.75rem; color: var(--rf-faint); }
 
 /* ── GitHub activity graph ────────────────────────────────────────────
-   A client island (client/github-graph.tsx) styled here so it needs no host
-   utilities — the reference is Tailwind; this is the same design in the
-   template's own tokens. The five intensity levels are a monochrome ramp mixed
-   from the palette, so the graph re-keys with the rest of the page for free
-   rather than shipping a second dark/light table. */
-.rf-gh { display: flex; flex-direction: column; gap: 0.875rem; }
-.rf-gh-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+   A client island (client/github-graph.tsx) that renders the
+   react-github-calendar widget. That package brings its own SVG + colours (fed
+   the theme ramp from the island); the rules here are only the surrounding
+   chrome — the handle line, a scroll box so a full year never widens the page,
+   and a skeleton that holds the height until the client mounts. */
+.rf-gh { display: flex; flex-direction: column; gap: 0.75rem; }
 .rf-gh-user { font-family: var(--rf-font-mono); font-size: 0.8125rem; color: var(--rf-muted); }
 .rf-gh-user:hover { color: var(--rf-fg); }
-.rf-gh-status { font-family: var(--rf-font-mono); font-size: 0.6875rem; color: var(--rf-faint); text-align: right; }
-
-/* Horizontal scroll below the reading column's width keeps the 53 columns from
-   collapsing into unreadable slivers on a phone. */
+/* The widget lays out at its natural width; scroll rather than reflow so a
+   phone never forces the whole reading column wider. */
 .rf-gh-cal { overflow-x: auto; padding-bottom: 0.25rem; }
-.rf-gh-months {
-  display: flex;
-  justify-content: space-between;
-  min-width: 34rem;
-  margin-bottom: 0.375rem;
-  font-family: var(--rf-font-mono);
-  font-size: 0.5625rem;
-  color: var(--rf-faint);
-}
-.rf-gh-grid {
-  display: grid;
-  grid-template-columns: repeat(53, minmax(0, 1fr));
-  gap: 2px;
-  min-width: 34rem;
-}
-.rf-gh-week { display: flex; flex-direction: column; gap: 2px; }
-.rf-gh-cell {
-  aspect-ratio: 1;
-  width: 100%;
-  border-radius: 2px;
-  background: var(--rf-cell-0);
-  transition: transform 120ms ease, opacity 120ms ease;
-}
-.rf-gh-cell[data-level="0"] { background: var(--rf-cell-0); }
-.rf-gh-cell[data-level="1"] { background: var(--rf-cell-1); }
-.rf-gh-cell[data-level="2"] { background: var(--rf-cell-2); }
-.rf-gh-cell[data-level="3"] { background: var(--rf-cell-3); }
-.rf-gh-cell[data-level="4"] { background: var(--rf-cell-4); }
-.rf-gh-cell[data-level]:hover { transform: scale(1.25); }
-.rf-gh-cell[data-skeleton] { background: var(--rf-surface-2); animation: rf-gh-pulse 1.4s ease-in-out infinite; }
-@keyframes rf-gh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-
-.rf-gh-legend {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-  font-family: var(--rf-font-mono);
-  font-size: 0.625rem;
-  color: var(--rf-faint);
-}
-.rf-gh-legend .rf-gh-cell { width: 0.625rem; height: 0.625rem; flex-shrink: 0; aspect-ratio: auto; }
-
-.rf-gh-note { font-size: 0.8125rem; color: var(--rf-muted); }
-.rf-gh-note a { color: var(--rf-fg); text-decoration: underline; text-underline-offset: 0.15em; }
-
-/* Fixed to the viewport, positioned from the hovered cell's rect (the island
-   passes coordinates). Never interactive. */
-.rf-gh-tip {
-  position: fixed;
-  z-index: 100;
-  transform: translate(-50%, calc(-100% - 8px));
-  padding: 0.3125rem 0.5rem;
-  border: 1px solid var(--rf-rule);
-  border-radius: 0.375rem;
-  background: var(--rf-surface);
-  color: var(--rf-fg);
-  font-size: 0.6875rem;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
+.rf-gh-skeleton { height: 7.5rem; border-radius: 0.375rem; background: var(--rf-surface-2); animation: rf-gh-pulse 1.4s ease-in-out infinite; }
+@keyframes rf-gh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+/* The widget's footer legend ("Less / More") and count inherit muted text. */
+.rf-gh-cal :where(text, .react-activity-calendar__count, .react-activity-calendar__legend-colors) { color: var(--rf-muted); fill: var(--rf-muted); }
 
 /* ── Project cards ───────────────────────────────────────────────── */
 .rf-cards { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
@@ -768,7 +666,25 @@ a.rf-write:hover .rf-write-title { text-decoration: underline; text-underline-of
   font-size: 0.875rem;
   outline: none;
 }
-.rf-palette-list { max-height: 17rem; overflow-y: auto; padding: 0.25rem; }
+.rf-palette-list {
+  max-height: 17rem;
+  overflow-y: auto;
+  padding: 0.25rem;
+  /* A thin, theme-coloured scrollbar — the browser default sat a bright track
+     against the dark panel. Firefox. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rf-rule) transparent;
+}
+/* WebKit/Blink — track blends into the panel, thumb is a faint rounded rule. */
+.rf-palette-list::-webkit-scrollbar { width: 8px; }
+.rf-palette-list::-webkit-scrollbar-track { background: transparent; }
+.rf-palette-list::-webkit-scrollbar-thumb {
+  background: var(--rf-rule);
+  border-radius: 4px;
+  /* Inset the thumb off the panel edge so it reads as a sliver, not a bar. */
+  border: 2px solid var(--rf-surface);
+}
+.rf-palette-list::-webkit-scrollbar-thumb:hover { background: var(--rf-faint); }
 .rf-palette-item {
   display: flex;
   align-items: center;
@@ -782,6 +698,11 @@ a.rf-write:hover .rf-write-title { text-decoration: underline; text-underline-of
 }
 .rf-palette-item[data-active="true"] { background: var(--rf-surface-2); color: var(--rf-fg); }
 .rf-palette-item svg { width: 0.8125rem; height: 0.8125rem; flex-shrink: 0; }
+/* The label takes the row and truncates — a long post title (they run long)
+   must stay one line or the row grows to two and the list looks broken. */
+.rf-palette-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The group tag never shrinks or wraps, so it stays pinned to the right. */
+.rf-palette-item .rf-label { flex-shrink: 0; }
 .rf-palette-empty { padding: 1rem; text-align: center; color: var(--rf-faint); font-size: 0.8125rem; }
 
 /* Motion is a courtesy, never a requirement (doc 08: gentler, not none). This

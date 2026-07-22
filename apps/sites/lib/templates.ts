@@ -1,4 +1,5 @@
 import { resumeClassic } from "@resfolio/template-resume-classic";
+import { resumeEditorial } from "@resfolio/template-resume-editorial";
 import type { ResumeTemplateDefinition } from "@resfolio/template-sdk";
 
 /**
@@ -14,6 +15,7 @@ export type AnyResumeTemplate = ResumeTemplateDefinition<unknown>;
 // feeds `document` a value it parsed through this same template's schema.
 const REGISTRY = new Map<string, AnyResumeTemplate>([
   [resumeClassic.id, resumeClassic as unknown as AnyResumeTemplate],
+  [resumeEditorial.id, resumeEditorial as unknown as AnyResumeTemplate],
 ]);
 
 export function getResumeTemplate(id: string): AnyResumeTemplate | undefined {

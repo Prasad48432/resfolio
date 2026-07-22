@@ -1,4 +1,4 @@
-import { Instrument_Serif, Manrope } from "next/font/google";
+import { Instrument_Serif, Lora, Manrope } from "next/font/google";
 
 import "./globals.css";
 
@@ -8,8 +8,10 @@ import "./globals.css";
  * mid-render — the exact same font files back preview, print, and PDF, which
  * is where resume pixel-parity comes from, doc 02). The same slots serve
  * portfolio pages, which reference them via their `--rf-font-*` tokens:
- * - `--font-manrope` → templates' `--rf-font-body`
+ * - `--font-manrope` → sans templates' `--rf-font-body` (resume-classic)
  * - `--font-instrument-serif` → portfolio templates' `--rf-font-display`
+ * - `--font-lora` → serif templates' `--rf-font-body` (resume-editorial); its
+ *   italic is loaded so the serif italics render from the same file as the PDF.
  */
 const manrope = Manrope({
   subsets: ["latin"],
@@ -25,6 +27,14 @@ const instrumentSerif = Instrument_Serif({
   display: "block",
 });
 
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-lora",
+  display: "block",
+});
+
 // No app-wide robots directive: public portfolio pages (`/p/*`) are indexable
 // (per their own `generateMetadata` + the site's `discoverable` toggle, doc
 // 04). The private render surfaces (`/render/*`) set their own noindex — both
@@ -36,7 +46,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${instrumentSerif.variable}`}
+      className={`${manrope.variable} ${instrumentSerif.variable} ${lora.variable}`}
     >
       <body>{children}</body>
     </html>

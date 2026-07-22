@@ -13,7 +13,6 @@ import type { ReactElement, ReactNode } from "react";
 import { BannerEmbers } from "./client/banner-embers";
 import { CommandPalette, type PaletteItem } from "./client/command-palette";
 import { IndexRail, type RailSection } from "./client/index-rail";
-import { ThemeToggle } from "./client/theme-toggle";
 import { buildPortfolioStyles } from "./styles";
 
 /**
@@ -21,9 +20,8 @@ import { buildPortfolioStyles } from "./styles";
  * accessors, and the page shell (banner + topbar + dashed column + index rail).
  *
  * The shell is a **universal component**: it renders on the server and mounts
- * three client islands (theme toggle, ⌘K palette, index rail). Every island is
- * an enhancement — the page reads, navigates and is fully indexable without a
- * line of JS.
+ * the ⌘K palette and index rail islands. Every island is an enhancement — the
+ * page reads, navigates and is fully indexable without a line of JS.
  */
 
 // Section/item types derived from the ProfileView contract so the template
@@ -344,15 +342,25 @@ export function ExperienceRow({
   );
 }
 
-/** Everything ⌘K can jump to — the site's pages plus each project. Built on the
- * server; the island only filters and navigates. */
+/** Everything ⌘K can jump to — the site's pages, each project, and each Writing
+ * entry. Built on the server; the island only filters and navigates. Writing is
+ * added the same way the home page links it: a native post (has a `slug`) opens
+ * on-site, an imported one links out, and an entry with neither is skipped
+ * because there is nowhere to send it. */
 function paletteItems(view: ProfileView, basePath: string): PaletteItem[] {
+  const writing = getSection(view, "writing")?.items ?? [];
   const items: PaletteItem[] = [
     { label: "Home", href: href(basePath, "home"), group: "Page" },
     { label: "Work", href: href(basePath, "projects"), group: "Page" },
     { label: "About", href: href(basePath, "about"), group: "Page" },
-    { label: "Résumé", href: href(basePath, "resume"), group: "Page" },
   ];
+  if (writing.length > 0) {
+    items.push({
+      label: "Writing",
+      href: href(basePath, "blog"),
+      group: "Page",
+    });
+  }
   for (const project of getSection(view, "projects")?.items ?? []) {
     items.push({
       label: project.name,
@@ -360,14 +368,20 @@ function paletteItems(view: ProfileView, basePath: string): PaletteItem[] {
       group: "Project",
     });
   }
+  for (const entry of writing) {
+    const destination = entry.slug
+      ? href(basePath, "blogPost", entry.slug)
+      : entry.url;
+    if (destination) {
+      items.push({ label: entry.title, href: destination, group: "Writing" });
+    }
+  }
   return items;
 }
 
 /**
- * The page shell. `data-theme` is deliberately absent on the server render —
- * the stylesheet's `prefers-color-scheme` rule already gets it right, and the
- * toggle only overrides once a user chooses, so nobody is briefly in the wrong
- * palette waiting for hydration.
+ * The page shell. The template is dark-only, so there is no `data-theme` and no
+ * theme toggle — the single palette in `styles.ts` is always in force.
  */
 export function Shell({
   view,
@@ -416,26 +430,26 @@ export function Shell({
                 around this template, and a shortcut nobody is told about is a
                 shortcut nobody uses. */}
             <CommandPalette items={paletteItems(view, basePath)} showHint />
-            {/* Namespaced by basePath so two Resfolio sites in one browser
-                don't overwrite each other's choice. */}
-            <ThemeToggle storageKey={`rf-theme:${basePath}`} />
           </div>
 
           <main>{children}</main>
 
           {/* The reference has no top nav — it's a single-scroll personal site.
-              We render separate /projects, /about and /resume routes, so the
-              links have to exist *somewhere* in the server HTML: ⌘K is an
-              island, and a page reachable only by palette is a page a crawler
-              (or anyone with JS off) can't reach at all. The footer keeps the
-              reference's clean top while keeping the site navigable. */}
+              We render separate /projects, /about and /blog routes, so the links
+              have to exist *somewhere* in the server HTML: ⌘K is an island, and
+              a page reachable only by palette is a page a crawler (or anyone
+              with JS off) can't reach at all. The footer keeps the reference's
+              clean top while keeping the site navigable. Writing appears only
+              when there are posts — an empty /blog isn't worth a nav slot. */}
           <footer className="rf-footer">
             <span>{brandLabel(view)}</span>
             <nav className="rf-footer-nav" aria-label="Primary">
               <a href={href(basePath, "home")}>Home</a>
               <a href={href(basePath, "projects")}>Work</a>
               <a href={href(basePath, "about")}>About</a>
-              <a href={href(basePath, "resume")}>Résumé</a>
+              {(getSection(view, "writing")?.items.length ?? 0) > 0 ? (
+                <a href={href(basePath, "blog")}>Writing</a>
+              ) : null}
             </nav>
             <span>Built with Resfolio</span>
           </footer>

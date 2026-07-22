@@ -1,5 +1,5 @@
 {
-  "name": "@resfolio/template-dark-anime",
+  "name": "@resfolio/template-resume-editorial",
   "version": "1.0.0",
   "type": "module",
   "private": true,
@@ -13,10 +13,8 @@
   },
   "dependencies": {
     "@resfolio/template-sdk": "workspace:*",
-    "framer-motion": "^11.18.0",
     "lucide-react": "^0.516.0",
     "react": "^19.2.0",
-    "react-github-calendar": "^5.0.6",
     "zod": "^4.1.0"
   },
   "devDependencies": {

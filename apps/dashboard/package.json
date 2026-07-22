@@ -30,6 +30,7 @@
     "@resfolio/storage": "workspace:*",
     "@resfolio/template-dark-anime": "workspace:*",
     "@resfolio/template-resume-classic": "workspace:*",
+    "@resfolio/template-resume-editorial": "workspace:*",
     "@resfolio/template-sdk": "workspace:*",
     "@resfolio/ui": "workspace:*",
     "@sentry/nextjs": "^10.65.0",

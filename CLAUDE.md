@@ -195,22 +195,35 @@ Business-logic packages live under `domains/`:
 Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 
 - `@resfolio/template-resume-classic` (`templates/resume-classic`) — the first
-  resume template: clean single-column, ATS-safe, self-hosted Manrope,
+  resume template: clean single-column sans, ATS-safe, self-hosted Manrope,
   physical-unit CSS, inline SVG icons. Typography is a **single `TYPE_SCALE`
   table** emitted as `--rf-size-*` custom properties (`config.fontSize`:
   `medium | small`) — no rule carries a literal `pt` size. Summary is a real
   titled `<section>`, not header furniture
+- `@resfolio/template-resume-editorial` (`templates/resume-editorial`) — the
+  second resume template: a **serif, monochrome, centred-masthead** document set
+  in **Lora** (host-provided via `--font-lora`, Georgia in the fallback stack for
+  italics). A `|`-separated contact line, uppercase section titles on full-width
+  rules, two-column entry rows (title / dates, italic subtitle / location), dash
+  bullets. **Its config is structurally identical to `resume-classic`'s** — that
+  is what lets one dashboard resume editor form and one preview serve both; only
+  the defaults (near-black accent, no icons) and the look differ. Both are picked
+  from a registry (`apps/sites/lib/templates.ts`, `apps/dashboard/lib/resume-templates.ts`),
+  one resume per template. See `templates/resume-editorial/CLAUDE.md`
 - `@resfolio/template-dark-anime` (`templates/dark-anime`) — the portfolio
   template (`kind: "portfolio"`), **adapted from
   github.com/Ashutoshx7/Portfolio-v2-** (note the trailing dash; the repo
-  without it is a different site). A dark-first developer site: full-bleed
+  without it is a different site). A **dark-only** developer site: full-bleed
   banner, avatar breaking its edge, dashed reading column, fixed INDEX rail,
-  single-scroll home over the platform route table. The reference hardcodes its
-  data in components; here everything that was data is the **ProfileView**, and
-  what has no home in a Profile (banner, tagline, quote, intro-call link) is
-  template `config`. Light/dark, ⌘K palette and scroll reveal as **client
-  islands over server-rendered markup** — if none hydrate, the site still reads,
-  navigates and indexes. Hand-written scoped CSS rather than the reference's
+  single-scroll home over the platform route table (Experience, a GitHub
+  activity graph, Projects, Skills, Writing). **No résumé route** — the résumé is
+  the dashboard's document surface, not a public site page. The reference
+  hardcodes its data in components; here everything that was data is the
+  **ProfileView**, and what has no home in a Profile (banner, tagline, quote,
+  intro-call link) is template `config`. ⌘K palette, scroll reveal and the GitHub
+  graph as **client islands over server-rendered markup** — if none hydrate, the
+  site still reads, navigates and indexes. Hand-written scoped CSS rather than the
+  reference's
   Tailwind, because a template must render on a host that knows nothing about
   it. Replaced `portfolio-minimal`/`portfolio-sidebar`/`portfolio-default`
   (2026-07-17) — **deleting a template is a data migration** (`0009`); a `sites`

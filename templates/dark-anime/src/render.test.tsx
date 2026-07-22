@@ -73,18 +73,11 @@ describe("dark-anime — definition", () => {
     }
   });
 
-  it("declares the same pages as the platform route table (URL-stable switch)", () => {
+  it("declares its supported pages, and no résumé (dropped on purpose)", () => {
     expect([...darkAnime.capabilities.pages].sort()).toEqual(
-      [
-        "about",
-        "blog",
-        "blogPost",
-        "home",
-        "projectDetail",
-        "projects",
-        "resume",
-      ].sort(),
+      ["about", "blog", "blogPost", "home", "projectDetail", "projects"].sort(),
     );
+    expect(darkAnime.capabilities.pages).not.toContain("resume");
   });
 
   it("resolves fonts from the preset and colours from the stylesheet", () => {
@@ -110,7 +103,10 @@ describe("dark-anime — home", () => {
   it("links project cards to platform URLs", () => {
     const html = render("home", ada);
     expect(html).toContain(`href="/p/ada/projects/prj-fluxlog"`);
-    expect(html).toContain(`href="/p/ada/resume"`);
+  });
+
+  it("renders no résumé link anywhere (the route is gone)", () => {
+    expect(render("home", ada)).not.toContain(`href="/p/ada/resume"`);
   });
 
   it("renders for a sparse profile without crashing", () => {
@@ -203,9 +199,9 @@ describe("dark-anime — config", () => {
 /**
  * The GitHub activity graph renders only when the profile has a github.com
  * profile link (data drives presence, like every other section — there is no
- * config toggle). Its data is a client-side fetch, so the server render is the
- * static skeleton; these assert the section shell, which is what a crawler and a
- * JS-off visitor see.
+ * config toggle). The calendar itself is a mount-guarded client widget, so the
+ * server render is a skeleton plus the `@username` link; these assert that
+ * shell, which is what a crawler and a JS-off visitor see.
  */
 describe("dark-anime — github activity", () => {
   /** `ada`'s links include `https://github.com/example-ada`. */
@@ -213,8 +209,10 @@ describe("dark-anime — github activity", () => {
     const html = body(render("home", ada));
     expect(html).toContain('id="github"');
     expect(html).toContain("GitHub Activity");
-    expect(html).toContain("rf-gh-grid");
+    // The handle link is server-rendered (outside the mount guard) so the
+    // section is meaningful and links out with no JS.
     expect(html).toContain("@example-ada");
+    expect(html).toContain('href="https://github.com/example-ada"');
   });
 
   it("omits the section when there is no GitHub link", () => {
@@ -225,7 +223,7 @@ describe("dark-anime — github activity", () => {
       }),
     );
     expect(html).not.toContain('id="github"');
-    expect(html).not.toContain("rf-gh-grid");
+    expect(html).not.toContain("rf-gh");
   });
 
   // A repo link is a project, not an identity — it must not be mistaken for a
@@ -488,36 +486,30 @@ describe("dark-anime — projects & detail", () => {
   });
 });
 
-describe("dark-anime — about & résumé", () => {
+describe("dark-anime — about", () => {
   it("about renders the work history", () => {
     const html = render("about", ada);
     expect(html).toContain("Northwind Systems");
     expect(html).toContain("Experience");
   });
-
-  it("résumé renders experience, education and skills", () => {
-    const html = render("resume", ada);
-    expect(html).toContain("Northwind Systems");
-    expect(html).toContain("TU Berlin");
-    expect(html).toContain("Rust");
-  });
 });
 
 describe("dark-anime — islands are an enhancement, not the page", () => {
-  it("serves both palettes so the page is themed before any JS runs", () => {
+  it("is dark-only: one palette, no light key and no theme toggle", () => {
     const html = render("home", ada);
-    expect(html).toContain("prefers-color-scheme: light");
-    expect(html).toContain(`.rf-site[data-theme="light"]`);
-    // No server-rendered data-theme: CSS decides until the user chooses, so a
-    // visitor is never briefly in the wrong key waiting for hydration.
-    expect(body(html)).not.toContain("data-theme");
+    expect(html).toContain("--rf-bg: #050506");
+    expect(html).not.toContain("prefers-color-scheme: light");
+    expect(html).not.toContain("data-theme");
+    // The theme-toggle island is gone entirely.
+    expect(html).not.toContain("Switch theme");
   });
 
   it("renders every nav destination as a real link, palette or no palette", () => {
     const html = render("home", ada);
-    for (const path of ["/p/ada/projects", "/p/ada/about", "/p/ada/resume"]) {
+    for (const path of ["/p/ada/projects", "/p/ada/about"]) {
       expect(html).toContain(`href="${path}"`);
     }
+    expect(html).not.toContain(`href="/p/ada/resume"`);
   });
 
   it("keeps revealed content in the server HTML", () => {
@@ -530,7 +522,7 @@ describe("dark-anime — islands are an enhancement, not the page", () => {
 describe("dark-anime — safety", () => {
   it("is deterministic (same inputs → identical markup)", () => {
     expect(render("home", ada)).toBe(render("home", ada));
-    expect(render("resume", ada)).toBe(render("resume", ada));
+    expect(render("about", ada)).toBe(render("about", ada));
   });
 
   it("never emits a raw <script> from any page", () => {

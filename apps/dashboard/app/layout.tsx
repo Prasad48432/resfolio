@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, JetBrains_Mono, Manrope } from "next/font/google";
+import {
+  Instrument_Serif,
+  JetBrains_Mono,
+  Lora,
+  Manrope,
+} from "next/font/google";
 
 import { Toaster } from "@/components/status/toaster";
 
@@ -27,6 +32,17 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// The serif that backs the `resume-editorial` template's live preview — the
+// same family apps/sites loads, so preview and PDF are set identically. Its
+// italic is loaded because the template uses serif italics for subtitles.
+const lora = Lora({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-lora",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Resfolio",
   description: "Resfolio dashboard.",
@@ -51,7 +67,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
+      className={`${instrumentSerif.variable} ${manrope.variable} ${jetbrainsMono.variable} ${lora.variable}`}
     >
       <body suppressHydrationWarning>
         {children}

@@ -147,7 +147,9 @@ export function HomePage({
       {github ? (
         <section className="rf-section" id="github">
           <SectionHeading title="GitHub Activity" />
-          <GithubGraph username={github} />
+          <Reveal>
+            <GithubGraph username={github} />
+          </Reveal>
         </section>
       ) : null}
 

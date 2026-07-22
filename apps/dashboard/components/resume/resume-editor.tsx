@@ -55,6 +55,7 @@ const DEBOUNCE_MS = 700;
 
 export function ResumeEditor({
   documentId,
+  templateId,
   initialName,
   initialConfig,
   initialView,
@@ -64,6 +65,8 @@ export function ResumeEditor({
   exportEnabled,
 }: {
   documentId: string;
+  /** Which resume template this document renders (chosen at create time). */
+  templateId: string;
   initialName: string;
   initialConfig: ResumeClassicConfig;
   initialView: ViewDefinition;
@@ -163,7 +166,12 @@ export function ResumeEditor({
             </div>
           }
           preview={
-            <ResumePreview profile={profile} config={config} view={view} />
+            <ResumePreview
+              templateId={templateId}
+              profile={profile}
+              config={config}
+              view={view}
+            />
           }
         />
       </FadeIn>

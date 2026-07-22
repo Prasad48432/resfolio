@@ -251,10 +251,16 @@ features.
   draft and hands both to the `ResumeEditor` client island
   (`components/resume/`). The `SplitWorkspace` primitive
   (`components/workspace/`) is form-left / preview-right, reused by every
-  future editor. The preview renders the **real** `resume-classic` template
-  in-browser via the pure `buildProfileView` (same function the print route
-  runs — that's the parity guarantee), scaled to fit with advisory page-break
-  guides (`lib/resume-preview.ts`, pure + unit-tested). A resume **presents**
+  future editor. The preview renders the **real** template chosen by the
+  document's `templateId` (from `lib/resume-templates.ts`, the dashboard's resume
+  registry — mirror of `apps/sites/lib/templates.ts`) in-browser via the pure
+  `buildProfileView` (same function the print route runs — that's the parity
+  guarantee), scaled to fit with advisory page-break guides
+  (`lib/resume-preview.ts`, pure + unit-tested). **Multiple resume templates**
+  (`resume-classic` sans, `resume-editorial` serif) share this one editor because
+  their config schemas are structurally identical; the "New resume" button is a
+  template picker, and resumes are **one per template** (enforced in the document
+  domain). A resume **presents**
   a profile, it never contains one — nothing in this editor edits content; that
   is `/profile`, one click from every empty state. The left pane is three
   groups:
@@ -278,15 +284,17 @@ features.
       nothing and is a label/lock lookup only. It used to be presented as the
       render order while quietly disagreeing with it (Education sat second,
       rendered fourth); a panel you can drag _must_ show the truth.
-    - **Default order is the template's** (`resumeClassic.defaultSectionOrder`),
-      seeded into a new document by `createResumeAction` and then owned by the
-      user. Nothing re-imposes it, which is why existing resumes keep the order
-      they have rather than silently rearranging on deploy.
-  - **Layout** — the template's own config schema (page size, **font size**,
-    margins, accent, icons, **per-link visibility**). Presentation only.
-    Unlike the portfolio form these controls are **hand-written**, so a new key
-    in `resumeClassicConfigSchema` also needs a control here (and an entry in
-    the `PAGE_SIZES`/`MARGINS`/`FONT_SIZES` tuples).
+    - **Default order is the chosen template's** `defaultSectionOrder`, seeded
+      into a new document by `createResumeAction` and then owned by the user.
+      Nothing re-imposes it, which is why existing resumes keep the order they
+      have rather than silently rearranging on deploy.
+  - **Layout** — the resume config schema (page size, **font size**, margins,
+    accent, icons, **per-link visibility**). Presentation only. Unlike the
+    portfolio form these controls are **hand-written**, so a new config key needs
+    a control here (and an entry in the `PAGE_SIZES`/`MARGINS`/`FONT_SIZES`
+    tuples). Every resume template shares this exact config shape, which is what
+    lets one form serve them all — a template that wants a different knob breaks
+    that contract (see `templates/resume-editorial/CLAUDE.md`).
     - **Font size is `medium | small`**, implemented as a type scale in the
       template (`TYPE_SCALE` in `templates/resume-classic/src/styles.ts`), not
       as per-rule sizes. Every size is emitted as a `--rf-size-*` custom

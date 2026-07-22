@@ -6,10 +6,7 @@ import {
   type ViewDefinition,
 } from "@resfolio/profile";
 import { resolveTheme } from "@resfolio/template-sdk";
-import {
-  resumeClassic,
-  type ResumeClassicConfig,
-} from "@resfolio/template-resume-classic";
+import type { ResumeClassicConfig } from "@resfolio/template-resume-classic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -17,24 +14,27 @@ import {
   pageDimensionsPx,
   previewScale,
 } from "@/lib/resume-preview";
+import { getResumeTemplate } from "@/lib/resume-templates";
 import { TEST_IDS } from "@/lib/testids";
 
 /**
  * The in-browser resume preview (docs/architecture/08-dashboard-ux.md,
- * 09-rendering-pipeline.md). Renders the **real** `resume-classic` component
- * (universal, zero client JS to lay out) on the profile draft — projected by
- * the same pure `buildProfileView` the print route runs, so what you see is
- * what the PDF exports. The template's physical-unit CSS makes a page a known
- * pixel box; we scale it to fit the pane and overlay advisory page-break guides.
- * Optimistic: config edits re-render instantly with no round-trip.
+ * 09-rendering-pipeline.md). Renders the **real** template component (universal,
+ * zero client JS to lay out) on the profile draft — projected by the same pure
+ * `buildProfileView` the print route runs, so what you see is what the PDF
+ * exports. The template is chosen by `templateId` from the same registry the
+ * render host uses; every resume config shares one shape, so this stays generic.
+ * The template's physical-unit CSS makes a page a known pixel box; we scale it to
+ * fit the pane and overlay advisory page-break guides. Optimistic: config edits
+ * re-render instantly with no round-trip.
  */
-const ResumeDocument = resumeClassic.document;
-
 export function ResumePreview({
+  templateId,
   profile,
   config,
   view,
 }: {
+  templateId: string;
   profile: Profile;
   config: ResumeClassicConfig;
   view: ViewDefinition;
@@ -44,16 +44,21 @@ export function ResumePreview({
   const [scale, setScale] = useState(1);
   const [contentHeight, setContentHeight] = useState(0);
 
+  const template = useMemo(() => getResumeTemplate(templateId), [templateId]);
+  const ResumeDocument = template?.document;
+
   const profileView = useMemo(
     () => buildProfileView(profile, view),
     [profile, view],
   );
   const theme = useMemo(
     () =>
-      resolveTheme(resumeClassic, {
-        overrides: { "--rf-accent": config.accent },
-      }),
-    [config.accent],
+      template
+        ? resolveTheme(template, {
+            overrides: { "--rf-accent": config.accent },
+          })
+        : null,
+    [template, config.accent],
   );
 
   const { widthPx, heightPx } = pageDimensionsPx(config.pageSize);
@@ -107,11 +112,13 @@ export function ResumePreview({
               style={{ position: "relative", width: widthPx }}
               className="shadow-sm"
             >
-              <ResumeDocument
-                view={profileView}
-                config={config}
-                theme={theme}
-              />
+              {ResumeDocument && theme ? (
+                <ResumeDocument
+                  view={profileView}
+                  config={config}
+                  theme={theme}
+                />
+              ) : null}
               {Array.from({ length: Math.max(0, pages - 1) }).map((_, i) => (
                 <div
                   key={i}

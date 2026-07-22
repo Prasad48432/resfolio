@@ -30,6 +30,9 @@ export const TEST_IDS = {
   resumesList: "resumes-list",
   resumesEmpty: "resumes-empty",
   resumeCreateButton: "resume-create-button",
+  /** A template option in the "New resume" menu, keyed by template id. */
+  resumeTemplateOption: (templateId: string) =>
+    `resume-template-option-${templateId}`,
   resumeEditor: "resume-editor",
   resumeSaveIndicator: "resume-save-indicator",
   resumePreview: "resume-preview",

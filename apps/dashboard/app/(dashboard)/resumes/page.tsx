@@ -1,7 +1,6 @@
 import { requireSession } from "@resfolio/auth";
 import { listDocuments } from "@resfolio/document/server";
 import { getOrCreateProfile } from "@resfolio/profile/server";
-import { resumeClassic } from "@resfolio/template-resume-classic";
 import { Card } from "@resfolio/ui";
 import { FileText } from "lucide-react";
 import Link from "next/link";
@@ -11,6 +10,7 @@ import { Page } from "@/components/layout/page";
 import { PageHeader } from "@/components/layout/page-header";
 import { Stagger, StaggerItem } from "@/components/motion/motion";
 import { CreateResumeButton } from "@/components/resume/create-resume-button";
+import { RESUME_TEMPLATES } from "@/lib/resume-templates";
 import { TEST_IDS, resumeItemTestId } from "@/lib/testids";
 
 /**
@@ -25,12 +25,9 @@ export default async function ResumesPage() {
   await getOrCreateProfile(user.id, { name: user.name, email: user.email });
   const documents = await listDocuments(user.id);
 
-  // One resume per template (enforced in the document domain). The dashboard
-  // offers a single resume template today, so a new resume is only possible
-  // while at least one available template is still unused.
-  const usedTemplateIds = new Set(documents.map((doc) => doc.templateId));
-  const availableTemplateIds = [resumeClassic.id];
-  const canCreate = availableTemplateIds.some((id) => !usedTemplateIds.has(id));
+  // One resume per template (enforced in the document domain); the create menu
+  // reflects which templates are already in use.
+  const usedTemplateIds = documents.map((doc) => doc.templateId);
 
   return (
     <Page>
@@ -39,8 +36,8 @@ export default async function ResumesPage() {
         description="Each resume renders from your profile — what you preview is pixel-for-pixel what the PDF exports."
         actions={
           <CreateResumeButton
-            hasExisting={documents.length > 0}
-            canCreate={canCreate}
+            templates={RESUME_TEMPLATES}
+            usedTemplateIds={usedTemplateIds}
           />
         }
       />
@@ -65,6 +62,9 @@ export default async function ResumesPage() {
               typeof doc.config.pageSize === "string"
                 ? doc.config.pageSize
                 : "A4";
+            const templateName =
+              RESUME_TEMPLATES.find((t) => t.id === doc.templateId)?.name ??
+              "Resume";
             return (
               <StaggerItem key={doc.id}>
                 <Card interactive asChild>
@@ -82,7 +82,7 @@ export default async function ResumesPage() {
                         {doc.name}
                       </span>
                       <span className="text-xs text-muted">
-                        Classic · {pageSize} · updated{" "}
+                        {templateName} · {pageSize} · updated{" "}
                         {doc.updatedAt.toLocaleDateString()}
                       </span>
                     </span>

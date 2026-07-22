@@ -151,7 +151,7 @@ export function CommandPalette({
                       onMouseEnter={() => setActive(index)}
                     >
                       <ArrowRight aria-hidden />
-                      <span style={{ flex: 1 }}>{item.label}</span>
+                      <span className="rf-palette-label">{item.label}</span>
                       <span className="rf-label">{item.group}</span>
                     </a>
                   </li>

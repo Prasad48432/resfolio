@@ -22,6 +22,7 @@
     "@resfolio/profile": "workspace:*",
     "@resfolio/template-dark-anime": "workspace:*",
     "@resfolio/template-resume-classic": "workspace:*",
+    "@resfolio/template-resume-editorial": "workspace:*",
     "@resfolio/template-sdk": "workspace:*",
     "next": "16.2.0",
     "react": "^19.2.0",

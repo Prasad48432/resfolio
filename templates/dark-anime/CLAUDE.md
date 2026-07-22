@@ -29,35 +29,34 @@ Two deliberate departures:
   template a drop-in (doc 05). The design is the reference's; the delivery is
   ours.
 - **A footer nav the reference doesn't have.** The reference is one scrolling
-  page, so it needs no nav. We render real `/projects`, `/about` and `/resume`
-  routes, and ⌘K is an _island_ — a page reachable only by palette is a page a
-  crawler can't reach. The footer keeps the reference's clean top while keeping
-  the site navigable with no JS. (`render.test.tsx` caught this; it wasn't
-  foresight.)
+  page, so it needs no nav. We render real `/projects`, `/about` and (when there
+  are posts) `/blog` routes, and ⌘K is an _island_ — a page reachable only by
+  palette is a page a crawler can't reach. The footer keeps the reference's clean
+  top while keeping the site navigable with no JS. (`render.test.tsx` caught
+  this; it wasn't foresight.)
 - **A letter mark instead of company logos.** The reference ships logo files per
   employer. We have no logo field, and inventing one to serve one template would
   be exactly the profile-model pollution `config` exists to prevent.
 
 ## Layout
 
-- **`config.ts`** — banner, tagline, quote, intro-call link, and visibility
-  knobs. Config is **content and visibility only**; colours, type and density
-  are the template's own (doc 03).
-- **`theme.ts`** — **the preset carries no colours, deliberately.** The platform
-  resolves one preset server-side and applies it as an _inline style_; an inline
-  custom property beats every stylesheet rule, so a runtime toggle physically
-  could not override it. The preset carries the font slots; the palettes live in
-  `styles.ts`.
+- **`config.ts`** — banner, tagline, quote, intro-call link. Config is
+  **template content the Profile has no home for**; colours, type and density are
+  the template's own (doc 03). No visibility toggles (see the file's header).
+- **`theme.ts`** — **the preset carries no colours, deliberately.** The template
+  is dark-only, so its one palette lives in `styles.ts`; the preset carries only
+  the font slots the host provides.
 - **`styles.ts`** — the self-contained sheet, every rule scoped under `.rf-site`.
-  **The cascade order is load-bearing**: `.rf-site` (dark, the default — it's
-  _dark_-anime) → `@media (prefers-color-scheme: light)` on
-  `:not([data-theme="dark"])` → `.rf-site[data-theme="light"]`. Reorder the last
-  two and an explicit Dark on a light OS silently stops working.
+  **Dark only**: one palette on `.rf-site`, no light key, no `data-theme`, no
+  `prefers-color-scheme` — the template ships one fixed look.
 - **`shared.tsx`** — `href` (the one place URLs are built), ProfileView
   accessors, rows/cards, and the `Shell`.
-- **`client/`** — the islands: `theme-toggle`, `command-palette`, `index-rail`,
-  `reveal`, `banner-embers`, `github-graph`.
+- **`client/`** — the islands: `command-palette`, `index-rail`, `reveal`,
+  `banner-embers`, `github-graph`. (No theme toggle — the template is dark-only.)
 - **`pages/`** — one renderer per `PortfolioPageKind` this template declares.
+  **No `resume`**: a portfolio presents the profile; the résumé is a separate
+  document surface in the dashboard, so `/resume` is not declared and the
+  platform 404s it for this template.
 
 ## Rules
 
@@ -90,11 +89,17 @@ Two deliberate departures:
   island never hydrates, the site still reads, navigates and indexes. That's the
   bar — and it's why portfolio renderers may have islands while resume renderers
   may not (the dashboard renders resumes client-side, doc 05).
-- **No server-rendered `data-theme`.** CSS decides the key until the user
-  chooses, so nobody is briefly in the wrong palette waiting for hydration.
+- **Dark only.** One palette on `.rf-site`; no theme toggle, no `data-theme`, no
+  `prefers-color-scheme`. The GitHub graph island is pinned to `colorScheme="dark"`
+  to match.
 - **The rail lists only sections that exist.** Built from the same conditions as
   the sections themselves — a rail pointing at an empty anchor is worse than no
   rail.
+- **The ⌘K palette lists pages, projects, and Writing entries.** Built on the
+  server in `paletteItems` and passed to the island (which never constructs a
+  URL). Writing is included the way the home page links it — native post → the
+  on-site `/blog/<slug>`, imported → its external URL, neither → skipped. There
+  is **no Résumé entry** (the route is gone).
 - **Writing is one list of one shape.** A post written natively in Resfolio and
   an article imported from RSS arrive identically (the blog domain projects
   posts into the ProfileView before this template runs), so `WritingCard` never
@@ -117,22 +122,23 @@ Two deliberate departures:
   the `rf-post-*` class contract in `styles.ts`; the SDK picks the elements,
   this template picks the look. No INDEX rail on a post: the rail indexes
   sections of a long scroll, and a post is one continuous piece of prose.
-- **The GitHub activity graph is data-driven, and its data is client-fetched.**
-  The section renders **only when the profile has a `github.com/<user>` profile
-  link** (`githubUsername` in `shared.tsx`), directly below Experience — no
-  config toggle, the same rule every other section follows (`config.ts` records
-  why the removed `showGithubGraph` toggle is not coming back). A repo link
+- **The GitHub activity graph is data-driven.** The section renders **only when
+  the profile has a `github.com/<user>` profile link** (`githubUsername` in
+  `shared.tsx`), directly below Experience — no config toggle, the same rule
+  every other section follows (`config.ts` records why the removed
+  `showGithubGraph` toggle is not coming back). A repo link
   (`github.com/<user>/<repo>`) is a project, not an identity, and is ignored. The
-  `github-graph` island fetches the contribution calendar from the **host's
-  `/api/github` proxy** — this template's one runtime dependency on its host,
-  because GitHub's calendar is authenticated-GraphQL-only and the token must stay
-  server-side. Where that route is absent or `GITHUB_TOKEN` is unset the graph
-  degrades to a short note; the rest of the page is untouched. **Its SSR output
-  is a static, date-less skeleton** — the reference seeded its empty grid from
-  `new Date()`, which would break the determinism test _and_ mismatch on
-  hydration; real data is fetched only in `useEffect`. The five intensity levels
-  are a `color-mix` ramp over the palette tokens (`--rf-cell-*` in `styles.ts`),
-  so the graph re-keys with the theme rather than shipping a second table.
+  `github-graph` island renders the contribution calendar with the
+  **`react-github-calendar`** package, which fetches a public, tokenless endpoint
+  from the browser — so no host route and no `GITHUB_TOKEN` are involved, and the
+  template stays a drop-in. It is **mount-guarded** (the framework-agnostic
+  equivalent of `dynamic(..., { ssr: false })`): the widget renders only after
+  the client mounts, so SSR is the deterministic skeleton the template's
+  determinism test requires and there is no hydration mismatch over data the
+  server never had. The `@username` link sits outside the guard, so the section
+  is meaningful and links out with no JS. The colour ramp is supplied for both
+  keys (drawn from the `rf-*` palette, not GitHub green) so the widget follows the
+  OS colour scheme like the rest of the default palette.
 - **`requirements` is advisory** (doc 05). The dashboard prompts and gates
   Publish; nothing blocks a render. Every renderer must still tolerate every
   field being absent — the sparse `jun` fixture is the test that they do.
