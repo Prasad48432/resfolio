@@ -185,6 +185,11 @@ export function buildResumeStyles(config: ResumeEditorialConfig): string {
   font-size: var(--rf-size-dates);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  /* Lora sets a wide word space, which made "Sep 2021 – Jun 2025" read as
+     loosely spaced against the tight two-column rows. Pull the inter-word gaps
+     in (word-spacing only — no letter-spacing, so the PDF text layer keeps each
+     date as one run and stays ATS-extractable). */
+  word-spacing: -0.12em;
   white-space: nowrap;
 }
 .rf-entry-loc {

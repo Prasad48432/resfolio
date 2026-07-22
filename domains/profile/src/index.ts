@@ -8,7 +8,11 @@
  * operations live in `@resfolio/profile/server`.
  */
 export { createItemId } from "./ids";
-export { ProfileDataError, ProfileNotFoundError } from "./errors";
+export {
+  HandleTakenError,
+  ProfileDataError,
+  ProfileNotFoundError,
+} from "./errors";
 
 export {
   PROFILE_SCHEMA_VERSION,
@@ -60,6 +64,12 @@ export {
   safeLinkUrlSchema,
   type ItemSource,
 } from "./schema/primitives";
+
+export {
+  RESERVED_HANDLES,
+  handleSchema,
+  isReservedHandle,
+} from "./handle";
 
 export { migrateProfile } from "./migrate";
 

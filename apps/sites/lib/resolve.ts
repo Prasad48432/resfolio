@@ -1,10 +1,15 @@
 import { DocumentNotFoundError, type DocumentConfig } from "@resfolio/document";
 import { getProfileFixture } from "@resfolio/fixtures";
+import { createLogger } from "@resfolio/observability";
 import {
   buildProfileView,
   type ProfileView,
   type ViewDefinition,
 } from "@resfolio/profile";
+
+import { env } from "./env";
+
+const log = createLogger("sites:resolve-resume");
 
 /**
  * Resolve → Project for the resume surface
@@ -113,6 +118,53 @@ export async function resolveResumeRender(
       revision,
     },
   };
+}
+
+/**
+ * Resolve → Project for the pretty **`/r/<username>` resume route**: turn a
+ * public handle into which resume document to render, then reuse
+ * `resolveResumeRender`. Mirrors the portfolio's `/p/<username>`; the resume it
+ * shows is the one the owner pinned (`profiles.public_resume_id`), or — when
+ * nothing is pinned — their sole resume (the auto-pick), or nothing (404).
+ *
+ * DB-backed only: the DB modules are imported dynamically and the whole path
+ * short-circuits to `not-found` without a `DATABASE_URL`, exactly like
+ * `loadPortfolio`. The fixture resume surface stays the dedicated
+ * `/render/resume/fixture/[key]` route.
+ */
+export async function resolveResumeByHandle(
+  handle: string,
+): Promise<ResumeRenderResult> {
+  if (!env.DATABASE_URL) {
+    log.debug({ handle }, "resume 404: no DATABASE_URL configured");
+    return { status: "not-found" };
+  }
+
+  const { getProfileByHandle } = await import("@resfolio/profile/server");
+  const profile = await getProfileByHandle(handle);
+  if (!profile) {
+    log.debug({ handle }, "resume 404: no profile owns this handle");
+    return { status: "not-found" };
+  }
+
+  let documentId = profile.publicResumeId;
+  if (!documentId) {
+    // Nothing pinned: fall back to the profile's sole resume. With several
+    // resumes and no explicit pick there is no unambiguous answer, so 404.
+    const { getSoleResumeId } = await import("@resfolio/document/server");
+    documentId = await getSoleResumeId(profile.profileId);
+  }
+  if (!documentId) {
+    log.debug(
+      { handle, profileId: profile.profileId },
+      "resume 404: no public resume selected and no sole resume",
+    );
+    return { status: "not-found" };
+  }
+
+  // The document's own `visibility` still governs the outcome (private /
+  // unpublished / ok), so the pretty route behaves exactly like the id route.
+  return resolveResumeRender(documentId, "published");
 }
 
 /**

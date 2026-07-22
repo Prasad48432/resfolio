@@ -10,8 +10,15 @@ import { Page } from "@/components/layout/page";
 import { PageHeader } from "@/components/layout/page-header";
 import { Stagger, StaggerItem } from "@/components/motion/motion";
 import { CreateResumeButton } from "@/components/resume/create-resume-button";
+import { PublicResumeCard } from "@/components/resume/public-resume-card";
+import { env } from "@/lib/env";
 import { RESUME_TEMPLATES } from "@/lib/resume-templates";
 import { TEST_IDS, resumeItemTestId } from "@/lib/testids";
+
+/** The public origin for the `/r/<handle>` link on the Public resume card. */
+function publicBaseUrl(): string {
+  return (env.SITES_URL ?? "https://resfolio.me").replace(/\/$/, "");
+}
 
 /**
  * The resumes list (docs/architecture/08-dashboard-ux.md IA:
@@ -21,8 +28,12 @@ import { TEST_IDS, resumeItemTestId } from "@/lib/testids";
  */
 export default async function ResumesPage() {
   const { user } = await requireSession();
-  // A document attaches to the user's profile; make sure it exists first.
-  await getOrCreateProfile(user.id, { name: user.name, email: user.email });
+  // A document attaches to the user's profile; make sure it exists first. The
+  // draft carries the shared handle + which resume is pinned to `/r/<handle>`.
+  const draft = await getOrCreateProfile(user.id, {
+    name: user.name,
+    email: user.email,
+  });
   const documents = await listDocuments(user.id);
 
   // One resume per template (enforced in the document domain); the create menu
@@ -40,6 +51,13 @@ export default async function ResumesPage() {
             usedTemplateIds={usedTemplateIds}
           />
         }
+      />
+
+      <PublicResumeCard
+        handle={draft.handle}
+        publicBaseUrl={publicBaseUrl()}
+        publicResumeId={draft.publicResumeId}
+        resumes={documents.map((doc) => ({ id: doc.id, name: doc.name }))}
       />
 
       {documents.length === 0 ? (

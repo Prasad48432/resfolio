@@ -7,20 +7,28 @@ of `@resfolio/profile` and `@resfolio/document`.
 
 ## Layering
 
-- **Root (`.`, pure):** framework- and database-free. `siteSlugSchema` +
-  `RESERVED_SLUGS` / `isReservedSlug` (the doc-04 blocklist — never claimable
-  as a public username), `resolvePortfolioRoute` (the **platform route table**,
-  doc 04: URL segments → `{ page, params }`, total and returns `null` for
-  unknown paths so the host 404s), `SiteRecord` type. Safe to import into the
-  sites host, the dashboard, and tests.
+- **Root (`.`, pure):** framework- and database-free. `resolvePortfolioRoute`
+  (the **platform route table**, doc 04: URL segments → `{ page, params }`, total
+  and returns `null` for unknown paths so the host 404s), `SiteRecord` type, plus
+  `siteSlugSchema` / `RESERVED_SLUGS` / `isReservedSlug` **re-exported from
+  `@resfolio/profile`** (`handleSchema` et al). The public username is a
+  **profile handle** now (shared by the portfolio and resume outputs), so the
+  pure slug rules live at the root of the profile engine — portfolio depends on
+  profile, not the reverse, and these aliases keep old call sites working. Safe
+  to import into the sites host, the dashboard, and tests.
 - **`./server` (DB).** The only code that touches the `sites` table. Owner-scoped
-  CRUD (`getSiteForOwner`, `createSite`, `updateSite`, `isSlugAvailable`) — every
-  function takes `userId` and scopes to the profile that user owns. Two unscoped
-  public reads for the render host: `getSiteForRender(slug)` (returns the render
-  descriptor + the **pinned** published Profile, loaded via
-  `@resfolio/profile/server`'s `getProfileVersionById` — never the draft) and
-  `getSiteIdBySlug` (the cheap `slug → site:<id>` lookup the host runs to derive
-  the cache tag). **`getSiteIdBySlug` answers for any _claimed_ slug, published
+  CRUD (`getSiteForOwner`, `createSite`, `updateSite`) — every function takes
+  `userId` and scopes to the profile that user owns. **The public username is
+  `profiles.handle`, not a `sites` column** (migration 0012), so `createSite`
+  needs the handle claimed first (via `@resfolio/profile`'s `claimHandle`) and
+  neither it nor `updateSite` accepts a slug — renames go through `claimHandle`.
+  Availability is `@resfolio/profile/server`'s `isHandleAvailable`. Every
+  by-username read resolves the **profile** first, then its site:
+  `getSiteForRender(handle)` (returns the render descriptor + the **pinned**
+  published Profile, loaded via `getProfileVersionById` — never the draft),
+  `getSiteRefBySlug`/`getSiteIdBySlug` (the cheap `handle → site:<id>` lookup the
+  host runs to derive the cache tag). `SiteRecord.slug` is sourced from the
+  joined handle. **`getSiteIdBySlug` answers for any _claimed_ slug, published
   or not, and that is a correctness requirement, not a convenience.** It used to
   return null for an unpublished site, so the render host 404'd _before_ it had
   a tag to cache that answer under — Next cached the 404 for the full
@@ -65,11 +73,15 @@ of `@resfolio/profile` and `@resfolio/document`.
   validates presentation config — that's the template's own Zod schema, run by
   the render host. Data lives in the Profile; knobs live in config (doc 03).
 - **Slugs are DNS-label-safe** (3–32 chars, lowercase, single internal
-  hyphens) because the same slug becomes a `*.resfolio.site` subdomain later
-  (doc 04). Keep the reserved list ahead of new app/route namespaces.
+  hyphens) because the same handle becomes a `*.resfolio.site` subdomain later
+  (doc 04). The rules + reserved list live in `@resfolio/profile` now — keep the
+  reserved list ahead of new app/route namespaces there (it already reserves
+  both `p` and `r`).
 
 ## Tests
 
-Co-located vitest: slug accept/reject (length, hyphen edges, charset, reserved,
-normalization) and route-table resolution (index routes, detail slugs, 404 for
-unknown/over-deep paths).
+Co-located vitest: route-table resolution (index routes, detail slugs, 404 for
+unknown/over-deep paths) and a smoke check that the re-exported slug schema
+still accepts/rejects. The exhaustive handle accept/reject cases (length, hyphen
+edges, charset, reserved incl. `p`/`r`, normalization) live with the rules in
+`@resfolio/profile` (`handle.test.ts`).

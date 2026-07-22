@@ -133,14 +133,18 @@ Business-logic packages live under `domains/`:
 
 - `@resfolio/profile` (`domains/profile`) — the profile engine: canonical
   Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
-  pure edit helpers (framework-free, root export), and database-backed
-  draft/publish operations (the `@resfolio/profile/server` subpath, the only
-  code that touches the `profiles`/`profile_versions` tables)
+  pure edit helpers (framework-free, root export), the **public handle** rules
+  (`handleSchema` + reserved blocklist — the username shared by the portfolio and
+  resume outputs, re-exported by `@resfolio/portfolio`), and database-backed
+  draft/publish + handle operations (`@resfolio/profile/server`: the only code
+  that touches the `profiles`/`profile_versions` tables — `claimHandle`,
+  `getProfileByHandle`, `setPublicResume`, …)
 - `@resfolio/portfolio` (`domains/portfolio`) — the portfolio domain: a **Site**
-  is `Profile × (template + config)`. Pure root (slug rules + reserved-word
-  blocklist, the platform route table `resolvePortfolioRoute`, `SiteRecord`
-  type), the `./token` signed preview token (server-only), and the `./server`
-  surface (the `sites` table: owner-scoped CRUD, `getSiteForRender`, and
+  is `Profile × (template + config)`. Pure root (the platform route table
+  `resolvePortfolioRoute`, `SiteRecord` type, and the slug rules **re-exported
+  from `@resfolio/profile`** — the public username is a profile handle now), the
+  `./token` signed preview token (server-only), and the `./server` surface (the
+  `sites` table: owner-scoped CRUD, `getSiteForRender` resolved by handle, and
   `publishSite` — pins the profile's published version). See
   `domains/portfolio/CLAUDE.md`
 - `@resfolio/document` (`domains/document`) — the document engine: a document

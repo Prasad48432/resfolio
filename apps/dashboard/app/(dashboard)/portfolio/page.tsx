@@ -35,12 +35,16 @@ export default async function PortfolioPage() {
   const site = await getSiteForOwner(user.id);
 
   if (!site) {
-    // Suggest a slug from the user's name (the claim form validates it live).
-    const suggested = (user.name ?? user.email ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 32);
+    // Prefill the username the user already claimed (e.g. from /resumes — the
+    // handle is shared); otherwise suggest one from their name (the claim form
+    // validates it live either way).
+    const suggested =
+      draft.handle ??
+      (user.name ?? user.email ?? "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 32);
     return (
       <PortfolioClaim
         templates={PORTFOLIO_TEMPLATES.map((t) => ({

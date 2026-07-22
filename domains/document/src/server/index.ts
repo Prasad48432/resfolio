@@ -9,6 +9,7 @@ export {
   deleteDocument,
   getDocument,
   getDocumentForRender,
+  getSoleResumeId,
   listDocuments,
   updateDocument,
   type DocumentRenderSpec,

@@ -165,6 +165,40 @@ export async function deleteDocument(
   if (deleted.length === 0) {
     throw new DocumentNotFoundError();
   }
+  // Clear the `/r/<handle>` pointer if it named the deleted resume — the
+  // profile column carries no inline FK (avoids a schema-module cycle), so the
+  // "set null on delete" has to happen here. Scoped to this profile + this id,
+  // so it is a no-op for any other selection.
+  await db
+    .update(schema.profile)
+    .set({ publicResumeId: null })
+    .where(
+      and(
+        eq(schema.profile.id, profileId),
+        eq(schema.profile.publicResumeId, id),
+      ),
+    );
+}
+
+/**
+ * The id of the profile's **only** resume document, or null when it has none or
+ * more than one. Drives the `/r/<handle>` auto-pick: with a single resume the
+ * public route needs no explicit selection; with several the owner must choose
+ * (a null pointer then 404s rather than guessing). Unscoped — the render host
+ * resolves this by profile id after a handle lookup, with no session.
+ */
+export async function getSoleResumeId(
+  profileId: string,
+): Promise<string | null> {
+  const rows = await db.query.document.findMany({
+    where: and(
+      eq(schema.document.profileId, profileId),
+      eq(schema.document.kind, "resume"),
+    ),
+    columns: { id: true },
+    limit: 2,
+  });
+  return rows.length === 1 ? rows[0]!.id : null;
 }
 
 export interface DocumentRenderSpec {

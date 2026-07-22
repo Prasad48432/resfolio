@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, ne } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db, schema } from "@resfolio/database";
 import { getProfileVersionById } from "@resfolio/profile/server";
@@ -12,11 +12,9 @@ import {
   ProfileNotPublishedError,
   SiteDataError,
   SiteNotFoundError,
-  SlugTakenError,
 } from "../errors";
 import {
   siteConfigSchema,
-  siteSlugSchema,
   updateSiteSchema,
   type NewSiteInput,
   type SiteConfig,
@@ -29,14 +27,19 @@ import {
  * only code that touches the `sites` table. Every owner-facing function takes
  * the auth context (`userId`) explicitly and scopes every query to the profile
  * that user owns — ownership is enforced here, never assumed from the caller
- * (docs/architecture/06-api-architecture.md, 10-auth-and-security.md). The one
- * unscoped read is `getSiteForRender(slug)`, called by the public render host:
- * the site is published state, the slug is the capability.
+ * (docs/architecture/06-api-architecture.md, 10-auth-and-security.md). The
+ * unscoped reads (`getSiteForRender`, `getSiteRefBySlug`) are called by the
+ * public render host: the site is published state, the handle is the capability.
  *
  * A Site is `Profile × (template + config)`. Content is never stored here —
  * publishing **pins** the profile's currently published `profile_versions`
  * snapshot into `published_version_id`, so a cached public page can never show
  * draft state (doc 04).
+ *
+ * **The public username is the profile's `handle`, not a column on `sites`**
+ * (migration 0012). It is an identity shared by the portfolio and resume
+ * outputs, so it lives on the Profile. Every by-username read here resolves the
+ * profile first, then its site; `SiteRecord.slug` is sourced from that handle.
  */
 
 /** Order-independent JSON, for comparing a config against its JSONB-stored copy
@@ -60,11 +63,18 @@ function sortKeys(value: unknown): unknown {
   return value;
 }
 
-function toRecord(row: typeof schema.site.$inferSelect): SiteRecord {
+/** The site row plus the owning profile's handle → a `SiteRecord`. The handle
+ * carries the public username; an unclaimed profile (no site could exist for
+ * one) reads as an empty string rather than null so the record type stays
+ * `string`. */
+function toRecord(
+  row: typeof schema.site.$inferSelect,
+  handle: string | null,
+): SiteRecord {
   return {
     id: row.id,
     profileId: row.profileId,
-    slug: row.slug,
+    slug: handle ?? "",
     templateId: row.templateId,
     templateMajor: row.templateMajor,
     config: siteConfigSchema.parse(row.config),
@@ -77,15 +87,17 @@ function toRecord(row: typeof schema.site.$inferSelect): SiteRecord {
   };
 }
 
-/** The id + published-version pointer of the profile a user owns (unique
- * `user_id`), or throw. Sites are scoped through this so a user can only ever
- * see or mutate their own. */
-async function requireProfile(
-  userId: string,
-): Promise<{ id: string; publishedVersionId: string | null }> {
+/** The id, handle, and published-version pointer of the profile a user owns
+ * (unique `user_id`), or throw. Sites are scoped through this so a user can
+ * only ever see or mutate their own. */
+async function requireProfile(userId: string): Promise<{
+  id: string;
+  handle: string | null;
+  publishedVersionId: string | null;
+}> {
   const row = await db.query.profile.findFirst({
     where: eq(schema.profile.userId, userId),
-    columns: { id: true, publishedVersionId: true },
+    columns: { id: true, handle: true, publishedVersionId: true },
   });
   if (!row) {
     throw new SiteDataError("No profile exists for this user.");
@@ -102,48 +114,25 @@ export async function getSiteForOwner(
   const row = await db.query.site.findFirst({
     where: eq(schema.site.profileId, profile.id),
   });
-  return row ? toRecord(row) : null;
+  return row ? toRecord(row, profile.handle) : null;
 }
 
 /**
- * Whether `slug` is free for this user to claim — false if it's reserved
- * (caught earlier by `siteSlugSchema`) or already held by *another* profile.
- * The user's own current slug counts as available (so re-saving is a no-op).
- */
-export async function isSlugAvailable(
-  userId: string,
-  slug: string,
-): Promise<boolean> {
-  const normalized = siteSlugSchema.parse(slug);
-  const profile = await requireProfile(userId);
-  const holder = await db.query.site.findFirst({
-    where: eq(schema.site.slug, normalized),
-    columns: { profileId: true },
-  });
-  return !holder || holder.profileId === profile.id;
-}
-
-/** Postgres unique-violation code — a slug (or profile) raced us to the row. */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "23505"
-  );
-}
-
-/**
- * Claim a Site for the user's profile (doc 04: the slug claim). One per
- * profile — a second attempt throws. `config` is the template's default,
- * already validated by the template's schema in the action.
+ * Claim a Site for the user's profile (doc 04). One per profile — a second
+ * attempt throws. Requires the profile to already have a **handle** (claimed
+ * via `@resfolio/profile`'s `claimHandle`): a site with no public username is
+ * unreachable, and the username is a profile concern the claim flow sets first.
+ * `config` is the template's default, already validated by the template's
+ * schema in the action.
  */
 export async function createSite(
   userId: string,
   input: NewSiteInput,
 ): Promise<SiteRecord> {
   const profile = await requireProfile(userId);
-  const slug = siteSlugSchema.parse(input.slug);
+  if (!profile.handle) {
+    throw new SiteDataError("Claim a username before creating a site.");
+  }
 
   const existing = await db.query.site.findFirst({
     where: eq(schema.site.profileId, profile.id),
@@ -153,37 +142,29 @@ export async function createSite(
     throw new SiteDataError("This profile already has a site.");
   }
 
-  try {
-    const inserted = await db
-      .insert(schema.site)
-      .values({
-        profileId: profile.id,
-        slug,
-        templateId: input.templateId,
-        templateMajor: input.templateMajor,
-        config: siteConfigSchema.parse(input.config),
-        view: viewDefinitionSchema.parse(input.view ?? {}),
-        discoverable: input.discoverable ?? true,
-      })
-      .returning();
-    const row = inserted[0];
-    if (!row) {
-      throw new SiteDataError("Failed to create site.");
-    }
-    return toRecord(row);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new SlugTakenError(slug);
-    }
-    throw error;
+  const inserted = await db
+    .insert(schema.site)
+    .values({
+      profileId: profile.id,
+      templateId: input.templateId,
+      templateMajor: input.templateMajor,
+      config: siteConfigSchema.parse(input.config),
+      view: viewDefinitionSchema.parse(input.view ?? {}),
+      discoverable: input.discoverable ?? true,
+    })
+    .returning();
+  const row = inserted[0];
+  if (!row) {
+    throw new SiteDataError("Failed to create site.");
   }
+  return toRecord(row, profile.handle);
 }
 
 /**
- * Patch the user's Site (slug, template, config, discoverable). Editing config
- * or the slug does **not** republish — the public pages keep rendering the
- * pinned version until an explicit `publishSite` (doc 04: publish is one
- * deliberate action).
+ * Patch the user's Site (template, config, discoverable). The username is a
+ * profile handle, changed through `claimHandle` — not here. Editing config
+ * does **not** republish — the public pages keep rendering the pinned version
+ * until an explicit `publishSite` (doc 04: publish is one deliberate action).
  */
 export async function updateSite(
   userId: string,
@@ -199,20 +180,6 @@ export async function updateSite(
     throw new SiteNotFoundError();
   }
 
-  // A slug change must not collide with another profile's site.
-  if (validated.slug !== undefined) {
-    const holder = await db.query.site.findFirst({
-      where: and(
-        eq(schema.site.slug, validated.slug),
-        ne(schema.site.profileId, profile.id),
-      ),
-      columns: { id: true },
-    });
-    if (holder) {
-      throw new SlugTakenError(validated.slug);
-    }
-  }
-
   // Only a change to what the public page renders makes it stale. A save that
   // re-sends identical presentation — an autosave fired by a remount, a config
   // form that rebuilt with the same values — must not flip the flag, or the
@@ -221,7 +188,6 @@ export async function updateSite(
   // preserve key order, so the stored copy comes back reordered and a plain
   // stringify would read an untouched config as "changed".
   const presentationChanged =
-    (validated.slug !== undefined && validated.slug !== current.slug) ||
     (validated.templateId !== undefined &&
       validated.templateId !== current.templateId) ||
     (validated.templateMajor !== undefined &&
@@ -231,27 +197,20 @@ export async function updateSite(
     (validated.config !== undefined &&
       canonicalJson(validated.config) !== canonicalJson(current.config));
 
-  try {
-    const updated = await db
-      .update(schema.site)
-      .set({
-        ...validated,
-        hasUnpublishedChanges:
-          current.hasUnpublishedChanges || presentationChanged,
-      })
-      .where(eq(schema.site.profileId, profile.id))
-      .returning();
-    const row = updated[0];
-    if (!row) {
-      throw new SiteNotFoundError();
-    }
-    return toRecord(row);
-  } catch (error) {
-    if (isUniqueViolation(error) && validated.slug) {
-      throw new SlugTakenError(validated.slug);
-    }
-    throw error;
+  const updated = await db
+    .update(schema.site)
+    .set({
+      ...validated,
+      hasUnpublishedChanges:
+        current.hasUnpublishedChanges || presentationChanged,
+    })
+    .where(eq(schema.site.profileId, profile.id))
+    .returning();
+  const row = updated[0];
+  if (!row) {
+    throw new SiteNotFoundError();
   }
+  return toRecord(row, profile.handle);
 }
 
 export interface PublishSiteResult {
@@ -291,10 +250,10 @@ export async function publishSite(userId: string): Promise<PublishSiteResult> {
 }
 
 /**
- * The stable site id for a **claimed** slug — published or not — or null when
- * no site owns that slug at all. A single indexed lookup the render host runs
+ * The stable site id for a **claimed** username — published or not — or null
+ * when no profile+site owns that handle. A single lookup the render host runs
  * uncached to derive the `site:<id>` cache tag before wrapping the expensive
- * load. The tag can't be the slug (a rename would orphan the cache; the id is
+ * load. The tag can't be the handle (a rename would orphan the cache; the id is
  * stable, doc 04).
  *
  * **It deliberately ignores publish state**, and that is a correctness
@@ -303,33 +262,39 @@ export async function publishSite(userId: string): Promise<PublishSiteResult> {
  * had a tag to cache that answer under. Next then cached the 404 for the
  * route's full `revalidate` window with no tag attached — so `publishSite`'s
  * `revalidateTag('site:<id>')` could not reach it, and a freshly published
- * site kept serving "not found" for up to 24 hours. The window between
- * claiming a slug and publishing it is exactly when someone loads their own
- * URL to see what it looks like, so this was reliably self-inflicted.
+ * site kept serving "not found" for up to 24 hours.
  *
  * Callers still decide what to *render*: `getSiteForRender` returns null for an
- * unpublished site. This only answers "does this slug belong to a site, and
+ * unpublished site. This only answers "does this handle belong to a site, and
  * which one" — the question the cache tag needs.
  */
-export async function getSiteIdBySlug(slug: string): Promise<string | null> {
-  const ref = await getSiteRefBySlug(slug);
+export async function getSiteIdBySlug(handle: string): Promise<string | null> {
+  const ref = await getSiteRefBySlug(handle);
   return ref?.siteId ?? null;
 }
 
-/** A claimed slug's site **and owning profile** ids. The render host needs both
- * to derive its cache tags before the cached work runs: a portfolio render
+/** A claimed handle's site **and owning profile** ids. The render host needs
+ * both to derive its cache tags before the cached work runs: a portfolio render
  * depends on the site (`site:<id>`, dropped on publish) *and* on the owner's
  * posts (`blog:<id>`, dropped on any post write), and a tag can't be read out
- * of the value it is tagging. Answers for any claimed slug regardless of
- * publish state — see `getSiteIdBySlug`. */
+ * of the value it is tagging. Answers for any claimed handle regardless of
+ * publish state — see `getSiteIdBySlug`. Resolves the profile by handle first,
+ * then its site. */
 export async function getSiteRefBySlug(
-  slug: string,
+  handle: string,
 ): Promise<{ siteId: string; profileId: string } | null> {
-  const row = await db.query.site.findFirst({
-    where: eq(schema.site.slug, slug.trim().toLowerCase()),
-    columns: { id: true, profileId: true },
+  const profile = await db.query.profile.findFirst({
+    where: eq(schema.profile.handle, handle.trim().toLowerCase()),
+    columns: { id: true },
   });
-  return row ? { siteId: row.id, profileId: row.profileId } : null;
+  if (!profile) {
+    return null;
+  }
+  const row = await db.query.site.findFirst({
+    where: eq(schema.site.profileId, profile.id),
+    columns: { id: true },
+  });
+  return row ? { siteId: row.id, profileId: profile.id } : null;
 }
 
 export interface SiteRenderData {
@@ -347,37 +312,44 @@ export interface SiteRenderData {
 }
 
 /**
- * The render inputs for a public site, resolved by slug for the render host.
- * Not user-scoped: this serves published state, the slug is the capability.
- * Returns null when the slug is unknown or the site has never been published
- * (either way → 404). The profile is loaded from the **pinned** version, never
- * the profile's live draft or latest publish.
+ * The render inputs for a public site, resolved by username (handle) for the
+ * render host. Not user-scoped: this serves published state, the handle is the
+ * capability. Returns null when the handle is unknown or the site has never
+ * been published (either way → 404). The profile is loaded from the **pinned**
+ * version, never the profile's live draft or latest publish.
  */
 export async function getSiteForRender(
-  slug: string,
+  handle: string,
 ): Promise<SiteRenderData | null> {
-  const normalized = slug.trim().toLowerCase();
+  const normalized = handle.trim().toLowerCase();
+  const profile = await db.query.profile.findFirst({
+    where: eq(schema.profile.handle, normalized),
+    columns: { id: true },
+  });
+  if (!profile) {
+    return null;
+  }
   const row = await db.query.site.findFirst({
-    where: eq(schema.site.slug, normalized),
+    where: eq(schema.site.profileId, profile.id),
   });
   if (!row || !row.publishedVersionId) {
     return null;
   }
-  const profile = await getProfileVersionById(row.publishedVersionId);
-  if (!profile) {
+  const profileData = await getProfileVersionById(row.publishedVersionId);
+  if (!profileData) {
     // A pinned version that no longer exists — treat as unpublished.
     return null;
   }
   return {
     siteId: row.id,
     profileId: row.profileId,
-    slug: row.slug,
+    slug: normalized,
     templateId: row.templateId,
     templateMajor: row.templateMajor,
     config: siteConfigSchema.parse(row.config),
     view: viewDefinitionSchema.parse(row.view),
     discoverable: row.discoverable,
-    profile,
+    profile: profileData,
   };
 }
 
@@ -388,10 +360,10 @@ export interface DiscoverableSite {
 }
 
 /**
- * Every discoverable, published site's slug + template + last update — the
+ * Every discoverable, published site's handle + template + last update — the
  * input to the platform sitemap (doc 04). Unscoped read of public state only.
- * The template id lets the sitemap emit only the pages that site's template
- * actually serves.
+ * Joins each site to its owning profile for the handle; a site whose profile
+ * somehow has no handle is skipped (it has no public URL to list).
  */
 export async function listDiscoverableSites(): Promise<DiscoverableSite[]> {
   const rows = await db.query.site.findMany({
@@ -399,11 +371,18 @@ export async function listDiscoverableSites(): Promise<DiscoverableSite[]> {
       eq(schema.site.discoverable, true),
       isNotNull(schema.site.publishedVersionId),
     ),
-    columns: { slug: true, templateId: true, updatedAt: true },
+    columns: { templateId: true, updatedAt: true },
+    with: { profile: { columns: { handle: true } } },
   });
-  return rows.map((row) => ({
-    slug: row.slug,
-    templateId: row.templateId,
-    updatedAt: row.updatedAt,
-  }));
+  return rows.flatMap((row) =>
+    row.profile.handle
+      ? [
+          {
+            slug: row.profile.handle,
+            templateId: row.templateId,
+            updatedAt: row.updatedAt,
+          },
+        ]
+      : [],
+  );
 }

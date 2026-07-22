@@ -9,9 +9,13 @@ import {
 import {
   createDocument,
   deleteDocument,
+  getDocument,
   updateDocument,
 } from "@resfolio/document/server";
-import { getOrCreateProfile } from "@resfolio/profile/server";
+import {
+  getOrCreateProfile,
+  setPublicResume,
+} from "@resfolio/profile/server";
 import { viewDefinitionSchema } from "@resfolio/profile";
 import { resumeClassicConfigSchema } from "@resfolio/template-resume-classic";
 import { revalidatePath } from "next/cache";
@@ -114,5 +118,27 @@ export const deleteResumeAction = createAction({
     await deleteDocument(ctx.userId, id);
     revalidatePath("/resumes");
     return { deleted: true as const };
+  },
+});
+
+/**
+ * Pin which resume renders at the profile's public `/r/<handle>` route (doc 02).
+ * Passing null clears the pin, falling the route back to the sole-resume
+ * auto-pick. Ownership is verified here via the user-scoped `getDocument` — the
+ * profile pointer carries no FK, so a stranger's document id must be rejected
+ * before it can be written.
+ */
+export const setPublicResumeAction = createAction({
+  name: "resume.setPublic",
+  input: z.object({ documentId: z.string().min(1).nullable() }),
+  handler: async ({ documentId }, ctx) => {
+    if (documentId !== null) {
+      // Throws DocumentNotFoundError (→ generic action error) if it isn't the
+      // caller's — `getDocument` is scoped to the user's own profile.
+      await getDocument(ctx.userId, documentId);
+    }
+    await setPublicResume(ctx.userId, documentId);
+    revalidatePath("/resumes");
+    return { documentId };
   },
 });

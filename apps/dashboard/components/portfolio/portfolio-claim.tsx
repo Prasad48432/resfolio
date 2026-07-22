@@ -1,32 +1,26 @@
 "use client";
 
-import { Button, Card, cn, Input, Label, Spinner } from "@resfolio/ui";
-import { Check, Globe, X } from "lucide-react";
+import { Button, Card, cn, Label, Spinner } from "@resfolio/ui";
+import { Check, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 
+import { createPortfolioSiteAction } from "@/app/(dashboard)/portfolio/actions";
 import {
-  checkSlugAvailabilityAction,
-  createPortfolioSiteAction,
-} from "@/app/(dashboard)/portfolio/actions";
+  HandleField,
+  type HandleState,
+} from "@/components/handle/handle-field";
 import { Page } from "@/components/layout/page";
 import { PageHeader } from "@/components/layout/page-header";
 import { TEST_IDS, portfolioTemplateTestId } from "@/lib/testids";
 
 /**
  * The first-run portfolio screen (docs/architecture/03-portfolio-rendering.md):
- * claim a public slug and pick a template. The slug is checked live against the
- * domain's rules + the reserved blocklist + uniqueness; creating the site
- * navigates into the settings editor. Content isn't touched here — a site is
- * `Profile × template + config`.
+ * claim a public username and pick a template. The username is a **profile
+ * handle** shared with the resume output — the shared `HandleField` checks it
+ * live; creating the site navigates into the settings editor. Content isn't
+ * touched here — a site is `Profile × template + config`.
  */
-type SlugState =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "ok" }
-  | { status: "invalid"; reason: string }
-  | { status: "taken" };
-
 interface TemplateOption {
   id: string;
   name: string;
@@ -44,43 +38,10 @@ export function PortfolioClaim({
 }) {
   const router = useRouter();
   const [slug, setSlug] = useState(suggestedSlug);
-  const [slugState, setSlugState] = useState<SlugState>({ status: "idle" });
+  const [slugState, setSlugState] = useState<HandleState>({ status: "idle" });
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const checkSlug = useCallback(async (value: string) => {
-    if (!value) {
-      setSlugState({ status: "idle" });
-      return;
-    }
-    setSlugState({ status: "checking" });
-    try {
-      const result = await checkSlugAvailabilityAction({ slug: value });
-      if (!result.ok) {
-        setSlugState({ status: "invalid", reason: "Try another name" });
-        return;
-      }
-      if (!result.data.valid) {
-        setSlugState({
-          status: "invalid",
-          reason: result.data.reason ?? "Not a valid name",
-        });
-      } else if (!result.data.available) {
-        setSlugState({ status: "taken" });
-      } else {
-        setSlugState({ status: "ok" });
-      }
-    } catch {
-      setSlugState({ status: "idle" });
-    }
-  }, []);
-
-  // Debounced live availability check as the user types.
-  useEffect(() => {
-    const timer = setTimeout(() => void checkSlug(slug), 400);
-    return () => clearTimeout(timer);
-  }, [slug, checkSlug]);
 
   async function create() {
     setError(null);
@@ -106,31 +67,20 @@ export function PortfolioClaim({
     <Page data-testid={TEST_IDS.portfolioClaim}>
       <PageHeader
         title="Claim your site"
-        description="Your portfolio renders from the same profile — pick a name and a template, then publish to a public URL."
+        description="Your portfolio renders from the same profile — pick a name and a template, then publish to a public URL. The name is your username; it's shared with your public resume."
       />
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="portfolio-slug">Site address</Label>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted">resfolio.me/p/</span>
-          <div className="relative flex-1">
-            <Input
-              id="portfolio-slug"
-              value={slug}
-              spellCheck={false}
-              autoCapitalize="none"
-              onChange={(event) =>
-                setSlug(event.target.value.toLowerCase().trim())
-              }
-              className="pr-9 font-mono"
-              data-testid={TEST_IDS.portfolioSlugInput}
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2">
-              <SlugIndicator state={slugState} />
-            </span>
-          </div>
-        </div>
-        <SlugMessage state={slugState} />
+        <Label htmlFor="portfolio-slug">Your username</Label>
+        <HandleField
+          id="portfolio-slug"
+          value={slug}
+          onValueChange={setSlug}
+          onStateChange={setSlugState}
+          prefix="resfolio.me/p/"
+          inputTestId={TEST_IDS.portfolioSlugInput}
+          statusTestId={TEST_IDS.portfolioSlugStatus}
+        />
       </div>
 
       <fieldset className="flex flex-col gap-3">
@@ -214,44 +164,5 @@ export function PortfolioClaim({
         ) : null}
       </div>
     </Page>
-  );
-}
-
-function SlugIndicator({ state }: { state: SlugState }) {
-  if (state.status === "checking") {
-    // The only signal that the availability check is running, so it carries a
-    // name rather than being decorative like the in-button spinners.
-    return <Spinner className="text-muted" label="Checking availability" />;
-  }
-  if (state.status === "ok") {
-    return <Check className="size-4 text-brand" aria-hidden />;
-  }
-  if (state.status === "taken" || state.status === "invalid") {
-    return <X className="size-4 text-brand" aria-hidden />;
-  }
-  return null;
-}
-
-function SlugMessage({ state }: { state: SlugState }) {
-  const text =
-    state.status === "taken"
-      ? "That name is taken — try another."
-      : state.status === "invalid"
-        ? state.reason
-        : state.status === "ok"
-          ? "Available"
-          : "";
-  if (!text) {
-    return null;
-  }
-  return (
-    <span
-      className={`text-xs ${state.status === "ok" ? "text-muted" : "text-brand"}`}
-      role="status"
-      data-testid={TEST_IDS.portfolioSlugStatus}
-      data-status={state.status}
-    >
-      {text}
-    </span>
   );
 }

@@ -1,8 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 
 import { db, schema } from "@resfolio/database";
 
-import { ProfileDataError, ProfileNotFoundError } from "../errors";
+import {
+  HandleTakenError,
+  ProfileDataError,
+  ProfileNotFoundError,
+} from "../errors";
+import { handleSchema } from "../handle";
 import { migrateProfile } from "../migrate";
 import { createSeedProfile, type SeedIdentity } from "../seed";
 import { profileSchema, type Profile } from "../schema/profile";
@@ -21,6 +26,11 @@ import { profileSchema, type Profile } from "../schema/profile";
 
 export interface ProfileDraft {
   profileId: string;
+  /** The public username, or null until claimed (see `claimHandle`). Shared by
+   * the portfolio (`/p/<handle>`) and resume (`/r/<handle>`) outputs. */
+  handle: string | null;
+  /** Which resume renders at `/r/<handle>`, or null (→ sole-resume auto-pick). */
+  publicResumeId: string | null;
   /** Always migrated + validated to the current schema version. */
   data: Profile;
   /** Optimistic-concurrency token — pass the value you edited from back to
@@ -76,6 +86,8 @@ function toDraft(
   const data = migrateProfile(row.draft);
   return {
     profileId: row.id,
+    handle: row.handle,
+    publicResumeId: row.publicResumeId,
     data,
     draftRev: row.draftRev,
     publishedVersionId: row.publishedVersionId,
@@ -268,4 +280,125 @@ export async function getProfileVersionById(
     where: eq(schema.profileVersion.id, versionId),
   });
   return version ? migrateProfile(version.data) : null;
+}
+
+/** The public identity a handle resolves to — what the render host needs to
+ * turn `/p/<handle>` or `/r/<handle>` into a site or a resume. */
+export interface ProfileHandleRef {
+  profileId: string;
+  userId: string;
+  /** The resume `documents` id pinned to `/r/<handle>`, or null (→ the host
+   * auto-uses the sole resume, or 404s when there are none/many). */
+  publicResumeId: string | null;
+}
+
+/**
+ * The profile that owns `handle`, or null. Unscoped — this is a public read the
+ * render host runs to resolve a username; the handle is the capability. A null
+ * `handle` never matches (an unclaimed profile is unreachable by username).
+ */
+export async function getProfileByHandle(
+  handle: string,
+): Promise<ProfileHandleRef | null> {
+  const normalized = handle.trim().toLowerCase();
+  const row = await db.query.profile.findFirst({
+    where: eq(schema.profile.handle, normalized),
+    columns: { id: true, userId: true, publicResumeId: true },
+  });
+  return row
+    ? {
+        profileId: row.id,
+        userId: row.userId,
+        publicResumeId: row.publicResumeId,
+      }
+    : null;
+}
+
+/**
+ * Whether `handle` is free for this user to claim — false if reserved (caught
+ * earlier by `handleSchema`) or already held by *another* profile. The user's
+ * own current handle counts as available, so re-saving it is a no-op.
+ */
+export async function isHandleAvailable(
+  userId: string,
+  handle: string,
+): Promise<boolean> {
+  const normalized = handleSchema.parse(handle);
+  const holder = await db.query.profile.findFirst({
+    where: eq(schema.profile.handle, normalized),
+    columns: { userId: true },
+  });
+  return !holder || holder.userId === userId;
+}
+
+/** Postgres unique-violation code — a handle raced us to the row. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "23505"
+  );
+}
+
+/**
+ * Claim (or change) the user's public handle. Validates the format + reserved
+ * list via `handleSchema`, rejects a name another profile holds, and relies on
+ * the unique index as the final arbiter against a race. This is the single
+ * entry point both the portfolio and resumes sections drive.
+ */
+export async function claimHandle(
+  userId: string,
+  handle: string,
+): Promise<{ handle: string }> {
+  const normalized = handleSchema.parse(handle);
+
+  const holder = await db.query.profile.findFirst({
+    where: and(
+      eq(schema.profile.handle, normalized),
+      ne(schema.profile.userId, userId),
+    ),
+    columns: { id: true },
+  });
+  if (holder) {
+    throw new HandleTakenError(normalized);
+  }
+
+  try {
+    const updated = await db
+      .update(schema.profile)
+      .set({ handle: normalized })
+      .where(eq(schema.profile.userId, userId))
+      .returning({ handle: schema.profile.handle });
+    const row = updated[0];
+    if (!row?.handle) {
+      throw new ProfileNotFoundError();
+    }
+    return { handle: row.handle };
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new HandleTakenError(normalized);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Pin (or clear) which resume renders at `/r/<handle>`. Passing null falls the
+ * public route back to the "sole resume" auto-pick. Ownership of `documentId`
+ * is the caller's to verify (the resumes action does, via the user-scoped
+ * `getDocument`) — this only writes the pointer for the user's own profile.
+ */
+export async function setPublicResume(
+  userId: string,
+  documentId: string | null,
+): Promise<void> {
+  const updated = await db
+    .update(schema.profile)
+    .set({ publicResumeId: documentId })
+    .where(eq(schema.profile.userId, userId))
+    .returning({ id: schema.profile.id });
+  if (!updated[0]) {
+    throw new ProfileNotFoundError();
+  }
 }

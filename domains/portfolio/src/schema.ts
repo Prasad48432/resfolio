@@ -1,3 +1,8 @@
+import {
+  handleSchema,
+  isReservedHandle,
+  RESERVED_HANDLES,
+} from "@resfolio/profile";
 import { z } from "zod";
 
 /**
@@ -8,97 +13,20 @@ import { z } from "zod";
  * so it is opaque `unknown` here — the domain stays template-agnostic.
  *
  * This root is framework- and database-free (the `./server` surface, which
- * owns the `sites` table, lands with the publish flow). Kept pure so the slug
- * rules and route table are testable and shared without a DB.
+ * owns the `sites` table, lands with the publish flow). Kept pure so the route
+ * table is testable and shared without a DB.
  */
 
 /**
- * Reserved slugs — never claimable as a public username (doc 04 open question,
- * resolved here). Covers our own route namespace, common infra subdomains, and
- * support/legal words a squatter shouldn't hold. Lowercase; matched
- * case-insensitively via the normalized slug.
+ * Slug rules re-exported from `@resfolio/profile`. The public username is a
+ * **profile handle** now (shared by the portfolio and resume outputs), so the
+ * pure rules live at the root of the profile engine — portfolio already depends
+ * on profile, and profile can't depend back on portfolio. These aliases keep
+ * every existing `siteSlugSchema` / `RESERVED_SLUGS` call site working.
  */
-export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
-  // platform + app surfaces
-  "www",
-  "app",
-  "api",
-  "admin",
-  "dashboard",
-  "auth",
-  "login",
-  "logout",
-  "signup",
-  "signin",
-  "settings",
-  "account",
-  "billing",
-  "p",
-  "render",
-  "preview",
-  "sites",
-  "site",
-  "resfolio",
-  // infra / common subdomains
-  "mail",
-  "email",
-  "smtp",
-  "ftp",
-  "cdn",
-  "assets",
-  "static",
-  "media",
-  "img",
-  "images",
-  "files",
-  "download",
-  "status",
-  "health",
-  // content / legal
-  "about",
-  "blog",
-  "docs",
-  "help",
-  "support",
-  "contact",
-  "pricing",
-  "terms",
-  "privacy",
-  "legal",
-  "security",
-  "careers",
-  "jobs",
-  "team",
-  // safety
-  "root",
-  "superuser",
-  "system",
-  "null",
-  "undefined",
-  "test",
-]);
-
-export function isReservedSlug(slug: string): boolean {
-  return RESERVED_SLUGS.has(slug.trim().toLowerCase());
-}
-
-/**
- * A public site slug: 3–32 chars, lowercase alphanumeric and single internal
- * hyphens, no leading/trailing hyphen, not reserved. This is the `<username>`
- * in `resfolio.me/p/<username>` and the future `<username>.resfolio.site`
- * subdomain, so it must be DNS-label-safe.
- */
-export const siteSlugSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(3, "must be at least 3 characters")
-  .max(32, "must be at most 32 characters")
-  .regex(
-    /^[a-z0-9](?:[a-z0-9]|-(?![-]))*[a-z0-9]$/,
-    "use lowercase letters, numbers, and single hyphens",
-  )
-  .refine((slug) => !isReservedSlug(slug), "that name is reserved");
+export const siteSlugSchema = handleSchema;
+export const RESERVED_SLUGS = RESERVED_HANDLES;
+export const isReservedSlug = isReservedHandle;
 
 /** The document kind this domain owns; `portfolio` only, mirroring the SDK. */
 export const siteKindSchema = z.literal("portfolio");
@@ -112,11 +40,12 @@ export const siteKindSchema = z.literal("portfolio");
 export const siteConfigSchema = z.record(z.string(), z.unknown());
 export type SiteConfig = z.infer<typeof siteConfigSchema>;
 
-/** Input to claim a new Site (the slug + template pick). `view` defaults to
- * the identity view (`{}` = the whole profile) — per-site tailoring is a data
- * change later, not a migration. */
+/** Input to claim a new Site (the template pick). The public username is the
+ * profile's **handle** — claimed separately via `@resfolio/profile`'s
+ * `claimHandle` before a site is created — so it is not part of this input.
+ * `view` defaults to the identity view (`{}` = the whole profile) — per-site
+ * tailoring is a data change later, not a migration. */
 export interface NewSiteInput {
-  slug: string;
   templateId: string;
   templateMajor: number;
   config: SiteConfig;
@@ -125,12 +54,12 @@ export interface NewSiteInput {
 }
 
 /**
- * Partial patch for `updateSite`; every field optional, all validated. `slug`
- * runs the full DNS-label-safe + reserved-word check; `config` stays opaque
- * (the template's schema validates it in the action before it reaches here).
+ * Partial patch for `updateSite`; every field optional, all validated. The
+ * username is a profile handle now, changed through `claimHandle`, so it is not
+ * a site patch. `config` stays opaque (the template's schema validates it in
+ * the action before it reaches here).
  */
 export const updateSiteSchema = z.object({
-  slug: siteSlugSchema.optional(),
   config: siteConfigSchema.optional(),
   templateId: z.string().min(1).optional(),
   templateMajor: z.number().int().positive().optional(),

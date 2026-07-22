@@ -25,11 +25,12 @@ import { profile, profileVersion } from "./profiles";
  * `viewDefinitionSchema`), relational columns for anything we look up, join,
  * or enforce.
  *
- * `slug` is the public `<username>` in `resfolio.me/p/<username>` (and the
- * future `<username>.resfolio.site` subdomain) — globally unique, DNS-label-
- * safe (enforced by @resfolio/portfolio's `siteSlugSchema`). One site per
- * profile for now (unique `profile_id`); the schema doesn't forbid many, but
- * the domain layer claims exactly one.
+ * The public `<username>` is the owning profile's **handle** (`profiles.handle`),
+ * not a column here — it is an identity shared by the portfolio and resume
+ * outputs, so it lives on the Profile (migration 0012 promoted it off this
+ * table). The render host resolves `/p/<handle>` by finding the profile, then
+ * its site. One site per profile for now (unique `profile_id`); the schema
+ * doesn't forbid many, but the domain layer claims exactly one.
  *
  * `published_version_id` pins which immutable `profile_versions` snapshot the
  * public pages render — a cached page can therefore never show draft state
@@ -45,7 +46,6 @@ export const site = pgTable(
       .notNull()
       .unique()
       .references(() => profile.id, { onDelete: "cascade" }),
-    slug: text("slug").notNull().unique(),
     templateId: text("template_id").notNull(),
     templateMajor: integer("template_major").notNull(),
     config: jsonb("config").notNull(),

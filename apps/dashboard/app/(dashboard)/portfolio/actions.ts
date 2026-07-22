@@ -1,16 +1,14 @@
 "use server";
 
-import { siteSlugSchema } from "@resfolio/portfolio";
+import { handleSchema, HandleTakenError } from "@resfolio/profile";
+import { claimHandle, getOrCreateProfile } from "@resfolio/profile/server";
 import {
   createSite,
   getSiteForOwner,
-  isSlugAvailable,
   ProfileNotPublishedError,
   publishSite,
-  SlugTakenError,
   updateSite,
 } from "@resfolio/portfolio/server";
-import { getOrCreateProfile } from "@resfolio/profile/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -21,17 +19,19 @@ import { revalidatePublicSite } from "@/lib/revalidate-site";
 
 /**
  * Portfolio Site mutations (docs/architecture/06-api-architecture.md): thin
- * adapters over `@resfolio/portfolio/server`. The slug is validated with the
- * domain's `siteSlugSchema` (DNS-safe + reserved-word blocklist); config is
- * validated with the chosen template's own schema before it is stored (doc 05).
- * Publishing pins the profile's published version, then invalidates the public
- * page cache in `apps/sites` (doc 04).
+ * adapters over `@resfolio/portfolio/server`. The public username is the
+ * profile's **handle** (validated with `@resfolio/profile`'s `handleSchema` and
+ * shared with the resume output), claimed via `claimHandle` before a site is
+ * created — so the slug is no longer a Site field. Config is validated with the
+ * chosen template's own schema before it is stored (doc 05). Publishing pins the
+ * profile's published version, then invalidates the public page cache in
+ * `apps/sites` (doc 04).
  */
 
 /** Translate the domain's expected failures into user-facing action errors. */
 function toActionError(error: unknown): never {
-  if (error instanceof SlugTakenError) {
-    throw new ActionError(`The name "${error.slug}" is already taken.`);
+  if (error instanceof HandleTakenError) {
+    throw new ActionError(`The name "${error.handle}" is already taken.`);
   }
   if (error instanceof ProfileNotPublishedError) {
     throw new ActionError("Publish your profile before publishing your site.");
@@ -45,7 +45,7 @@ function toActionError(error: unknown): never {
 export const createPortfolioSiteAction = createAction({
   name: "portfolio.create",
   input: z.object({
-    slug: siteSlugSchema,
+    slug: handleSchema,
     templateId: z.string().min(1),
   }),
   handler: async ({ slug, templateId }, ctx) => {
@@ -59,14 +59,17 @@ export const createPortfolioSiteAction = createAction({
       email: ctx.session.user.email,
     });
     try {
+      // The username is a profile handle, claimed first — shared by the resume
+      // output, so a user who already claimed one from /resumes just re-affirms
+      // it here (it's available to its owner).
+      await claimHandle(ctx.userId, slug);
       const site = await createSite(ctx.userId, {
-        slug,
         templateId: template.id,
         templateMajor: template.major,
         config: template.defaultConfig,
       });
       revalidatePath("/portfolio");
-      return { id: site.id, slug: site.slug };
+      return { id: site.id, slug };
     } catch (error) {
       toActionError(error);
     }
@@ -76,13 +79,12 @@ export const createPortfolioSiteAction = createAction({
 export const updatePortfolioSiteAction = createAction({
   name: "portfolio.update",
   input: z.object({
-    slug: siteSlugSchema.optional(),
     config: z.record(z.string(), z.unknown()).optional(),
     discoverable: z.boolean().optional(),
     /** Switch templates (doc 04 — routes are platform-owned, so URLs survive). */
     templateId: z.string().min(1).optional(),
   }),
-  handler: async ({ slug, config, discoverable, templateId }, ctx) => {
+  handler: async ({ config, discoverable, templateId }, ctx) => {
     const site = await getSiteForOwner(ctx.userId);
     if (!site) {
       throw new ActionError("You don't have a site yet.");
@@ -90,7 +92,7 @@ export const updatePortfolioSiteAction = createAction({
 
     // A template switch pins the new major and resets config to that template's
     // defaults — configs are template-owned and don't carry across (doc 05).
-    // URLs are unaffected because routes are platform-owned (doc 04).
+    // URLs are unaffected because the username is the profile handle (doc 04).
     if (templateId !== undefined && templateId !== site.templateId) {
       const next = getDashboardPortfolioTemplate(templateId);
       if (!next) {
@@ -125,7 +127,6 @@ export const updatePortfolioSiteAction = createAction({
 
     try {
       const updated = await updateSite(ctx.userId, {
-        slug,
         config: validatedConfig,
         discoverable,
       });
@@ -151,24 +152,5 @@ export const publishPortfolioSiteAction = createAction({
     } catch (error) {
       toActionError(error);
     }
-  },
-});
-
-export const checkSlugAvailabilityAction = createAction({
-  name: "portfolio.checkSlug",
-  input: z.object({ slug: z.string() }),
-  handler: async ({ slug }, ctx) => {
-    // The slug must first be a *valid* slug; report format problems distinctly
-    // from "taken" so the claim UI can guide the user.
-    const parsed = siteSlugSchema.safeParse(slug);
-    if (!parsed.success) {
-      return {
-        valid: false as const,
-        available: false,
-        reason: parsed.error.issues[0]?.message ?? "invalid",
-      };
-    }
-    const available = await isSlugAvailable(ctx.userId, parsed.data);
-    return { valid: true as const, available, reason: null };
   },
 });

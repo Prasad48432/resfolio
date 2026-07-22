@@ -35,6 +35,19 @@ export const profile = pgTable("profiles", {
     .references(() => user.id, { onDelete: "cascade" }),
   draft: jsonb("draft").notNull(),
   draftRev: integer("draft_rev").notNull().default(0),
+  // The public **handle** — the profile's username (@resfolio/profile's
+  // `handleSchema`). It is an identity concept, so it lives here rather than on
+  // any one output: the same handle names `/p/<handle>` (portfolio),
+  // `/r/<handle>` (public resume), and the future `<handle>.resfolio.site`
+  // subdomain. Nullable — a profile exists before a username is claimed;
+  // globally unique. (Migration 0012 promoted it from `sites.slug`.)
+  handle: text("handle").unique(),
+  // Which resume `documents` row renders at `/r/<handle>`. Nullable + no inline
+  // FK — same rationale as `published_version_id` (avoids a schema-module import
+  // cycle with `documents`, which references `profiles`). `deleteDocument`
+  // clears a matching pointer so it can't dangle. Null → the render host
+  // auto-uses the profile's sole resume, or 404s when there are none/many.
+  publicResumeId: uuid("public_resume_id"),
   // Nullable + no inline FK: the target row is created in the same publish
   // transaction, and a self-referential inline FK complicates that ordering.
   publishedVersionId: uuid("published_version_id"),

@@ -7,9 +7,11 @@ routes, and screenshots all live here. Port **3002** (web=3000, dashboard=3001).
 
 **Status (Phase 5 + the 4G resume rebuild):** the **public resume route**
 (`/render/resume/[documentId]`, no token — gated by the document's own
-`visibility`), its private `/draft` sibling and `POST /api/export/resume/[id]`
-(the real PDF path); the dev-only fixture route; the **public portfolio route**
-(`/p/[username]/[[...slug]]`, ISR-cached, indexable, DB- **or** fixture-backed);
+`visibility`), plus the **pretty resume alias** (`/r/[username]`, resolves the
+profile handle → its pinned/sole resume → the same render), its private `/draft`
+sibling and `POST /api/export/resume/[id]` (the real PDF path); the dev-only
+fixture route; the **public portfolio route** (`/p/[username]/[[...slug]]`,
+ISR-cached, indexable, DB- **or** fixture-backed);
 platform **SEO** (`app/sitemap.ts`,
 `app/robots.ts`, JSON-LD on the portfolio home); and the on-demand
 **revalidation endpoint** (`app/api/revalidate`) the dashboard calls on publish.
@@ -50,6 +52,16 @@ Resolve and Deliver; Project and Render are shared code.
     `force-dynamic` — see "Two route postures" below for why it is not ISR.
     Private renders a notice at **200**, not a 404: the URL exists, and 404ing
     would leak "no such resume" vs "not yours".
+  - `app/r/[username]` — the **pretty public resume alias**, the resume
+    counterpart to `/p/[username]`. `resolveResumeByHandle` (in `lib/resolve.ts`)
+    turns the profile **handle** into a document id — the owner's pinned
+    `public_resume_id`, else their **sole** resume (`getSoleResumeId`), else 404
+    — then delegates to `resolveResumeRender(id, "published")` so the id route
+    and the alias render identically. Same posture as the id route:
+    `force-dynamic`, no token, noindex, and the document's own `visibility`
+    decides (private → the notice, not a 404). DB-only (short-circuits with no
+    `DATABASE_URL`); `app/r/layout.tsx` supplies the same paper backdrop as
+    `/render/*`, since `/r` is outside that route group.
   - `app/render/resume/[documentId]/draft` — the **private draft render**,
     `RENDER_SECRET`-bearer only, `force-dynamic`. This is what Playwright loads
     at export, so the owner's PDF matches the editor preview beside it.
@@ -114,9 +126,10 @@ Resolve and Deliver; Project and Render are shared code.
   everything else token-guarded" — died when resumes got permanent URLs.
   - **Public + indexable**: `/p/*`. Its own `generateMetadata` honoring
     `discoverable`; ISR + `site:<id>` tags (doc 04).
-  - **Public + unlisted**: `/render/resume/[documentId]`. Guarded by the row's
-    `visibility`, **noindex** (`X-Robots-Tag` in `next.config.ts` +
-    `robots.txt`), not cached. Readable-by-link ≠ crawlable: a resume carries
+  - **Public + unlisted**: `/render/resume/[documentId]` **and its
+    `/r/[username]` alias**. Guarded by the row's `visibility`, **noindex**
+    (`X-Robots-Tag` in `next.config.ts` matches `/(render|r)/*` + `robots.txt`
+    disallows both), not cached. Readable-by-link ≠ crawlable: a resume carries
     an email and a phone number and has no `discoverable` toggle to opt in
     with. **It is deliberately not ISR** — its render also depends on the
     document's live `config`/`view`/`visibility`, so it has two invalidation

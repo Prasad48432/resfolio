@@ -21,6 +21,19 @@ the first `domains/*` package and sets the pattern every future domain
   the published snapshot" flag (canonical `migrateProfile` diff; always true
   when never published) — the editor disables Publish when there's nothing new
   to snapshot.
+- **The public username (`handle`) is a profile concern, not a per-output one.**
+  A handle is one identity that names both the portfolio (`/p/<handle>`) and the
+  public resume (`/r/<handle>`), so its rules live in the **pure root**
+  (`handle.ts`: `handleSchema`, `RESERVED_HANDLES`, `isReservedHandle` — the
+  DNS-label-safe format + reserved blocklist, incl. both single-letter route
+  namespaces `p` and `r`). `@resfolio/portfolio` re-exports these as
+  `siteSlugSchema` / `RESERVED_SLUGS` (it depends on profile, never the reverse —
+  which is *why* the rules moved here). `./server` owns the writes:
+  `claimHandle` (both the portfolio and resumes sections drive it — whichever
+  the user reaches first is the entry point), `isHandleAvailable`,
+  `getProfileByHandle` (the render host's public resolve), and `setPublicResume`
+  (pins which resume `/r/<handle>` shows; null → the host auto-uses the sole
+  resume). Columns landed in migration `0012`, promoted off `sites.slug`.
 
 ## Rules the schema enforces (don't weaken casually)
 

@@ -11,7 +11,6 @@ export {
   getSiteForRender,
   getSiteIdBySlug,
   getSiteRefBySlug,
-  isSlugAvailable,
   listDiscoverableSites,
   publishSite,
   updateSite,

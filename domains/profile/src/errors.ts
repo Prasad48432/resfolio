@@ -13,3 +13,11 @@ export class ProfileNotFoundError extends Error {
     this.name = "ProfileNotFoundError";
   }
 }
+
+/** A handle another profile already holds — surfaced to the user as "taken". */
+export class HandleTakenError extends Error {
+  constructor(readonly handle: string) {
+    super(`The name "${handle}" is already taken.`);
+    this.name = "HandleTakenError";
+  }
+}

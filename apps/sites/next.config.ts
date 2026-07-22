@@ -13,11 +13,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // The resume route here is publicly readable (doc 02) but must never be
-        // indexed: it is shared by link, and it carries contact details with no
-        // `discoverable` toggle to opt in with. This header is the
-        // authoritative crawler signal; `robots.ts` disallows the same paths.
-        source: "/render/:path*",
+        // The resume routes here are publicly readable (doc 02) but must never
+        // be indexed: they are shared by link, and carry contact details with no
+        // `discoverable` toggle to opt in with. This header is the authoritative
+        // crawler signal; `robots.ts` disallows the same paths.
+        //
+        // Both resume surfaces are covered: `/render/*` (the id route + the
+        // private draft/export routes) and `/r/*` (the pretty `/r/<username>`
+        // alias). `/p/*` portfolios are deliberately absent — they earn indexing
+        // through their own `discoverable` toggle.
+        source: "/(render|r)/:path*",
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
           { key: "X-Content-Type-Options", value: "nosniff" },

@@ -50,6 +50,15 @@ export const TEST_IDS = {
   resumeVisibility: "resume-visibility",
   resumePublicUrl: "resume-public-url",
   resumeDownloadPdf: "resume-download-pdf",
+  /** The shared public-username claim (handle) — same control on /portfolio and
+   * /resumes, keyed by usage so both can appear in one test run. */
+  handleInput: "handle-input",
+  handleStatus: "handle-status",
+  handleClaimButton: "handle-claim-button",
+  /** The "Public resume" card on /resumes: the /r/<handle> URL + the picker. */
+  publicResumeCard: "public-resume-card",
+  publicResumeUrl: "public-resume-url",
+  publicResumeSelect: "public-resume-select",
   portfolioClaim: "portfolio-claim",
   portfolioSlugInput: "portfolio-slug-input",
   portfolioSlugStatus: "portfolio-slug-status",

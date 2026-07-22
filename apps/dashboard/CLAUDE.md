@@ -247,8 +247,13 @@ features.
     a value across a boundary. `present: true` marks a field where empty reads
     as "Present".
 - **Resumes editor** (doc 08/09, 4E/4F): `/resumes` reads documents via
-  `@resfolio/document/server`; `/resumes/[id]` loads the document + the profile
-  draft and hands both to the `ResumeEditor` client island
+  `@resfolio/document/server`; it also renders `PublicResumeCard`
+  (`components/resume/`) at the top — the shared handle claim plus a `Select`
+  pinning which resume renders at the public `/r/<handle>` route
+  (`setPublicResumeAction` → `@resfolio/profile/server`'s `setPublicResume`).
+  With one resume the route auto-uses it (the domain's `getSoleResumeId`), so the
+  picker only becomes load-bearing at two or more. `/resumes/[id]` loads the
+  document + the profile draft and hands both to the `ResumeEditor` client island
   (`components/resume/`). The `SplitWorkspace` primitive
   (`components/workspace/`) is form-left / preview-right, reused by every
   future editor. The preview renders the **real** template chosen by the
@@ -330,10 +335,20 @@ features.
     It renders the **draft** (matching the preview); the public URL renders the
     **published** version — the Sharing panel says so, because people get this
     wrong.
+- **Public username (handle) is shared, and claimable from two places.** The
+  username is a **profile handle** (`@resfolio/profile`), not a portfolio-only
+  slug — one identity behind both `/p/<handle>` and `/r/<handle>`. The claim UI
+  is one shared island, `components/handle/handle-field.tsx` (debounced live
+  availability), driven by shared actions in `app/(dashboard)/handle/actions.ts`
+  (`claimHandleAction`, `checkHandleAvailabilityAction`). **Both** `/portfolio`
+  (the `PortfolioClaim` step) and `/resumes` (the `PublicResumeCard`) render it —
+  whichever the user reaches first claims the name, and the other prefills it.
+  There is no `checkSlugAvailabilityAction` any more.
 - **Portfolio section** (doc 03/04, Phase 5): `/portfolio` reads the user's Site
   via `@resfolio/portfolio/server` (`getSiteForOwner`). No site → `PortfolioClaim`
-  (slug input with live availability via `checkSlugAvailabilityAction`, template
-  radio pick). Has a site → `PortfolioEditor` (`SplitWorkspace`: settings form
+  (the shared `HandleField` + template radio pick; `createPortfolioSiteAction`
+  claims the handle then creates the site). Has a site → `PortfolioEditor`
+  (`SplitWorkspace`: settings form
   left, draft-preview iframe right). The config form is **schema-driven** —
   `lib/config-form.ts`'s `describeConfigSchema` introspects the template's
   `configSchema` into field descriptors (`ConfigFields` renders them), so a new

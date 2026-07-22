@@ -6,13 +6,18 @@
  * database client.
  */
 export {
+  claimHandle,
   getOrCreateProfile,
   getProfile,
+  getProfileByHandle,
   getProfileVersionById,
   getPublishedProfile,
+  isHandleAvailable,
   publishProfile,
   saveDraft,
+  setPublicResume,
   StaleDraftError,
   type ProfileDraft,
+  type ProfileHandleRef,
   type PublishResult,
 } from "./repository";
