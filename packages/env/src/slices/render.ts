@@ -21,6 +21,16 @@ import { z } from "zod";
 export const render = {
   server: {
     RENDER_SECRET: z.string().min(16),
+    /**
+     * Set to `"1"` automatically by Vercel on every deployment; absent in local
+     * dev. `apps/sites` reads it to pick the **serverless-compatible** Chromium
+     * (`@sparticuz/chromium` + `playwright-core`) for PDF export instead of the
+     * full local Playwright browser — so the same route works on Vercel and on
+     * a developer's machine with no manual flag. Read here rather than as a raw
+     * `process.env.VERCEL` check so the choice stays inside `@resfolio/env`
+     * (doc 11). Never set this by hand.
+     */
+    VERCEL: z.string().optional(),
   },
   /**
    * The dashboard calls `apps/sites` for the resume PDF export. Optional

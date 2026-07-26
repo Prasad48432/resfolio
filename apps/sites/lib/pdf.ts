@@ -6,15 +6,20 @@ import type { ExportStore } from "./export-store";
  * and the `export:pdf` script so there is exactly one implementation of the
  * cache-check → launch → `page.pdf` → store sequence.
  *
- * **Playwright is imported dynamically and stays a devDependency.** Doc 02 is
- * explicit that a serverless route is "the wrong home for a ~50MB Chromium
- * dependency" and that PDFs belong in a Trigger.dev task. A static import
- * would drag Chromium into the deployed bundle and make that decision for us.
- * So: locally the import resolves and export works end-to-end; in a deployment
- * without Playwright it throws `PdfEngineUnavailableError` and the caller
- * answers 501. That is the honest state of this seam — the task wrapper and an
- * `R2ExportStore` are the remaining cloud work, and neither changes this file's
- * callers.
+ * **Two engines behind one dynamic import, chosen by the caller.**
+ * - `local` (default) uses the full `@playwright/test` browser installed for
+ *   dev/CI. It stays a devDependency, so a deployment that never asks for it
+ *   never bundles ~50MB of Chromium.
+ * - `serverless` uses `@sparticuz/chromium` + `playwright-core`, the
+ *   Lambda/Vercel-optimized Chromium that actually launches inside a serverless
+ *   function. `apps/sites` picks this on Vercel (via `env.VERCEL`).
+ *
+ * Both are imported **dynamically**: whichever engine a deployment doesn't use
+ * is never loaded, and if the chosen one is missing this throws
+ * `PdfEngineUnavailableError` and the caller answers 501. The `ExportStore` and
+ * this file remain the cloud seam — wrapping the route in a Trigger.dev task and
+ * swapping `LocalFsExportStore` for R2 changes neither the callers nor the
+ * engine code.
  */
 
 export class PdfEngineUnavailableError extends Error {
@@ -31,6 +36,12 @@ export class PdfRenderError extends Error {
   }
 }
 
+/**
+ * Which Chromium to launch. `local` = the full `@playwright/test` browser
+ * (dev/CI); `serverless` = `@sparticuz/chromium` + `playwright-core` (Vercel).
+ */
+export type PdfEngine = "local" | "serverless";
+
 export interface RenderPdfOptions {
   /** Content-addressed cache key (`lib/render-key.ts`). */
   key: string;
@@ -41,6 +52,43 @@ export interface RenderPdfOptions {
   /** Extra request headers, e.g. the bearer for the private draft route. */
   headers?: Record<string, string>;
   store: ExportStore;
+  /** Defaults to `local`. The export route passes `serverless` on Vercel. */
+  engine?: PdfEngine;
+}
+
+/**
+ * Launch the requested engine. A missing package (the `serverless` deps absent
+ * locally, or the dev browser absent in a lean deployment) surfaces as
+ * `PdfEngineUnavailableError` → the caller's 501, never an opaque module error.
+ */
+async function launchBrowser(
+  engine: PdfEngine,
+): Promise<import("playwright-core").Browser> {
+  if (engine === "serverless") {
+    let chromium;
+    let playwright;
+    try {
+      chromium = (await import("@sparticuz/chromium")).default;
+      ({ chromium: playwright } = await import("playwright-core"));
+    } catch {
+      throw new PdfEngineUnavailableError();
+    }
+    // No on-screen graphics for a print job — saves memory in the function.
+    chromium.setGraphicsMode = false;
+    return playwright.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  }
+
+  let launcher;
+  try {
+    ({ chromium: launcher } = await import("@playwright/test"));
+  } catch {
+    throw new PdfEngineUnavailableError();
+  }
+  return launcher.launch();
 }
 
 export interface RenderedPdf {
@@ -54,20 +102,14 @@ export async function renderPdf({
   url,
   headers,
   store,
+  engine = "local",
 }: RenderPdfOptions): Promise<RenderedPdf> {
   const hit = await store.get(key);
   if (hit) {
     return { bytes: hit, cached: true };
   }
 
-  let chromium;
-  try {
-    ({ chromium } = await import("@playwright/test"));
-  } catch {
-    throw new PdfEngineUnavailableError();
-  }
-
-  const browser = await chromium.launch();
+  const browser = await launchBrowser(engine);
   try {
     const page = await browser.newPage({ extraHTTPHeaders: headers });
     const response = await page.goto(url, { waitUntil: "networkidle" });

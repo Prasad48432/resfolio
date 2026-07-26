@@ -74,7 +74,7 @@ export default function Hero() {
         <div
           data-testid={TEST_IDS.heroVisual}
           style={{ animationDelay: "100ms" }}
-          className="animate-fade-scale relative mx-auto w-full max-w-[520px] lg:col-span-5"
+          className="animate-fade-scale relative mx-auto w-full max-w-130 lg:col-span-5"
         >
           <HeroGraphic />
         </div>

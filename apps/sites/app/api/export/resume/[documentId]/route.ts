@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { NextResponse } from "next/server";
@@ -79,7 +80,16 @@ export async function POST(
   );
 
   const origin = new URL(request.url).origin;
-  const store = new LocalFsExportStore(join(process.cwd(), "out"));
+  // On Vercel the deployment filesystem is read-only except the OS temp dir, so
+  // the content-addressed cache must live under `/tmp` (ephemeral per warm
+  // instance, which is fine — a cold instance simply re-renders). Locally it
+  // stays `./out`, matching the `export:pdf` script. Both go away once the
+  // `R2ExportStore` lands behind this same seam (doc 07).
+  const store = new LocalFsExportStore(
+    env.VERCEL
+      ? join(tmpdir(), "resfolio-exports")
+      : join(process.cwd(), "out"),
+  );
 
   try {
     const { bytes, cached } = await renderPdf({
@@ -87,6 +97,9 @@ export async function POST(
       url: `${origin}/render/resume/${encodeURIComponent(documentId)}/draft`,
       headers: { authorization: `Bearer ${env.RENDER_SECRET}` },
       store,
+      // Vercel sets VERCEL=1; there the full local browser can't launch, so use
+      // the serverless-optimized Chromium. Locally this stays "local".
+      engine: env.VERCEL ? "serverless" : "local",
     });
     return new NextResponse(bytes as unknown as BodyInit, {
       status: 200,

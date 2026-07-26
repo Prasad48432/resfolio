@@ -71,12 +71,22 @@ Resolve and Deliver; Project and Render are shared code.
     removing the token took that vehicle away. The fixture path gets its own
     honest route rather than the product path growing a dev backdoor.
   - `app/api/export/resume/[documentId]` — **PDF**, bearer-guarded. Cache-check
-    → `chromium.launch()` → `page.pdf()` → `ExportStore`, all in `lib/pdf.ts`
+    → `launchBrowser()` → `page.pdf()` → `ExportStore`, all in `lib/pdf.ts`
     (shared with `scripts/export-pdf.mts`, so product and CI cannot drift).
-    Playwright is imported **dynamically** and stays a devDependency: doc 02
-    puts PDFs in a Trigger.dev task, not a serverless route, so a deployment
-    without it answers **501** instead of bundling ~50MB of Chromium. This
-    route is that task's body, reachable today.
+    **Two engines, one dynamic import** (`lib/pdf.ts`'s `PdfEngine`): `local`
+    (the full `@playwright/test` browser, a devDependency, for dev/CI) and
+    `serverless` (`@sparticuz/chromium` + `playwright-core`, a real dependency,
+    the Lambda/Vercel-optimized Chromium). The route picks `serverless` when
+    `env.VERCEL` is set and `local` otherwise — so the same route works on
+    Vercel and on a laptop with **no manual flag**. Whichever engine a
+    deployment doesn't use is never loaded; a missing engine still answers
+    **501**. The cache store is `/tmp` on Vercel (read-only FS elsewhere),
+    `./out` locally. `@sparticuz/chromium` + `playwright-core` are
+    `serverExternalPackages` so webpack leaves the Chromium binary alone. The
+    Vercel function needs raised memory (~1.5GB+) for Chromium; `maxDuration`
+    is 60s. Wrapping this in a Trigger.dev task and swapping in an
+    `R2ExportStore` (doc 02/07) remains the scale path, but the route works in
+    production today.
   - `app/p/[username]/[[...slug]]` — the **public portfolio route** (doc
     03/04). `lib/resolve-site.ts` resolves `<username>` → **fixture** Sites
     (`ada`/`jun`, dev/CI, no DB) or the **DB** `sites` table
@@ -164,9 +174,10 @@ Resolve and Deliver; Project and Render are shared code.
   path (immutable) was exercised; a live bug the moment export ran on a draft.
   A stable-looking id is not a content identity.
 - **The cloud seam.** `ExportStore` (`lib/export-store.ts`) and `lib/pdf.ts`
-  are the interfaces; today `LocalFsExportStore` + a dynamically-imported
-  Playwright. Wiring R2 + Trigger.dev later swaps implementations behind these
-  seams — no route or template changes.
+  are the interfaces; today `LocalFsExportStore` (`/tmp` on Vercel, `./out`
+  locally) + a dynamically-imported browser (`@sparticuz/chromium` on Vercel,
+  full Playwright locally). Wiring R2 + Trigger.dev later swaps implementations
+  behind these seams — no route or template changes.
 
 ## Local verification
 

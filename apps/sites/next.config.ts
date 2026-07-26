@@ -8,8 +8,16 @@ import "./lib/env";
 
 const nextConfig: NextConfig = {
   // Pino uses worker-thread transports; keep it out of the server bundle
-  // (same reason as apps/dashboard).
-  serverExternalPackages: ["pino", "pino-pretty"],
+  // (same reason as apps/dashboard). `@sparticuz/chromium` ships a
+  // brotli-compressed Chromium pack that webpack must not touch, and
+  // `playwright-core` resolves its own runtime files — both must stay external
+  // so the serverless PDF engine can locate its binary at runtime (lib/pdf.ts).
+  serverExternalPackages: [
+    "pino",
+    "pino-pretty",
+    "@sparticuz/chromium",
+    "playwright-core",
+  ],
   async headers() {
     return [
       {
