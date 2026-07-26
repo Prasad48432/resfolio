@@ -145,10 +145,12 @@ listener, Framer Motion, or a Radix primitive. Concretely:
   section animates consistently instead of re-declaring the same objects.
 - `components/landing/faq.tsx` is a Server Component that only holds the
   copy and JSON-LD; the Radix accordion is isolated in the client leaf
-  `faq-accordion.tsx`. `components/landing/waitlist-form.tsx` is the other
-  client leaf — a small `useActionState` form (backed by the `joinWaitlist`
-  stub in `app/actions.ts`) reused by both the hero and the bottom CTA,
-  instead of duplicating form state in two places.
+  `faq-accordion.tsx`. The primary CTA is
+  `components/landing/get-started-button.tsx` — a Server-Component anchor to
+  the dashboard (`DASHBOARD_URL` in `lib/links.ts`, a separate deployment),
+  reused by the nav, hero and bottom CTA. It replaced the earlier waitlist
+  email-capture form once the product went live; the `joinWaitlist` stub
+  action and `waitlist-form.tsx` were removed with it.
 
 When adding a new section, default to Server, and only reach for
 `"use client"` once you hit one of the triggers above — not preemptively.

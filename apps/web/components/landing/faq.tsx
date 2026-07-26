@@ -24,7 +24,7 @@ const faqs: Faq[] = [
   },
   {
     q: "When does it launch?",
-    a: "We're onboarding builders in waves through Q1. Join the waitlist to reserve your handle and lock in Pro at $8/mo for life.",
+    a: "We're onboarding builders in waves through Q1. Sign up to reserve your handle and lock in Pro at $8/mo for life.",
   },
 ];
 

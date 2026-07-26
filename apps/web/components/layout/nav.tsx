@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import ResfolioLogo from "@/components/brand/resfolio-logo";
+import { DASHBOARD_URL } from "@/lib/links";
 import { TEST_IDS } from "@/lib/testids";
 
 const links = [
@@ -69,11 +70,11 @@ export default function Nav() {
 
         <div className="flex items-center gap-3">
           <a
-            href="#waitlist"
+            href={DASHBOARD_URL}
             data-testid={TEST_IDS.navCtaGetStarted}
             className="hidden h-9 items-center gap-2 rounded-full bg-brand px-5 text-[13px] font-semibold text-white shadow-[0_6px_20px_rgba(240,89,43,0.28)] transition hover:bg-brand-soft sm:inline-flex"
           >
-            Join Waitlist
+            Get Started
             <span aria-hidden>→</span>
           </a>
           <button
@@ -108,11 +109,11 @@ export default function Nav() {
               </a>
             ))}
             <a
-              href="#waitlist"
+              href={DASHBOARD_URL}
               onClick={() => setOpen(false)}
               className="mt-2 inline-flex items-center justify-center rounded-full bg-brand px-5 py-2 text-[13px] font-semibold text-white"
             >
-              Join Waitlist →
+              Get Started →
             </a>
           </div>
         </div>

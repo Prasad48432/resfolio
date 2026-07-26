@@ -1,6 +1,6 @@
 import { Sparkles } from "lucide-react";
 import HeroGraphic from "@/components/landing/hero-graphic";
-import WaitlistForm from "@/components/landing/waitlist-form";
+import GetStartedButton from "@/components/landing/get-started-button";
 import { TEST_IDS } from "@/lib/testids";
 
 /**
@@ -52,10 +52,10 @@ export default function Hero() {
             , and all up to date by default.
           </p>
 
-          <WaitlistForm
-            variant="hero"
-            className="animate-fade-up"
+          <GetStartedButton
+            className="animate-fade-up mt-8"
             style={{ animationDelay: "250ms" }}
+            testId={TEST_IDS.heroCta}
           />
 
           <p

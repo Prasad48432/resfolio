@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
+import { DASHBOARD_URL } from "@/lib/links";
 import { fadeUp, staggerTransition, viewport } from "@/lib/motion";
 import { TEST_IDS } from "@/lib/testids";
 
@@ -133,7 +134,7 @@ export default function Pricing() {
               </ul>
 
               <a
-                href="#waitlist"
+                href={DASHBOARD_URL}
                 data-testid={`pricing-cta-${t.name.toLowerCase()}`}
                 className={`mt-8 inline-flex h-11 items-center justify-center rounded-full px-5 text-[13px] font-semibold transition ${
                   t.highlight

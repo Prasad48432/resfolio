@@ -1,11 +1,11 @@
-import WaitlistForm from "@/components/landing/waitlist-form";
+import GetStartedButton from "@/components/landing/get-started-button";
 import { TEST_IDS } from "@/lib/testids";
 
 export default function WaitlistCta() {
   return (
     <section
-      id="waitlist"
-      data-testid={TEST_IDS.waitlistSection}
+      id="get-started"
+      data-testid={TEST_IDS.ctaSection}
       className="relative overflow-hidden border-t border-border py-28 md:py-40"
     >
       <div
@@ -21,18 +21,13 @@ export default function WaitlistCta() {
           before someone else does.
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-[15px] text-muted md:text-lg">
-          Beta invites go out weekly. Founding users lock in Pro at $8/mo
-          forever.
+          Founding users lock in Pro at $8/mo forever.
         </p>
 
-        <WaitlistForm variant="cta" />
+        <GetStartedButton className="mt-10" testId={TEST_IDS.ctaGetStarted} />
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-[12px] text-muted">
-          <span>No spam · unsubscribe anytime</span>
-          <span className="h-1 w-1 rounded-full bg-foreground/20" />
           <span>Founding pricing $8/mo forever</span>
-          <span className="h-1 w-1 rounded-full bg-foreground/20" />
-          <span>1,240 professionals on the list</span>
         </div>
       </div>
     </section>

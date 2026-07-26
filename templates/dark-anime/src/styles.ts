@@ -234,7 +234,7 @@ export function buildPortfolioStyles(): string {
 }
 .rf-hero-summary {
   margin-top: 1.5rem;
-  font-size: 0.9375rem;
+  font-size: 0.85rem;
   color: var(--rf-muted);
   text-wrap: pretty;
 }

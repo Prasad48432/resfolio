@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Stagger, StaggerItem } from "@/components/motion/motion";
 import { CreateResumeButton } from "@/components/resume/create-resume-button";
 import { PublicResumeCard } from "@/components/resume/public-resume-card";
+import { ResumeThumbnail } from "@/components/resume/resume-thumbnail";
 import { env } from "@/lib/env";
 import { RESUME_TEMPLATES } from "@/lib/resume-templates";
 import { TEST_IDS, resumeItemTestId } from "@/lib/testids";
@@ -68,11 +69,13 @@ export default async function ResumesPage() {
           data-testid={TEST_IDS.resumesEmpty}
         />
       ) : (
-        // `Stagger` is a client island; the rows themselves stay server-
-        // rendered and are passed through as children, so this list costs no
-        // extra client JS beyond the wrapper.
+        // `Stagger` is a client island; the cards themselves stay server-
+        // rendered and are passed through as children, so this grid costs no
+        // extra client JS beyond the wrapper. A résumé is a visual artefact, so
+        // it earns an A4 preview rather than a text row (placeholder for now —
+        // the live render is one click away in the editor).
         <Stagger
-          className="flex flex-col gap-2"
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3"
           data-testid={TEST_IDS.resumesList}
         >
           {documents.map((doc) => {
@@ -83,25 +86,26 @@ export default async function ResumesPage() {
             const templateName =
               RESUME_TEMPLATES.find((t) => t.id === doc.templateId)?.name ??
               "Resume";
+            const variant =
+              doc.templateId === "resume-editorial" ? "editorial" : "classic";
             return (
               <StaggerItem key={doc.id}>
                 <Card interactive asChild>
                   <Link
                     href={`/resumes/${doc.id}`}
-                    className="flex flex-row items-center gap-3.5 p-3.5"
+                    className="flex flex-col gap-0 overflow-hidden p-0"
                     data-testid={resumeItemTestId(doc.id)}
                   >
-                    <FileText
-                      className="size-4 shrink-0 text-muted"
-                      aria-hidden
+                    <ResumeThumbnail
+                      variant={variant}
+                      className="border-b border-border"
                     />
-                    <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="flex min-w-0 flex-col gap-0.5 p-3.5">
                       <span className="truncate text-sm font-medium text-foreground">
                         {doc.name}
                       </span>
-                      <span className="text-xs text-muted">
-                        {templateName} · {pageSize} · updated{" "}
-                        {doc.updatedAt.toLocaleDateString()}
+                      <span className="truncate text-xs text-muted">
+                        {templateName} · {pageSize}
                       </span>
                     </span>
                   </Link>
