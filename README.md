@@ -4,6 +4,9 @@ Resfolio is a **Career OS**: users maintain one professional profile that
 powers resumes, portfolios, public websites, PDFs, and future career assets.
 One Profile → Many Outputs — everything stays synchronized.
 
+<img width="1360" height="745" alt="resfolio-cover" src="https://github.com/user-attachments/assets/8fb04e98-a0c1-417e-abbf-9e4d7eb19645" />
+
+
 This monorepo contains the complete platform (Turborepo + pnpm workspaces).
 
 ## Getting started
