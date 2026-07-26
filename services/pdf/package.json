@@ -1,0 +1,13 @@
+{
+  "name": "resfolio-pdf-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Resfolio PDF microservice — renders a URL to a PDF via Playwright/Chromium. Deployed standalone to Fly.io; not part of the pnpm workspace.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.57.0"
+  }
+}

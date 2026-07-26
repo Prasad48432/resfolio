@@ -82,6 +82,7 @@ function toRecord(
     publishedVersionId: row.publishedVersionId,
     hasUnpublishedChanges: row.hasUnpublishedChanges,
     discoverable: row.discoverable,
+    faviconKey: row.faviconKey,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -194,6 +195,8 @@ export async function updateSite(
       validated.templateMajor !== current.templateMajor) ||
     (validated.discoverable !== undefined &&
       validated.discoverable !== current.discoverable) ||
+    (validated.faviconKey !== undefined &&
+      validated.faviconKey !== current.faviconKey) ||
     (validated.config !== undefined &&
       canonicalJson(validated.config) !== canonicalJson(current.config));
 
@@ -307,6 +310,9 @@ export interface SiteRenderData {
   config: SiteConfig;
   view: ViewDefinition;
   discoverable: boolean;
+  /** The favicon's R2 asset key, or null. The host resolves it to a URL for
+   * the page's `<link rel="icon">` (doc 07 — keys, not URLs, are stored). */
+  faviconKey: string | null;
   /** The pinned published Profile snapshot, migrated to the current schema. */
   profile: Profile;
 }
@@ -349,6 +355,7 @@ export async function getSiteForRender(
     config: siteConfigSchema.parse(row.config),
     view: viewDefinitionSchema.parse(row.view),
     discoverable: row.discoverable,
+    faviconKey: row.faviconKey,
     profile: profileData,
   };
 }

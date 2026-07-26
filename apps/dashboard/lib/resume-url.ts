@@ -16,9 +16,15 @@ export function resumePublicUrl(documentId: string): string | null {
   return `${sitesUrl.replace(/\/$/, "")}/render/resume/${encodeURIComponent(documentId)}`;
 }
 
-/** Whether this environment can produce a PDF (needs the sites origin + the
- * server-to-server secret). Absent, the Download button hides. */
+/** Whether this environment can produce a PDF: the feature must not be switched
+ * off (`PDF_EXPORT_ENABLED=false`), and the sites origin + server-to-server
+ * secret must be present. Absent or off, the Download button hides — and the
+ * route refuses too (see the pdf route), so hiding the button is never the only
+ * guard. */
 export function resumeExportEnabled(): boolean {
+  if (env.PDF_EXPORT_ENABLED === "false") {
+    return false;
+  }
   return Boolean(env.SITES_URL && env.RENDER_SECRET);
 }
 

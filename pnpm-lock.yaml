@@ -213,6 +213,9 @@ importers:
       '@resfolio/profile':
         specifier: workspace:*
         version: link:../../domains/profile
+      '@resfolio/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@resfolio/template-dark-anime':
         specifier: workspace:*
         version: link:../../templates/dark-anime

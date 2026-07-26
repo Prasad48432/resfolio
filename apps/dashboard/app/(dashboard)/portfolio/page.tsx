@@ -2,6 +2,11 @@ import { requireSession } from "@resfolio/auth";
 import { getSiteForOwner } from "@resfolio/portfolio/server";
 import { buildProfileView } from "@resfolio/profile";
 import { getOrCreateProfile } from "@resfolio/profile/server";
+import { assetUrl } from "@resfolio/storage";
+import {
+  isStorageConfigured,
+  publicBaseUrl as storagePublicBaseUrl,
+} from "@resfolio/storage/server";
 import { checkTemplateRequirements } from "@resfolio/template-sdk";
 
 import { PortfolioClaim } from "@/components/portfolio/portfolio-claim";
@@ -85,6 +90,14 @@ export default async function PortfolioPage() {
     view: buildProfileView(draft.data, site.view ?? {}),
   }).map((entry) => ({ key: entry.key, ...describeMissing(entry, fields) }));
 
+  // Resolve the stored favicon key to a URL for the uploader's preview. Keys
+  // are origin-independent (doc 07), so this resolves against the current R2
+  // origin at render — absent storage config, there simply is no favicon.
+  const initialFaviconUrl =
+    site.faviconKey && isStorageConfigured()
+      ? assetUrl(site.faviconKey, storagePublicBaseUrl())
+      : "";
+
   return (
     <PortfolioEditor
       // Remount on a template switch: `router.refresh()` is a soft refresh that
@@ -98,6 +111,7 @@ export default async function PortfolioPage() {
       fields={fields}
       initialConfig={config}
       initialMissing={missing}
+      initialFaviconUrl={initialFaviconUrl}
       discoverable={site.discoverable}
       publicBaseUrl={publicBaseUrl()}
       profilePublished={draft.publishedVersionId !== null}

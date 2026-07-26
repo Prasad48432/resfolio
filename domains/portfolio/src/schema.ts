@@ -64,6 +64,9 @@ export const updateSiteSchema = z.object({
   templateId: z.string().min(1).optional(),
   templateMajor: z.number().int().positive().optional(),
   discoverable: z.boolean().optional(),
+  /** The favicon's R2 asset key, or `null` to clear it. Opaque here — the
+   * dashboard validates ownership before it reaches the domain. */
+  faviconKey: z.string().min(1).nullable().optional(),
 });
 export type UpdateSiteInput = z.infer<typeof updateSiteSchema>;
 
@@ -87,6 +90,9 @@ export interface SiteRecord {
    * since the last publish — the public page is stale until `publishSite`. */
   hasUnpublishedChanges: boolean;
   discoverable: boolean;
+  /** The favicon's R2 asset key, or null. Resolved to a URL at render/preview
+   * time — keys are origin-independent (doc 07). */
+  faviconKey: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

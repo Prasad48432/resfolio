@@ -309,6 +309,17 @@ Examples
 Business rules belong here.
 Never duplicate business logic across applications.
 
+## services/
+
+Standalone deployables that are **not** part of the pnpm workspace (no
+`@resfolio/*` deps, their own `node_modules`, deployed off-Vercel).
+
+- `services/pdf` — the PDF microservice (Node + Playwright/Chromium on Fly.io).
+  `apps/sites` offloads resume PDF export to it (`lib/pdf.ts`'s `remote` engine)
+  so Chromium never runs inside a Vercel function — required on Vercel Hobby.
+  Bearer-guarded, holds no app secrets, touches no database. See
+  `services/pdf/README.md`.
+
 ---
 
 # Global Conventions

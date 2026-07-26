@@ -73,20 +73,22 @@ Resolve and Deliver; Project and Render are shared code.
   - `app/api/export/resume/[documentId]` — **PDF**, bearer-guarded. Cache-check
     → `launchBrowser()` → `page.pdf()` → `ExportStore`, all in `lib/pdf.ts`
     (shared with `scripts/export-pdf.mts`, so product and CI cannot drift).
-    **Two engines, one dynamic import** (`lib/pdf.ts`'s `PdfEngine`): `local`
-    (the full `@playwright/test` browser, a devDependency, for dev/CI) and
-    `serverless` (`@sparticuz/chromium` + `playwright-core`, a real dependency,
-    the Lambda/Vercel-optimized Chromium). The route picks `serverless` when
-    `env.VERCEL` is set and `local` otherwise — so the same route works on
-    Vercel and on a laptop with **no manual flag**. Whichever engine a
-    deployment doesn't use is never loaded; a missing engine still answers
-    **501**. The cache store is `/tmp` on Vercel (read-only FS elsewhere),
-    `./out` locally. `@sparticuz/chromium` + `playwright-core` are
-    `serverExternalPackages` so webpack leaves the Chromium binary alone. The
-    Vercel function needs raised memory (~1.5GB+) for Chromium; `maxDuration`
-    is 60s. Wrapping this in a Trigger.dev task and swapping in an
-    `R2ExportStore` (doc 02/07) remains the scale path, but the route works in
-    production today.
+    **Three engines** (`lib/pdf.ts`'s `PdfEngine`), selected most-capable
+    first: `remote` (offload to the `services/pdf` Fly microservice — no browser
+    in-function, so it works on **Vercel Hobby**), else `serverless`
+    (`@sparticuz/chromium` + `playwright-core` in-function, needs ~1.5 GB —
+    Vercel Pro), else `local` (the full `@playwright/test` browser, a
+    devDependency, for dev/CI). The route picks `remote` when
+    `PDF_SERVICE_URL` + `PDF_SERVICE_SECRET` are set, `serverless` when
+    `env.VERCEL` is set, else `local` — **no manual flag**. `local`/`serverless`
+    import their browser dynamically (unused engine never loaded; a missing one
+    → **501**); `remote` POSTs `{ url, headers }` to the service and streams the
+    bytes back. The cache-check → produce → store sequence is identical across
+    all three, so the `/tmp`-on-Vercel (read-only FS elsewhere) `LocalFsExportStore`
+    is unchanged. `@sparticuz/chromium` + `playwright-core` are
+    `serverExternalPackages`; `maxDuration` is 60s. **Recommended posture on
+    Hobby: set the PDF service** — see `services/pdf`. Swapping in an
+    `R2ExportStore` + a Trigger.dev task (doc 02/07) remains the scale path.
   - `app/p/[username]/[[...slug]]` — the **public portfolio route** (doc
     03/04). `lib/resolve-site.ts` resolves `<username>` → **fixture** Sites
     (`ada`/`jun`, dev/CI, no DB) or the **DB** `sites` table
@@ -98,7 +100,12 @@ Resolve and Deliver; Project and Render are shared code.
     — `dark-anime` today) dispatches; declared `capabilities.pages` gate
     which routes 404.
     `generateMetadata` sets canonical + honors `discoverable`; the home page
-    emits a JSON-LD `Person`. The shared Render stage is `lib/render-portfolio-page.tsx`.
+    emits a JSON-LD `Person`. It also emits the site's **favicon** (`icons`) on
+    every page kind: `getSiteForRender` returns `faviconKey`, `resolve-site.ts`
+    resolves it to a URL against `R2_PUBLIC_BASE_URL` (a key, not a URL, is
+    stored — doc 07), and it's served as a `<link rel="icon" type="image/webp">`
+    (WebP is what the upload pipeline emits). Set in the dashboard's portfolio
+    editor. The shared Render stage is `lib/render-portfolio-page.tsx`.
     **The `blogPost` route is the one place Resolve differs per page kind**:
     `loadPost(profileId, slug)` runs only there, because a post body is
     unbounded prose and folding every post into the portfolio load would put
@@ -175,9 +182,10 @@ Resolve and Deliver; Project and Render are shared code.
   A stable-looking id is not a content identity.
 - **The cloud seam.** `ExportStore` (`lib/export-store.ts`) and `lib/pdf.ts`
   are the interfaces; today `LocalFsExportStore` (`/tmp` on Vercel, `./out`
-  locally) + a dynamically-imported browser (`@sparticuz/chromium` on Vercel,
-  full Playwright locally). Wiring R2 + Trigger.dev later swaps implementations
-  behind these seams — no route or template changes.
+  locally) + a `PdfEngine` that is either an in-process browser
+  (`@sparticuz/chromium` / full Playwright) or the off-platform `services/pdf`
+  microservice (the `remote` engine). Wiring R2 + Trigger.dev later swaps
+  implementations behind these seams — no route or template changes.
 
 ## Local verification
 

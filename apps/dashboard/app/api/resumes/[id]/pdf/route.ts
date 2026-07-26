@@ -37,6 +37,16 @@ export async function GET(
   const session = await requireSession();
   const { id } = await params;
 
+  // Kill switch (`PDF_EXPORT_ENABLED=false`). Refused here as well as hidden in
+  // the UI, so turning the feature off actually stops requests reaching
+  // `apps/sites` / the PDF microservice — a hidden button is not a guard.
+  if (env.PDF_EXPORT_ENABLED === "false") {
+    return NextResponse.json(
+      { error: "PDF export is currently disabled." },
+      { status: 503 },
+    );
+  }
+
   const sitesUrl = env.SITES_URL;
   const secret = env.RENDER_SECRET;
   if (!sitesUrl || !secret) {

@@ -21,6 +21,7 @@ import { ExternalLink, Rocket, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import {
   publishPortfolioSiteAction,
@@ -29,6 +30,7 @@ import {
 import { Page } from "@/components/layout/page";
 import { FadeIn } from "@/components/motion/motion";
 import { ConfigFields } from "@/components/portfolio/config-fields";
+import { FaviconField } from "@/components/portfolio/favicon-field";
 import { SaveIndicator } from "@/components/status/save-indicator";
 import { SplitWorkspace } from "@/components/workspace/split-workspace";
 import type { ConfigFieldDescriptor } from "@/lib/config-form";
@@ -69,6 +71,7 @@ export function PortfolioEditor({
   fields,
   initialConfig,
   initialMissing,
+  initialFaviconUrl,
   discoverable: initialDiscoverable,
   publicBaseUrl,
   profilePublished,
@@ -82,6 +85,7 @@ export function PortfolioEditor({
   fields: ConfigFieldDescriptor[];
   initialConfig: Record<string, unknown>;
   initialMissing: MissingRequirementView[];
+  initialFaviconUrl: string;
   discoverable: boolean;
   publicBaseUrl: string;
   profilePublished: boolean;
@@ -155,6 +159,21 @@ export function PortfolioEditor({
       }
     },
     [],
+  );
+
+  // The favicon saves immediately (not through the debounced config autosave):
+  // it's a one-shot upload, not a field the user keeps editing. `router.refresh`
+  // re-reads the server so the Publish button reflects the now-pending change.
+  const saveFavicon = useCallback(
+    async (faviconKey: string | null) => {
+      const result = await updatePortfolioSiteAction({ faviconKey });
+      if (result.ok) {
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Couldn't save the favicon.");
+      }
+    },
+    [router],
   );
 
   // Switching templates resets config server-side; reload the editor so the
@@ -263,6 +282,20 @@ export function PortfolioEditor({
                   setConfig((current) => ({ ...current, [key]: value }))
                 }
               />
+
+              <div className="flex flex-col gap-1.5 border-t border-border pt-6">
+                <Label>Favicon</Label>
+                <p className="text-[13px] leading-relaxed text-muted">
+                  The icon shown in the browser tab — works with any template.
+                </p>
+                <div className="mt-1.5">
+                  <FaviconField
+                    initialUrl={initialFaviconUrl}
+                    onSave={saveFavicon}
+                    testId={TEST_IDS.portfolioFavicon}
+                  />
+                </div>
+              </div>
 
               <label className="flex items-center justify-between gap-4 border-t border-border pt-6 text-sm text-foreground">
                 <span>

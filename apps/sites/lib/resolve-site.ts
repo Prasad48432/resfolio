@@ -7,6 +7,7 @@ import {
   type ProfileView,
   type ViewDefinition,
 } from "@resfolio/profile";
+import { assetUrl } from "@resfolio/storage";
 import { unstable_cache } from "next/cache";
 
 import { env } from "./env";
@@ -87,6 +88,9 @@ export interface LoadedPortfolio {
   config: unknown;
   discoverable: boolean;
   view: ProfileView;
+  /** The favicon's public URL (resolved from the stored key), or undefined.
+   * Consumed by `generateMetadata` for the page's `<link rel="icon">`. */
+  faviconUrl?: string;
 }
 
 function buildFixture(descriptor: FixtureSiteDescriptor): LoadedPortfolio {
@@ -165,6 +169,13 @@ async function loadFromDatabase(
         templateMajor: data.templateMajor,
         config: data.config,
         discoverable: data.discoverable,
+        // A key is origin-independent (doc 07); resolve it against the current
+        // delivery origin. No R2 configured → no favicon, same as every other
+        // stored image.
+        faviconUrl:
+          data.faviconKey && env.R2_PUBLIC_BASE_URL
+            ? assetUrl(data.faviconKey, env.R2_PUBLIC_BASE_URL)
+            : undefined,
         view: buildProfileView(
           withNativePosts(data.profile, posts, {
             assetBaseUrl: env.R2_PUBLIC_BASE_URL,

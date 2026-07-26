@@ -9,11 +9,12 @@ import {
   publishSite,
   updateSite,
 } from "@resfolio/portfolio/server";
+import { parseAssetKey } from "@resfolio/storage";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
-import { markReferencedAssets } from "@/lib/assets";
+import { markReferencedAssets, markReferencedKeys } from "@/lib/assets";
 import { getDashboardPortfolioTemplate } from "@/lib/portfolio-templates";
 import { revalidatePublicSite } from "@/lib/revalidate-site";
 
@@ -83,11 +84,29 @@ export const updatePortfolioSiteAction = createAction({
     discoverable: z.boolean().optional(),
     /** Switch templates (doc 04 — routes are platform-owned, so URLs survive). */
     templateId: z.string().min(1).optional(),
+    /** The favicon's R2 asset key (from `/api/uploads`), or `null` to clear it.
+     * A general, template-independent site setting. */
+    faviconKey: z.string().min(1).nullable().optional(),
   }),
-  handler: async ({ config, discoverable, templateId }, ctx) => {
+  handler: async ({ config, discoverable, templateId, faviconKey }, ctx) => {
     const site = await getSiteForOwner(ctx.userId);
     if (!site) {
       throw new ActionError("You don't have a site yet.");
+    }
+
+    // Setting a favicon: the key must be a real `favicon` asset owned by this
+    // user's profile. Ownership is encoded in the key (`u/<profileId>/…`), so
+    // parsing it and comparing to the caller's profile makes pointing at
+    // someone else's object structurally impossible (doc 07). `null` clears it.
+    if (faviconKey) {
+      const parsed = parseAssetKey(faviconKey);
+      if (
+        !parsed ||
+        parsed.kind !== "favicon" ||
+        parsed.ownerId !== site.profileId
+      ) {
+        throw new ActionError("That favicon isn't valid.");
+      }
     }
 
     // A template switch pins the new major and resets config to that template's
@@ -129,9 +148,15 @@ export const updatePortfolioSiteAction = createAction({
       const updated = await updateSite(ctx.userId, {
         config: validatedConfig,
         discoverable,
+        faviconKey,
       });
-      // Any uploaded image this config points at is now live (doc 07).
+      // Any uploaded image this config points at is now live (doc 07). The
+      // favicon lives in its own column, so `collectAssetKeys` can't find it by
+      // walking config — mark its key explicitly.
       await markReferencedAssets(validatedConfig);
+      if (faviconKey) {
+        await markReferencedKeys([faviconKey]);
+      }
       revalidatePath("/portfolio");
       return { updatedAt: updated.updatedAt.toISOString() };
     } catch (error) {

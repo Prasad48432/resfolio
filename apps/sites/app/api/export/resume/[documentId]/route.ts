@@ -91,15 +91,23 @@ export async function POST(
       : join(process.cwd(), "out"),
   );
 
+  // Engine selection, most-capable first: the dedicated Fly service (works on
+  // any host, incl. Vercel Hobby's 1 GB limit) → in-function serverless Chromium
+  // (Vercel Pro) → the full local browser (dev/CI).
+  const service =
+    env.PDF_SERVICE_URL && env.PDF_SERVICE_SECRET
+      ? { url: env.PDF_SERVICE_URL, secret: env.PDF_SERVICE_SECRET }
+      : undefined;
+  const engine = service ? "remote" : env.VERCEL ? "serverless" : "local";
+
   try {
     const { bytes, cached } = await renderPdf({
       key,
       url: `${origin}/render/resume/${encodeURIComponent(documentId)}/draft`,
       headers: { authorization: `Bearer ${env.RENDER_SECRET}` },
       store,
-      // Vercel sets VERCEL=1; there the full local browser can't launch, so use
-      // the serverless-optimized Chromium. Locally this stays "local".
-      engine: env.VERCEL ? "serverless" : "local",
+      engine,
+      service,
     });
     return new NextResponse(bytes as unknown as BodyInit, {
       status: 200,

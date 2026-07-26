@@ -31,6 +31,17 @@ export const render = {
      * (doc 11). Never set this by hand.
      */
     VERCEL: z.string().optional(),
+    /**
+     * The dedicated PDF microservice (`services/pdf`, deployed to Fly.io): a
+     * Node + Playwright container that renders a URL → PDF. When both are set,
+     * `apps/sites` offloads PDF export to it (the `remote` engine) instead of
+     * launching Chromium in-process — which is what makes export work on hosts
+     * that can't run Chromium in-function (Vercel Hobby's 1 GB limit). Absent,
+     * it falls back to `serverless` (Vercel) or `local` (dev). The secret is a
+     * server-to-server bearer the service checks; it never reaches a browser.
+     */
+    PDF_SERVICE_URL: z.string().url().optional(),
+    PDF_SERVICE_SECRET: z.string().min(16).optional(),
   },
   /**
    * The dashboard calls `apps/sites` for the resume PDF export. Optional
@@ -41,5 +52,14 @@ export const render = {
   dashboard: {
     RENDER_SECRET: z.string().min(16).optional(),
     SITES_URL: z.string().url().optional(),
+    /**
+     * Kill switch for resume PDF export. Set to `"false"` to turn the feature
+     * **off**: the Download-PDF button hides and the export route hard-refuses
+     * (503), so no request ever reaches `apps/sites` or the PDF microservice —
+     * a cost/safety lever you can flip without touching code. Unset or any other
+     * value keeps it enabled (the default), so existing deployments are
+     * unaffected. Takes effect on the next deploy (Vercel reads env at deploy).
+     */
+    PDF_EXPORT_ENABLED: z.enum(["true", "false"]).optional(),
   },
 } as const;

@@ -13,6 +13,7 @@ import { z } from "zod";
  */
 export const ASSET_KINDS = [
   "avatar",
+  "favicon",
   "portfolioBanner",
   "portfolioImage",
   "blogCover",
@@ -79,6 +80,21 @@ export const ASSET_KIND_SPECS: Readonly<Record<AssetKind, AssetKindSpec>> = {
     maxDimensions: { width: 512, height: 512 },
     singleton: true,
     label: "Profile photo",
+  },
+  /**
+   * A site's favicon — the browser-tab icon shown on the public portfolio
+   * pages. **A singleton**: one per owner, uploading a new one supersedes the
+   * old. Small and square by nature; re-encoded to WebP like every other kind
+   * and served through a `<link rel="icon" type="image/webp">`, which every
+   * current browser honours. 512×512 is the source ceiling — browsers downscale
+   * to whatever the tab needs.
+   */
+  favicon: {
+    segment: "favicon",
+    maxBytes: 1 * 1024 * 1024,
+    maxDimensions: { width: 512, height: 512 },
+    singleton: true,
+    label: "Favicon",
   },
   portfolioBanner: {
     segment: "portfolio/banner",

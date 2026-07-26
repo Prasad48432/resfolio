@@ -67,6 +67,11 @@ export const site = pgTable(
     // non-discoverable site still serves — it just asks crawlers not to index
     // and is omitted from the platform sitemap.
     discoverable: boolean("discoverable").notNull().default(true),
+    // The R2 asset key of the site's favicon (the browser-tab icon on the
+    // public portfolio pages), or null. A key, not a URL (doc 07): keys survive
+    // the delivery origin moving, and the render host resolves it to a URL at
+    // metadata time. The `favicon` asset kind is a per-owner singleton.
+    faviconKey: text("favicon_key"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

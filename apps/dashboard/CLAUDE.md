@@ -332,6 +332,10 @@ features.
     owns the document (`getDocument` is user-scoped), and only then calls the
     render host with the `RENDER_SECRET` bearer. Env-gated on
     `render.dashboard` (`RENDER_SECRET` + `SITES_URL`); absent, the button hides.
+    **Kill switch: `PDF_EXPORT_ENABLED=false`** turns the whole feature off —
+    `resumeExportEnabled()` hides the button **and** the route hard-refuses
+    (503), so no request reaches `apps/sites` or the Fly PDF service (a
+    cost/safety lever). A hidden button is never the only guard.
     It renders the **draft** (matching the preview); the public URL renders the
     **published** version — the Sharing panel says so, because people get this
     wrong.
@@ -400,6 +404,19 @@ features.
     this form for exactly that reason — the template could see the setting; the
     user had no way to set it. `ConfigFieldMeta.kind` now carries `url`
     alongside `image`/`textarea`, and `config-form.test.ts` guards it.
+  - **The favicon is a general, template-independent site setting**, not config.
+    `FaviconField` (`components/portfolio/favicon-field.tsx`) uploads the
+    `favicon` asset kind and hands back the **key** (not the URL — keys survive
+    the origin moving, doc 07); it is stored in `sites.favicon_key` and resolved
+    to a URL for the browser-tab icon on every `/p/*` page (SEO metadata in
+    `apps/sites`). It **saves immediately** through `updatePortfolioSiteAction`
+    (`faviconKey`) — a one-shot upload, not a field you keep editing — and
+    `router.refresh()` so the Publish button reflects the now-pending change; it
+    is a presentation edit, so it needs a Publish to reach the live site. The
+    action validates the key parses to a `favicon` asset **owned by the caller's
+    profile** before storing, and marks it referenced via `markReferencedKeys`
+    (the key lives in a column, so `collectAssetKeys` can't find it by walking
+    config).
 - **Sources section** (doc 12 import-first, Phase 6R): `/sources` is the
   **import workspace** — "Import from…" provider gallery on top (**four live
   `PublicConnectCard`s: GitHub, RSS, Dev.to, Stack Overflow — no teasers**; a

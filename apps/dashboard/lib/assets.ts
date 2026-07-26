@@ -36,3 +36,21 @@ export async function markReferencedAssets(value: unknown): Promise<void> {
     log.error({ error }, "failed to mark referenced assets");
   }
 }
+
+/**
+ * Mark specific asset **keys** referenced — for keys held in a relational
+ * column rather than inside a saved JSON document (a site favicon, a blog
+ * cover), which `collectAssetKeys` can't discover by walking content. Same
+ * best-effort contract as `markReferencedAssets`: a failed mark never fails the
+ * user's action, because the next save re-marks well inside the sweep's grace.
+ */
+export async function markReferencedKeys(keys: string[]): Promise<void> {
+  if (!isStorageConfigured() || keys.length === 0) {
+    return;
+  }
+  try {
+    await markAssetsReferenced(keys);
+  } catch (error) {
+    log.error({ error }, "failed to mark referenced keys");
+  }
+}

@@ -35,6 +35,12 @@ export async function generateMetadata({
 
   const { basics } = loaded.view;
   const canonical = siteUrl(username, (slug ?? []).join("/"));
+  // The favicon is site-wide, so it applies to every page kind (home, project,
+  // blog post). WebP is what the upload pipeline emits; modern browsers honour
+  // a typed icon link. Undefined when no favicon is set — Next omits `icons`.
+  const icons = loaded.faviconUrl
+    ? { icon: [{ url: loaded.faviconUrl, type: "image/webp" }] }
+    : undefined;
   const robots = loaded.discoverable
     ? undefined
     : // Respect the site's discoverable toggle (doc 04). Non-discoverable
@@ -55,6 +61,7 @@ export async function generateMetadata({
         description: post.seo.description || undefined,
         alternates: { canonical },
         robots,
+        icons,
         openGraph: {
           type: "article",
           title: post.seo.title,
@@ -78,6 +85,7 @@ export async function generateMetadata({
     description,
     alternates: { canonical },
     robots,
+    icons,
     openGraph: {
       type: "profile",
       title,

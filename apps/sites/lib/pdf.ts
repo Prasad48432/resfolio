@@ -6,20 +6,23 @@ import type { ExportStore } from "./export-store";
  * and the `export:pdf` script so there is exactly one implementation of the
  * cache-check → launch → `page.pdf` → store sequence.
  *
- * **Two engines behind one dynamic import, chosen by the caller.**
+ * **Three engines, chosen by the caller.**
  * - `local` (default) uses the full `@playwright/test` browser installed for
  *   dev/CI. It stays a devDependency, so a deployment that never asks for it
  *   never bundles ~50MB of Chromium.
  * - `serverless` uses `@sparticuz/chromium` + `playwright-core`, the
- *   Lambda/Vercel-optimized Chromium that actually launches inside a serverless
- *   function. `apps/sites` picks this on Vercel (via `env.VERCEL`).
+ *   Lambda/Vercel-optimized Chromium that launches inside a serverless function
+ *   (needs ~1.5 GB — Vercel Pro, not Hobby).
+ * - `remote` launches **no browser here at all**: it POSTs the render URL +
+ *   headers to the dedicated PDF microservice (`services/pdf` on Fly.io) and
+ *   streams back the bytes. This is what makes export work on a 1 GB Vercel
+ *   Hobby function — the heavy Chromium lives off-platform.
  *
- * Both are imported **dynamically**: whichever engine a deployment doesn't use
- * is never loaded, and if the chosen one is missing this throws
- * `PdfEngineUnavailableError` and the caller answers 501. The `ExportStore` and
- * this file remain the cloud seam — wrapping the route in a Trigger.dev task and
- * swapping `LocalFsExportStore` for R2 changes neither the callers nor the
- * engine code.
+ * `local`/`serverless` import their browser **dynamically**, so an unused engine
+ * is never loaded, and a missing one throws `PdfEngineUnavailableError` (→ the
+ * caller's 501). The `ExportStore` and this file remain the cloud seam: the
+ * cache-check → produce → store sequence is identical across engines, so
+ * swapping `LocalFsExportStore` for R2 changes neither callers nor engine code.
  */
 
 export class PdfEngineUnavailableError extends Error {
@@ -37,10 +40,19 @@ export class PdfRenderError extends Error {
 }
 
 /**
- * Which Chromium to launch. `local` = the full `@playwright/test` browser
- * (dev/CI); `serverless` = `@sparticuz/chromium` + `playwright-core` (Vercel).
+ * Which engine renders the PDF. `local` = full `@playwright/test` (dev/CI);
+ * `serverless` = `@sparticuz/chromium` + `playwright-core` (Vercel Pro);
+ * `remote` = offload to the `services/pdf` microservice (Vercel Hobby).
  */
-export type PdfEngine = "local" | "serverless";
+export type PdfEngine = "local" | "serverless" | "remote";
+
+/** The `remote` engine's target — the deployed PDF microservice. */
+export interface PdfServiceTarget {
+  /** The service's base URL (`PDF_SERVICE_URL`). */
+  url: string;
+  /** The server-to-server bearer the service checks (`PDF_SERVICE_SECRET`). */
+  secret: string;
+}
 
 export interface RenderPdfOptions {
   /** Content-addressed cache key (`lib/render-key.ts`). */
@@ -52,8 +64,39 @@ export interface RenderPdfOptions {
   /** Extra request headers, e.g. the bearer for the private draft route. */
   headers?: Record<string, string>;
   store: ExportStore;
-  /** Defaults to `local`. The export route passes `serverless` on Vercel. */
+  /** Defaults to `local`. The export route picks `remote` when the PDF service
+   * is configured, else `serverless` on Vercel, else `local`. */
   engine?: PdfEngine;
+  /** Required when `engine === "remote"` — where to offload the render. */
+  service?: PdfServiceTarget;
+}
+
+/**
+ * Render via the PDF microservice: no local browser. Forwards the render URL
+ * and headers (including the draft route's `RENDER_SECRET` bearer, which the
+ * service replays when it loads the page) and returns the PDF bytes. The
+ * service is itself bearer-guarded, so it can't be used as an open URL fetcher.
+ */
+async function renderViaService(
+  service: PdfServiceTarget,
+  url: string,
+  headers: Record<string, string> | undefined,
+): Promise<Uint8Array> {
+  const response = await fetch(`${service.url.replace(/\/$/, "")}/render`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${service.secret}`,
+    },
+    body: JSON.stringify({ url, headers: headers ?? {} }),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new PdfRenderError(
+      `PDF service returned ${response.status} for ${url}`,
+    );
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 /**
@@ -103,10 +146,25 @@ export async function renderPdf({
   headers,
   store,
   engine = "local",
+  service,
 }: RenderPdfOptions): Promise<RenderedPdf> {
   const hit = await store.get(key);
   if (hit) {
     return { bytes: hit, cached: true };
+  }
+
+  // Off-platform render: no browser here. The cache-check above and the
+  // store-write below are identical to the in-process engines — only the
+  // "produce bytes" step differs.
+  if (engine === "remote") {
+    if (!service) {
+      // The route only selects `remote` when both service vars are set, so this
+      // is a programming error, not a runtime config gap.
+      throw new PdfEngineUnavailableError();
+    }
+    const bytes = await renderViaService(service, url, headers);
+    await store.put(key, bytes);
+    return { bytes, cached: false };
   }
 
   const browser = await launchBrowser(engine);

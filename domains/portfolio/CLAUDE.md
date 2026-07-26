@@ -72,6 +72,12 @@ of `@resfolio/profile` and `@resfolio/document`.
 - **Config is template-owned and opaque here** (`unknown`). The domain never
   validates presentation config — that's the template's own Zod schema, run by
   the render host. Data lives in the Profile; knobs live in config (doc 03).
+- **The favicon is a general site setting, not config** — `sites.favicon_key`
+  (migration 0013), a nullable R2 asset **key** (doc 07: keys, not URLs, are
+  stored). It rides `updateSite`/`SiteRecord`/`getSiteForRender` like any other
+  presentation field (sets `has_unpublished_changes`); the render host resolves
+  the key to a URL for the page favicon. Ownership of the key is validated in
+  the dashboard action before it reaches here.
 - **Slugs are DNS-label-safe** (3–32 chars, lowercase, single internal
   hyphens) because the same handle becomes a `*.resfolio.site` subdomain later
   (doc 04). The rules + reserved list live in `@resfolio/profile` now — keep the
