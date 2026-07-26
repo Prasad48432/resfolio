@@ -86,6 +86,15 @@ async function renderPdf({ url, headers }) {
     if (!response || !response.ok()) {
       throw new Error(`upstream returned ${response?.status() ?? "no response"}`);
     }
+    // **Wait for the self-hosted web fonts before printing.** `networkidle`
+    // waits for the font *requests*, but not for the font to be applied — so
+    // `page.pdf()` can fire while text is still laid out with fallback-font
+    // metrics, and the real glyphs then paint at the wrong advances: collapsed
+    // spaces, jammed words, non-crisp text. `document.fonts.ready` resolves only
+    // once every used font is ready. Guarded so a stuck load can't hang forever.
+    await page
+      .evaluate(() => document.fonts.ready)
+      .catch(() => undefined);
     // `preferCSSPageSize` honours the template's own `@page { size: … }`, the
     // same option the in-process engines use — so output is identical whichever
     // engine `apps/sites` picks (doc 02).

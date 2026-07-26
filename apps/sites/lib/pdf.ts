@@ -176,6 +176,12 @@ export async function renderPdf({
         `Render route returned ${response?.status() ?? "no response"} for ${url}`,
       );
     }
+    // Wait for the self-hosted web fonts to finish loading before printing.
+    // `networkidle` waits for the font requests but not for them to be applied,
+    // so `page.pdf()` can otherwise fire while text is laid out with fallback
+    // metrics — the real glyphs then paint at the wrong advances (collapsed
+    // spaces, jammed words). `document.fonts.ready` resolves once fonts are in.
+    await page.evaluate(() => document.fonts.ready).catch(() => undefined);
     // `preferCSSPageSize` honours the template's own `@page { size: … }`, which
     // is how the document's pageSize config reaches the PDF (doc 02).
     const pdf = await page.pdf({
