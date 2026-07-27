@@ -12,6 +12,7 @@ import {
 } from "@resfolio/ui";
 
 import ResfolioMark from "@/components/brand/resfolio-mark";
+import { MatrixSpinner } from "@/components/status/matrix-loader";
 import type { AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
 
@@ -170,7 +171,7 @@ export function AiMessage({
             // rendered — so without this the healthy path is indistinguishable
             // from the broken one for as long as the thinking takes.
             <Marker data-testid={TEST_IDS.aiWorking}>
-              <Spinner size="sm" />
+              <MatrixSpinner />
               <MarkerContent>Working through it…</MarkerContent>
             </Marker>
           )

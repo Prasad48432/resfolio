@@ -11,7 +11,6 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
-  Spinner,
   Textarea,
 } from "@resfolio/ui";
 import { DefaultChatTransport } from "ai";
@@ -26,6 +25,7 @@ import {
 } from "react";
 
 import { EmptyState } from "@/components/layout/empty-state";
+import { MatrixSpinner } from "@/components/status/matrix-loader";
 import { MAX_CHARS_PER_MESSAGE } from "@/lib/ai/limits";
 import type { AiPhase, AiProgress, AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
@@ -277,11 +277,17 @@ export function AiChat({
 
               {/* Real work, reported. Shown while nothing has come back yet —
                   once text is streaming, the text is the indicator and a label
-                  beside it would be a caption on something already visible. */}
+                  beside it would be a caption on something already visible.
+
+                  The same `MatrixSpinner` as the still-arriving marker in
+                  `AiMessage`, deliberately: this and that one are one continuous
+                  wait handed off at the moment the assistant message opens, and
+                  an indicator that changes shape halfway through reads as
+                  something having gone wrong. */}
               {status === "submitted" ? (
                 <MessageScrollerItem>
                   <Marker data-testid={TEST_IDS.aiThinking}>
-                    <Spinner size="sm" />
+                    <MatrixSpinner />
                     <MarkerContent>
                       {progress ? PHASE_LABELS[progress.phase] : "Sending…"}
                       {progress?.detail ? (
