@@ -1,5 +1,6 @@
 import {
   SECTION_KEYS,
+  orderedSectionKeys,
   type Profile,
   type SectionKey,
   type ViewDefinition,
@@ -57,23 +58,17 @@ const DESCRIPTOR_BY_KEY = new Map(
 );
 
 /**
- * The sections in the order the resume actually renders them — an exact mirror
- * of `orderedSectionKeys` in `@resfolio/profile`'s `view.ts`, which is what
- * `buildProfileView` runs. The panel must agree with the preview beside it, so
- * this reads the view rather than any fixed list.
- *
- * Same tolerance as the domain: unknown keys are ignored and unlisted sections
- * follow in canonical order, so a stale `sectionOrder` can never drop a
- * section from the panel.
+ * The sections in the order the resume actually renders them, via the domain's
+ * own `orderedSectionKeys` — the function `buildProfileView` runs. The panel must
+ * agree with the preview beside it, so this reads the view rather than any fixed
+ * list, and it reads it through the same code rather than a copy of the rule.
+ * (It was a copy until the AI tailoring review needed the same answer and would
+ * have made a third.)
  */
 export function orderedSections(
   view: ViewDefinition,
 ): ResumeSectionDescriptor[] {
-  const explicit = (view.sectionOrder ?? []).filter(
-    (key, index, all) => all.indexOf(key) === index,
-  );
-  const rest = SECTION_KEYS.filter((key) => !explicit.includes(key));
-  return [...explicit, ...rest]
+  return orderedSectionKeys(view)
     .map((key) => DESCRIPTOR_BY_KEY.get(key))
     .filter((section): section is ResumeSectionDescriptor => Boolean(section));
 }

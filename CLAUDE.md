@@ -77,6 +77,11 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   type, and the `--ease-*` / `--duration-*` motion scale), base styles, shared
   component classes (CSS-only package). Global rules belong in `@layer base` —
   unlayered CSS outranks every cascade layer, including Tailwind's utilities.
+  **Scrollbars are themed here**, once, at zero specificity (`:where()`): both
+  `scrollbar-color` (Firefox + Chromium) and `::-webkit-scrollbar` (Safari),
+  because each engine implements only one of them. They point at tokens, so
+  they follow the palette in both directions with no `dark:` variant — and a
+  component still overrides them with `scrollbar-thin` / `.no-scrollbar`.
   The `./dark` subpath is the **dashboard-only** dark palette and inverts that
   rule on purpose: it is unlayered precisely _so_ it outranks `@theme`'s
   `:root`. It restates token values and nothing else — no component carries a
@@ -131,6 +136,15 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
 
 Business-logic packages live under `domains/`:
 
+- `@resfolio/ai` (`domains/ai`) — saved Resfolio AI chat sessions, and **nothing
+  else** (doc 13, Phase 7). It is deliberately _not_ where the AI lives: prompts,
+  provider selection, guards and every model call stay in
+  `apps/dashboard/lib/ai/`. This package exists because persistence means a table
+  and only a domain may touch one. Pure root (the stored-message schema,
+  `sanitizeMessages` — which drops reasoning parts and trims oldest-first —
+  `deriveSessionTitle`, the ceilings) and `./server`, the only code that touches
+  `ai_chat_sessions`. **A stored transcript is a record, never context**: nothing
+  here is read on the way to a provider. See `domains/ai/CLAUDE.md`
 - `@resfolio/profile` (`domains/profile`) — the profile engine: canonical
   Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
   pure edit helpers (framework-free, root export), the **public handle** rules

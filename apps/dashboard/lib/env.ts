@@ -1,8 +1,10 @@
 import {
+  ai,
   blog,
   createAppEnv,
   observability,
   r2,
+  ratelimit,
   render,
   sharedRuntime,
 } from "@resfolio/env";
@@ -20,6 +22,13 @@ import {
  * URLs is what stops the two from disagreeing: a hard-coded hostname works
  * until the first deployment that points at a different bucket, and then every
  * uploaded image silently 404s through the optimizer.
+ *
+ * `ai` + `ratelimit` are the AI layer's (doc 13). Both slices are entirely
+ * optional: no `OPENAI_API_KEY` hides the AI surface and 501s its route, and no
+ * Upstash credentials leave the limiter inert — which is exactly right in local
+ * dev and CI, and exactly wrong in production, so both are set there. This app
+ * is the first to read `ratelimit` directly; @resfolio/auth validates its own
+ * copy for Better Auth's limiter.
  */
 export const env = createAppEnv({
   server: {
@@ -27,6 +36,8 @@ export const env = createAppEnv({
     ...observability.server,
     ...render.dashboard,
     ...blog.server,
+    ...ai.server,
+    ...ratelimit.server,
     R2_PUBLIC_BASE_URL: r2.server.R2_PUBLIC_BASE_URL,
   },
   client: {

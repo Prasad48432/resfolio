@@ -21,3 +21,4 @@ export { render } from "./slices/render";
 export { integrations } from "./slices/integrations";
 export { r2 } from "./slices/r2";
 export { blog } from "./slices/blog";
+export { ai } from "./slices/ai";

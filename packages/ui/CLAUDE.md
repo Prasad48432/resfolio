@@ -38,7 +38,26 @@ link`, `default | sm | lg | icon`) plus an `icon-sm` addition the registry
 - **Straight from the registry**: `Sidebar`, `Sheet`, `Tooltip`, `Separator`,
   `Skeleton`, `Select`, `Dialog`, `Command`, `DropdownMenu`, `Popover`
   (restyled onto this app's surface + `animate-popover-in` motion, since the
-  registry's `tailwindcss-animate` classes don't exist here).
+  registry's `tailwindcss-animate` classes don't exist here), plus the **chat
+  set** — `Message`, `Bubble`, `Marker`, `MessageScroller` (shadcn's 2026-06
+  release, used by the dashboard's AI surface, doc 13). They are presentational:
+  they know nothing about the AI SDK, a message schema, or persistence.
+  `MessageScroller` is the only component in this package with a runtime
+  dependency of its own (**`@shadcn/react`**) — it owns anchored autoscroll
+  during streaming, scroll restore, and jump-to-latest, which is real behaviour
+  nobody should reimplement. Three things it needed on arrival, all documented
+  in the file: the docs-app `IconPlaceholder` swapped for a lucide icon,
+  `hover:bg-muted` → `hover:bg-surface-warm`, and **`scroll-fade-b`**, which is
+  the one utility it wants that Tailwind 4.3 doesn't ship — it lives in
+  `@resfolio/design` (`scrollbar-thin` / `scrollbar-gutter-stable` /
+  `scrollbar-thumb-*` / `scrollbar-track-*` are all native, so don't add them).
+  `bubble.tsx` also carries a second class of fix worth knowing about: it
+  referenced **`var(--primary)` / `var(--foreground)` / `var(--secondary)`
+  raw**. Stock shadcn defines those bare names and aliases them in
+  `@theme inline`; @resfolio/design defines `--color-*` directly, so a raw
+  `var(--primary)` resolves to nothing — and it fails as a *transparent bubble*,
+  not as a build error. Check for that pattern in any registry component that
+  uses `color-mix()` or `oklch(from …)`.
 - **Composed from those**: `MonthYearPicker` — month + year, never a day. No
   career fact this product collects is precise to the day, and a full calendar
   invites a precision the resume then throws away. `Popover` on pointer

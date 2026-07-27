@@ -14,6 +14,7 @@ This application is responsible for
 - Portfolio theme + custom domain configuration
 - Resume configuration, sharing, and PDF export
 - Blog — writing, editing and managing native posts
+- Resfolio AI — the action layer over the Profile
 - Account & billing
 
 This application is NOT the public marketing site.
@@ -52,7 +53,17 @@ Motion vocabulary in `components/motion/`, and a palette that no longer
 animates. **The 2026-07-17 revision** then: renamed the brand token
 `accent` → `brand` and adopted **shadcn/ui as the UI foundation** (the shell is
 now shadcn's `Sidebar`); rebuilt the resume experience (public/private
-visibility, no tokens, Download PDF, a Sections config layer). Use current
+visibility, no tokens, Download PDF, a Sections config layer). **Resfolio AI
+Phases 1–6 (2026-07-27)**: `/ai` — the streaming chat foundation over the Vercel
+AI SDK v7, **read-only Profile awareness**, and the **propose → review → apply**
+editing flow; plus `/ai/job`, which is now the whole application sequence — **job
+match**, **resume tailoring**, **cover letter** (doc 13). The model reads the
+user's profile and proposes changes to it; it cannot write anything, ever — a
+proposal is an object, and only a Server Action a human triggered writes a draft.
+Tailoring writes a `ViewDefinition` on one resume document and leaves the profile
+alone, through the same guard. A cover letter is free prose, so it gets the one
+guarantee prose can have: its names and numbers are checked against the profile and
+the posting. Use current
 Next.js best practices from `node_modules/next/dist/docs/` when adding
 features.
 
@@ -136,7 +147,10 @@ features.
   - **Never animate a keyboard-triggered surface.** The palette passes
     `animated={false}` to `DialogContent`.
   - `prefers-reduced-motion` means gentler, not none: movement goes, opacity
-    stays. `useReducedMotion()` in JS; the media query in CSS.
+    stays. `useReducedMotion()` in JS; the media query in CSS. **A reduced-motion
+    branch must still render the same box** — `RouteTransition` used to return its
+    children bare, which made the app's layout chain depend on an OS setting; a bug
+    like that is only ever reported as "it looks broken on my machine".
   - Marketing entrances (`animate-fade-up`/`fade-scale`/`focus-in`, 550–900ms)
     are `apps/web`'s. Product overlays use `animate-overlay-in`/`modal-in`/
     `popover-in` (150–200ms).
@@ -148,8 +162,36 @@ features.
 - **The app shell** (`components/shell/`) is composed from shadcn's `Sidebar`:
   `AppShell` = `TooltipProvider` → `SidebarProvider` → `AppSidebar` +
   `SidebarInset`. That is where the responsive/a11y posture comes from — mobile
-  `Sheet` with a focus trap, icon rail with tooltips, `cmd+b`. Two things not
-  to break:
+  `Sheet` with a focus trap, icon rail with tooltips, `cmd+b`.
+  - **The shell is one viewport tall and the _content region_ is the app's scroll
+    container, not `<body>`.** This is a four-link chain — `SidebarInset`
+    (`h-dvh overflow-hidden`) → the content `div`
+    (`grid grid-rows-[minmax(0,1fr)] overflow-y-auto`) → `RouteTransition`
+    (`flex min-h-0 flex-col`) → the page. **Break any link and nothing throws**:
+    `flex-1` silently resolves against `auto`, the document grows a scrollbar, and
+    any bottom-anchored element walks off the screen. That is exactly how the AI
+    chat broke. Guarded by `e2e/shell.spec.ts` ("the content region scrolls, not
+    the document").
+    - **`grid-rows-[minmax(0,1fr)]` is doing real work** and is not
+      interchangeable with `flex-1`: the `1fr` max gives the child a _definite_
+      height so full-height routes can fill it, while the `0` min lets an ordinary
+      taller page overflow and scroll. A `flex-1` child would get the definite
+      height but could never exceed it.
+    - **A page fills the viewport by asking for `min-h-0 flex-1`** on its `Page`
+      (only `/ai` does). Everything else grows and the region scrolls, exactly as
+      body scroll used to.
+    - **`h-dvh`, not `h-svh`.** `dvh` normally risks resizing under a reader's
+      thumb, but browser chrome collapses in response to _document_ scroll — which
+      no longer happens — so it sits still, and unlike `svh` it follows the mobile
+      keyboard. That pairs with **`interactiveWidget: "resizes-content"`** in the
+      root layout's `viewport` export, which is what keeps the chat composer above
+      the keyboard rather than behind it.
+    - The content region is a **`div`, not a `main`** — `SidebarInset` already
+      renders one, and nested `main` landmarks are invalid.
+    - The top bar is **not** `sticky` any more, deliberately: it is outside the
+      scroller, so sticky positioning there would be dead CSS describing a layout
+      the app no longer has.
+  - Two more things not to break:
   - `defaultOpen` comes from the **`sidebar_state` cookie read server-side** in
     the `(dashboard)` layout. Drop that and a collapsed sidebar renders
     expanded, then snaps shut on hydration.
@@ -209,6 +251,9 @@ features.
   `lib/testids.ts` registry (static keys or the exported helper functions).
 - **Nav**: `lib/navigation.ts` is the single IA source consumed by the
   sidebar and the command palette — extend it there, never in components.
+  The sidebar renders `NAV_ITEMS`; the **palette renders `PALETTE_ITEMS`**
+  (= `NAV_ITEMS` + `PALETTE_EXTRA_ITEMS`), for destinations that are worth
+  finding by name but do not earn a permanent row — `/ai/job` is the first.
 - **Profile editor** (doc 08, form-first; preview pane arrives Phase 4):
   the route reads/seeds the draft server-side via
   `@resfolio/profile/server` (`getOrCreateProfile`) and hands it to the
@@ -267,7 +312,14 @@ features.
   template picker, and resumes are **one per template** (enforced in the document
   domain). A resume **presents**
   a profile, it never contains one — nothing in this editor edits content; that
-  is `/profile`, one click from every empty state. The left pane is three
+  is `/profile`, one click from every empty state. The one place that rule bends
+  is AI tailoring (doc 13, Phase 5), which writes `view.deltas`; `TailoredNotice`
+  at the top of the left pane **names the deviation where the document is edited**
+  (`countTailoredFields` + a Reset), because prose in the preview that appears
+  nowhere in the profile, unexplained, is exactly the confusion the rule exists to
+  prevent. Its Reset needs no Server Action — this editor already owns and
+  autosaves `view`, so `clearTailoring(view)` through `setView` persists itself and
+  the preview updates at once. The left pane is three
   groups:
   - **Sections** — the configuration layer (`components/resume/resume-sections.tsx`
     over the pure, tested `lib/resume-sections.ts`). It writes a
@@ -489,6 +541,329 @@ features.
   - Editor typography is `.rf-prose` in `app/globals.css`, inside
     `@layer components` — the same stylesheet the published-post renderer will
     use, so writing and reading do not drift.
+- **Resfolio AI** (doc 13, Phases 1–6): `/ai` is a Server Component gate over
+  one client island (`components/ai/`); `/ai/job` is a **sequence** — job match,
+  then resume tailoring, then a cover letter, all off one pasted posting.
+  Everything model-facing lives in `lib/ai/`.
+  - **`lib/ai/provider.ts` is the only file in the repository that names a model
+    vendor.** Everything else takes the AI SDK's `LanguageModel`. Changing
+    provider or model is editing that file — do not import `@ai-sdk/openai` (or
+    the gateway) anywhere else. It resolves **two credentials, gateway first**:
+    `AI_GATEWAY_API_KEY` (Vercel AI Gateway) or `OPENAI_API_KEY` (direct).
+    - The gateway needs **no extra dependency** — `ai` re-exports
+      `createGateway`. Its key is passed **explicitly**, never left to the SDK's
+      own ambient `AI_GATEWAY_API_KEY` lookup, or that lookup becomes a second
+      `process.env` reader outside `@resfolio/env`.
+    - **`AI_MODEL`'s format follows the key**: `openai/gpt-5-mini` through the
+      gateway, `gpt-5-mini` direct. Two defaults, not one — a shared default
+      404s on whichever path it wasn't written for.
+    - **`isAiConfigured()` only proves a key exists, not that it can spend.** An
+      unfunded key mounts the UI and fails mid-stream via `onError`; the client
+      currently renders that as a generic "didn't go through". Making that
+      legible is an outstanding fix, not a designed behaviour.
+  - **The three route handlers exist because a stream is the product
+    requirement, and for no other reason.** Doc 06 allows a route "where the
+    caller isn't our React app": `useChat` (`/api/ai/chat`) and `useObject`
+    (`/api/ai/job`, `/api/ai/cover-letter`) all need a response body that is still
+    being written, which a Server Action cannot return. The letter is the clearest
+    case in the feature — the output is prose, so streaming _is_ the product rather
+    than a stand-in for it. **Every mutation stays a Server Action** — accepting a
+    proposed change, applying tailoring, and Phase 7's job-application save. All
+    three routes read; none writes. Do not add a fourth for anything that isn't
+    streamed, and note Phase 5 deliberately isn't one (see below).
+  - **Guard order is the design**: `requireSession` → kill switch (503) →
+    configured (501) → rate limit (429) → parse/size (400/413) → model. Each is
+    cheaper than the next, so a flood costs a cookie lookup, not an OpenAI
+    request. `AI_ENABLED=false` hides the nav item **and** hard-refuses, the same
+    shape as `PDF_EXPORT_ENABLED` — a hidden button is never the only guard.
+  - **`lib/ai/limits.ts` holds every ceiling**, and they are cost controls, not
+    validation niceties. `chat-request.ts` enforces them (pure + tested):
+    oversized single messages are **rejected, never truncated** — truncation
+    silently answers a different question — and over-budget conversations are
+    trimmed **oldest-first**, so the turn the user just typed always survives.
+  - **`lib/ai/rate-limit.ts` is the app's first general rate limiter** (doc 06
+    promised one; Better Auth's is its own and doesn't generalise). Keyed per
+    **user and mode**, and **a mode is a real budget, not a key prefix**:
+    `chat` gets 20/10min, `job` and `tailor` get 6 each (one analysis sends a
+    posting _and_ the whole profile), and `letter` gets 4 — the tightest, because a
+    letter is the one output people reroll rather than accept. One `Ratelimit` per
+    mode, memoised — the instance carries its own budget, so the mode cannot be an
+    argument to `limit()`. Inert without Upstash, like the auth limiter.
+  - **`lib/ai/profile-context.ts` builds the model's view of the Profile**
+    (pure + tested). Three rules it exists to enforce:
+    - **The seeded starter content is stripped.** A new profile ships with
+      "Example Company" / "Your most recent role" — right for the editor
+      (doc 08: empty states teach), poisonous for a model, which will discuss
+      the user's job there in perfect good faith. Detection compares against a
+      **freshly built `createSeedProfile()`** ignoring ids, so changing the seed
+      can't silently break it. Do not replace this with a hardcoded string list.
+    - **Over-budget profiles lose whole items, never truncated strings**, and
+      the model is told it happened. A trimmed profile must never be
+      indistinguishable from a thin one, or the assistant tells someone with a
+      hundred roles they're light on experience.
+    - **JSON, not prose**, because Phase 3's proposals address items by `id` and
+      fields by name — a prose rendering makes the model guess both.
+  - **The page runs the same builder as the route**, so the screen and the model
+    can't disagree about whether the profile is empty. Only the boolean crosses
+    to the client — the serialized profile is the model's context and must not
+    end up in a browser bundle.
+  - **The profile is loaded server-side, not as a tool call.** It's needed for
+    every message in this mode, and the read being user-scoped by construction
+    is what stops a prompt talking the model into reading someone else's.
+    Re-read per request, because the user may have edited in another tab.
+  - **`lib/ai/tools.ts` holds the model's one tool**, `proposeProfileChanges`,
+    and the app's `AiUIMessage` type. Three things not to break:
+    - **The tool set is built per request, closed over the profile that request
+      loaded** (`createProfileTools(draft.data)`). No profile id crosses the
+      wire and `execute` performs no lookup, so there is no parameter a prompt
+      could talk the model into changing.
+    - **`execute` is pure** — it runs `@resfolio/profile`'s
+      `reviewProfileChanges` and returns the partition. It has no database
+      access and never will; the write is `applyProfileChangesAction`.
+    - **`tools` must be passed to `convertToModelMessages` as well as
+      `streamText`**, because that is what applies `toModelOutput`. Without it
+      the whole diff is re-sent — and re-billed — on every later turn of the
+      conversation. `AiTools` is a **`type`, not an `interface`**: only type
+      aliases get an implicit index signature, and without one it isn't
+      assignable to the SDK's `ToolSet`. It is also written out rather than
+      inferred, because pnpm's layout makes the inferred type unnameable
+      (TS2742).
+  - **`app/(dashboard)/ai/actions.ts` is the only write in the feature.** It
+    re-parses the changes with the domain schema and **re-runs the guard against
+    the current draft** — client-round-tripped model output is not less hostile
+    than model output, and a proposal validated ninety seconds ago may no longer
+    fit a profile edited in another tab. It takes **no `draftRev` from the
+    client** (unlike the profile editor, this page holds no draft): it reads and
+    writes in one request, and a concurrent autosave then fails its own
+    optimistic check and rebases. Accept-one and Apply-all are the same action
+    with a different array — the batching is in the transport, not the consent.
+  - **`AiMessage` renders `message.parts`, never `message.content`**, and this is
+    the load-bearing UI decision. Concatenated text would work today and would
+    have to be torn out the moment a profile diff needs to render as a diff.
+    Adding a result type is a new `case` in that switch — which is exactly what
+    Phase 3's `tool-proposeProfileChanges` case is. It is typed via
+    `AiUIMessage` (`import type`, so nothing server-side is bundled), which is
+    what makes `part.output` a real `ProfileChangeReview` rather than a cast.
+  - **The review UI's per-change Apply button is the consent, not decoration.**
+    A single "accept these six improvements" button is the same product as a box
+    that writes straight into the profile with an extra click bolted on. Apply
+    all is secondary and only appears above two outstanding changes.
+    The diff is **quiet, not red/green** — nothing is being deleted, one piece
+    of the user's writing is replacing another, and colour is not the only
+    signal (a left rule plus weight carries the direction). **Refused
+    suggestions are counted on screen**: the guard dropping two changes is the
+    feature working, and a user who never learns it happened cannot tell this
+    product from one that would have written "Kubernetes" into their skills.
+  - **No fake progress — but the gap before the first token is now filled with
+    real states.** `/api/ai/chat` opens its `createUIMessageStream` **before** the
+    profile read and writes `data-progress` crumbs at genuine transitions
+    (`reading` → `thinking`, carrying the real `itemCount`; `truncated` when the
+    generation hit its ceiling). Doc 13 refused "Reading your profile…" in Phase 2
+    because the read finished before the stream existed — the label became honest
+    when the _order_ changed, not because the standard was relaxed. Three rules:
+    - **Crumbs are `transient: true`.** They never enter `message.parts`, so they
+      are not posted back on the next turn, never reach the model as context, and
+      cannot linger beside a finished answer. `useChat`'s `onData` holds them in
+      component state for the life of the turn.
+    - **There is no phase for "writing".** While text streams, the text _is_ the
+      indicator; a label beside it is a caption on something already visible.
+    - **`createUIMessageStream` needs its own `onError`.** Moving the profile read
+      inside `execute` means a failed database read is a stream error rather than
+      an unhandled 500 — without that handler it would be swallowed to a generic
+      string with nothing in the logs.
+  - **An assistant turn is never allowed to render as nothing — in either
+    direction.** Unhandled part types fall through to `null`, so a turn carrying
+    only reasoning drew an avatar and blank space, which reads as a crash.
+    `AiMessage` takes `settled` (only the last message can still be arriving) and
+    renders **both** empty cases: settled gets a real explanation with a real next
+    step (`aiEmptyTurn`), still-arriving gets a working indicator (`aiWorking`).
+    The second is not a nicety — reasoning parts are deliberately not rendered and
+    the SDK opens the assistant message the moment the stream starts, so for the
+    first several seconds of every _healthy_ turn `status` is already `streaming`
+    (the composer's "submitted" marker is gone) and the message has nothing in it.
+  - **The user's bubble is `muted`, never the registry's `default`.** That variant
+    is `bg-primary`, and the bridge maps `primary` to **ink** — so a sent message
+    rendered as the highest-contrast fill the theme owns: black-on-cream in light,
+    a white slab in dark. `surface-warm` plus a hairline is the app's own panel
+    language, and it follows the palette instead of inverting it. The border is set
+    at the call site because `BubbleContent` ships `border-transparent`, and in
+    light the fill alone is 2% off the page.
+  - **Reasoning tokens are spent from `maxOutputTokens`, and nothing that runs
+    against a reasoning model may use the shared default.** The default model is a
+    reasoning model, so a prose-sized ceiling silently truncates a turn that has to
+    _think_ — and when that turn was about to call a tool the result is an empty
+    assistant message, which is what made "fix 1, 2, 5 and 7" look like the feature
+    exiting. Hence `MAX_CHAT_OUTPUT_TOKENS` (separate and much larger),
+    `stepCountIs(3)` so a fully-refused proposal has a step left in which to _say_
+    so, and `reasoningTokens` logged apart from `textTokens`. Do not lower the chat
+    ceiling back to the shared one.
+    - **It is worse for `streamObject`, and that is what broke `/ai/job`.**
+      Structured output has no partial credit: a generation stopped by its ceiling
+      is JSON that fails validation, so `useObject` finishes with `object`
+      undefined and every panel conditioned on a result renders nothing — the
+      screen went from "Reading the posting…" to blank, for a call billed in full.
+      Both object routes now use **`MAX_OBJECT_OUTPUT_TOKENS`**, and
+      `MAX_TAILOR_OUTPUT_TOKENS` was raised to match.
+    - **"Finished with nothing" is a state, not silence.** `useObject` sets
+      `error` only for a failed _request_; a successful one whose object never
+      validated said nothing at all. `TEST_IDS.jobEmpty` / `letterEmpty` render a
+      sentence with a next step, and the routes log `finishReason` +
+      `reasoningTokens` beside the error — on screen "the model refused" and "the
+      ceiling cut it off" are identical, and nothing else tells them apart later.
+  - Errors render as a `Marker` in the transcript, not a toast — a failed answer
+    belongs where the answer would have been and must not evaporate (doc 08's
+    division of labour).
+  - **The chat is a bounded three-row layout, not a page with a chat in it.**
+    Column (`min-h-0 flex-1 overflow-hidden`) → messages (`flex-1 min-h-0`) →
+    composer (`shrink-0`). It only works because the shell hands down a definite
+    height (see the app-shell notes above), and `/ai`'s `Page` asks for it with
+    `min-h-0 flex-1`. The composer grows **upward** into the message area as its
+    textarea does, so its bottom edge never moves — it is a grid row, not sticky
+    positioning, so it cannot come unstuck. `useAutosize` owns the textarea height
+    (measure after resetting to `auto`, in a layout effect not an input handler,
+    and toggle `overflow-y` with the ceiling); `field-sizing: content` would do it
+    natively but has no Safari support yet. **The height ceiling lives in one
+    place** — the hook — never also as a `max-h` class.
+  - **The assistant avatar is `self-start`.** The registry's `MessageAvatar` is
+    `self-end`, which suits a chat app where a turn is a line or two; here a turn
+    is routinely twelve paragraphs and a bottom-pinned avatar floats beside the
+    _end_ of an answer, hundreds of pixels from the message it identifies. The mark
+    is presented as an app icon (squircle, hairline ring, no plate) rather than a
+    filled square centred in a circle, which is what looked unfinished.
+  - **Chat sessions are saved (Phase 7)** — `@resfolio/ai` + `ai_chat_sessions`
+    (migration **0014**). `/ai?c=<id>` is a **search parameter, not a route
+    segment**: `/ai/job` already occupies that position, and a dynamic sibling
+    would make "job" an id nobody may be assigned. The transcript is loaded
+    server-side and user-scoped, so a stranger's id resolves to nothing.
+    - **A stored transcript is a record, never context.** Nothing reads the table
+      on the way to a provider — the model's context is still built per request.
+      That is the rule the domain exists to keep; see `domains/ai/CLAUDE.md`.
+    - **Saving is a Server Action, once per settled turn.** No fourth route
+      handler: the rule is that a route exists only where a stream is the product
+      requirement, and this is a write of a finished thing. `AiChat` fires on the
+      busy → settled **status edge**, not on a message count — `regenerate()`
+      replaces the last answer without adding a message, and a count would never
+      save the rewrite. `AiWorkspace` serialises saves through a promise chain.
+    - **The rail's list is client state, seeded from the server.** The alternative
+      is `router.refresh()` after every save, which re-renders the route
+      mid-conversation and remounts the transcript being read. For the same
+      reason, the URL is claimed after the first save with
+      **`history.replaceState`, not `router.replace`** — the router would
+      regenerate the new-chat id, change `AiChat`'s `key`, and remount everything
+      to update an address bar.
+    - **`AiChat` is keyed on the session id.** `useChat` reads `messages` once, on
+      mount; two conversations are two components.
+    - **Delete asks nothing, Clear history asks.** One destroys a row the user is
+      pointing at; the other reaches everything scrolled out of view.
+  - **Stop is a cost control.** The route passes `request.signal` as
+    `abortSignal`, so cancelling actually stops generation and therefore billing.
+  - **Usage is logged, not tabled** (`onFinish` → `createLogger("ai")` with
+    user, model, mode, token counts). A billing meter later reads that call site.
+  - **Job match (`/ai/job`) is a route, not a chat mode** (doc 13's open
+    question, settled in Phase 4). One input, one result — a conversation
+    metaphor would add turn-taking to something with exactly one turn and bury a
+    score inside a scrolling transcript.
+    - **`lib/ai/job-analysis.ts` is where every number comes from.** The model
+      classifies `strong|partial|gap` and cites profile item **ids**; this file
+      resolves the citations, **demotes a match whose citations resolve to
+      nothing** (an unverifiable match is fabrication arriving as a score), does
+      the arithmetic, and checks keyword coverage with a **word-boundary** match
+      — `includes` reports that a profile saying "Google" has "Go", and telling
+      someone their resume already says something it doesn't is the damaging
+      direction of that error.
+    - **`evidence` comes before `level` in the schema, deliberately.**
+      Structured output is generated in schema order, so the model must find its
+      support before stating a verdict, and a streamed row never displays a
+      level that hasn't been verified. A tidy-up that alphabetised those fields
+      would silently undo both; `job-analysis.test.ts` guards it.
+    - **The page ships the item index and the context JSON, never the raw
+      profile.** Keyword coverage is checked against _exactly what the model
+      read_, so a stripped starter placeholder can't be reported as coverage.
+    - **The pasted posting is the only third-party-authored prompt in this
+      product.** It goes in as a delimited user message, never spliced into the
+      system prompt. The real guarantee is that the route has no tools and no
+      write path.
+  - **Resume tailoring (Phase 5) lives on `/ai/job` and has no route handler.**
+    `app/(dashboard)/ai/job/actions.ts` holds all three actions — the model call
+    included. That is doc 13's rule applied, not abandoned: **the guard needs the
+    profile's content** (the growth rules compare against stored values), so the
+    review must be built server-side, so the client has nothing to render as it
+    arrives, so a stream would be streaming to nobody. Phase 4 could stream
+    because verifying a match needed only an item index. Do not "improve" this
+    into a third route.
+    - **`export const maxDuration = 60` on `job/page.tsx` is load-bearing.**
+      `maxDuration` is route-segment config, so a Server Action inherits it from
+      the page it is invoked from; without it the platform default kills a
+      twenty-second tailoring pass and it reads as a model failure.
+    - **The guard ladder is the routes' ladder in action form** —
+      `requireAiBudget` (enabled → configured → rate limit under its own `tailor`
+      mode), then the JD boundary via the same tested `parseJobRequest`, then the
+      model. Length is checked there rather than in the Zod input so an oversized
+      posting gets its own sentence instead of "Invalid input."
+    - **Tailoring writes a `ViewDefinition`, never the profile** — the domain rules
+      are in `domains/profile/CLAUDE.md` (`tailor.ts`). What this app adds: the
+      **draft** is the guard's base (that is what the user is looking at), and a
+      delta for an item the _published_ version lacks is inert rather than an
+      error, because `buildProfileView` resolves deltas per item.
+    - **Applying is live.** Documents have no draft/publish split, so a public
+      resume changes at its URL on the click. The panel says so beforehand.
+    - **`clearTailoringAction` is not a convenience.** Tailoring is cumulative — a
+      second pass leaves the first pass' overrides on every field it doesn't touch
+      — so `countTailoredFields` is shown with a Reset beside it. Without that a
+      resume tailored twice is tailored for neither and the only escape is deleting
+      it.
+    - **Content changes keep per-change consent; reordering gets one button.** A
+      rewrite can put an unread sentence on a resume; a reorder cannot state
+      anything, so per-item consent there would charge six clicks for a decision
+      with no downside.
+    - **`components/ai/change-diff.tsx` is shared by both reviews** — the chat
+      proposal and the tailoring review must look identical, and a second copy
+      would drift on which side is the new one. `resume-tailor.tsx` renders
+      **inside `JobAnalyzer`**, which owns the pasted posting: a second textarea
+      is the surest way to have the analysis and the tailoring disagree about
+      which job the user meant.
+    - **The page ships three fields per resume**, not documents — a
+      `ViewDefinition` in a browser bundle to answer a question about a name.
+    - **Known lost-update window**: a `/resumes/[id]` tab open from before a
+      tailoring pass overwrites the new deltas on its next autosave (the editor
+      holds the whole `view` in client state and documents carry no `rev`). Same
+      as for `config` today; fixing it means a document revision + optimistic
+      check.
+  - **Cover letters (Phase 6) are the case where nothing structural was
+    available, so the guarantee is a _checked vocabulary_.** `lib/ai/cover-letter.ts`
+    is pure and has 27 tests, roughly half of which assert that legitimate phrasing
+    is **not** flagged — a warning list with noise in it is one nobody reads, and
+    then the real flag goes unseen too. Four things to understand before touching
+    it:
+    - **The rule is: every name and number in the letter must appear in the
+      profile _or the posting_.** The posting in the haystack is the whole trick —
+      it is what lets a letter say "the Senior Engineer role at Acme" without
+      flagging the company name in every letter ever written. It is also stated to
+      the model verbatim, so the prompt and the check are one rule twice, not a
+      request plus an unrelated audit.
+    - **Detection is by sentence position, not a dictionary.** A capitalised word
+      mid-sentence is a name; sentence-initial is ambiguous and only flagged when a
+      digit or an internal capital marks it anyway. `ALWAYS_CAPITALISED` is the one
+      stoplist and it holds only the first person — **keep it tiny**; a list big
+      enough to cover English sentence openers is a list that swallows real
+      fabrications.
+    - **There is no `greeting` and no `signoff` field.** The platform composes both
+      (recipient + `basics.name`), so an invented "Dear Ms. Chen" has nowhere to
+      live. The recipient the user types **never leaves the browser** — the request
+      body is `{ jobDescription }` only, reusing the job route's `parseJobRequest`.
+    - **A clean result is stated out loud** (`TEST_IDS.letterChecked`). "We checked
+      and found nothing" is the claim that distinguishes this from a product that
+      shrugged; a user who only ever sees the warning version can't tell.
+    - **Nothing is persisted, and the UI says so.** A letter's home is a column on
+      the job application (Phase 7), by the document domain's rule that documents
+      carry no content fields.
+  - **`lib/ai/system-prompt.ts`'s `CHANGE_LIMITS` is shared and must stay
+    shared.** Two workflows now emit `ProfileChange`s validated by the same domain
+    code (chat → profile draft, tailoring → resume view). Restating those five
+    lines in the second prompt guarantees one copy drifts, and the one that drifts
+    is the one nobody rereads.
+  - **`vitest.config.ts` now aliases `@/`** — needed because `rate-limit.ts` is
+    the first unit-tested lib module that reaches env.
 - **String arrays** (skills, technologies) are edited with `TagsField`
   (`components/profile/tags-field.tsx`), the RHF binding over `@resfolio/ui`'s
   `TagInput` chip editor — never a comma-separated text input. Enter (and
@@ -528,6 +903,9 @@ Read these before building features here:
 - `docs/architecture/09-rendering-pipeline.md` — previews use the real
   renderers (in-browser resume template, iframed `apps/sites` draft route);
   this app never re-implements rendering.
+- `docs/architecture/13-ai-layer.md` — the AI layer: propose → validate →
+  review → apply, why `LLM → database mutation` does not exist, and why
+  no-fabrication is a property of the proposal schema rather than of the prompt.
 
 ---
 

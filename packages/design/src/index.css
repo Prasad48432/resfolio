@@ -102,6 +102,121 @@
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;
   }
+
+  /* ── Scrollbars ──────────────────────────────────────────────────────
+     The last piece of native chrome the product didn't own. `color-scheme`
+     (see `./dark.css`) only buys the UA's *own* light or dark bar, which on
+     a warm cream page is a cold grey stripe and on the charcoal theme is a
+     slab lighter than any surface in it.
+
+     Themed here, once, in tokens — so it follows the palette in both
+     directions with nothing per-component and no `dark:` variant anywhere
+     (that rule holds for scrollbars exactly as it does for everything else:
+     `@resfolio/design/dark` restates the token values and this rule keeps
+     pointing at the same names).
+
+     **Two mechanisms, and both are needed.** `scrollbar-color` is the
+     standard property and the only one Firefox implements; `::-webkit-
+     scrollbar` is the only one Safari implements. Chromium honours the
+     standard one and ignores its own pseudo-elements the moment
+     `scrollbar-color` is set, so the two never fight — whichever the engine
+     understands is the one that applies.
+
+     `:where()` keeps this at zero specificity, so `scrollbar-thin`,
+     `.no-scrollbar` and `MessageScroller`'s `data-autoscrolling:scrollbar-
+     thumb-transparent` all still win without `!important`. */
+  :where(html) {
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  :where(*)::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  :where(*)::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  :where(*)::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 9999px;
+    /* The inset that makes a 10px track carry a 6px thumb: padding drawn in
+       the page's own colour, so the bar reads as floating rather than as a
+       gutter with a bar in it. `background-clip: content-box` is what makes
+       the border transparent to the page instead of to the thumb. */
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  :where(*)::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-muted);
+  }
+
+  /* The dead square where a vertical and a horizontal bar meet. Left alone it
+     is the one patch of UA grey that survives everything above. */
+  :where(*)::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+/* ── Scroll-aware edge fade ─────────────────────────────────────────────
+   Companion to shadcn's `MessageScroller` (@resfolio/ui), which asks for
+   `scroll-fade-b` by name. Every *other* utility that component wants —
+   `scrollbar-thin`, `scrollbar-gutter-stable`, `scrollbar-thumb-*`,
+   `scrollbar-track-*` — is native to Tailwind 4.3; this one is not, so it
+   lives here rather than as a one-off in the component (doc 08: apps never
+   own a one-off).
+
+   "Scroll-aware" is the whole point: the fade says *there is more below*, so
+   it must disappear when there isn't. That is a scroll-driven animation
+   (`animation-timeline: scroll(self block)`), not a static mask —
+   `animation-range` shrinks it to nothing over the last 2.5rem of travel.
+
+   Two graceful degradations fall out of this for free. A container with
+   nothing to scroll has an **inactive** timeline, so the animation never
+   applies and `--rf-scroll-fade` keeps its `0px` initial value — no fade,
+   no JS measuring scrollHeight. And a browser without scroll-driven
+   animations lands in exactly the same place: an unfaded, fully readable
+   list. Neither case can hide content.
+
+   `@utility` (not a plain class) so Tailwind's variants compose with it and
+   its output stays in the utilities layer, ordered against everything else. */
+@property --rf-scroll-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes rf-scroll-fade-out {
+  from {
+    --rf-scroll-fade: 2.5rem;
+  }
+  to {
+    --rf-scroll-fade: 0px;
+  }
+}
+
+@utility scroll-fade-b {
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--rf-scroll-fade)),
+    transparent 100%
+  );
+  animation: rf-scroll-fade-out linear both;
+  animation-timeline: scroll(self block);
+  animation-range: calc(100% - 2.5rem) 100%;
+
+  /* The fade carries meaning, and reduced motion doesn't make it meaningless
+     — but a mask that redraws on every scroll tick is movement. Hold it open
+     instead: the bottom edge stays softened and nothing responds to scrolling.
+     Nested rather than a second top-level `@utility` block, which Tailwind
+     would treat as a redefinition. */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    --rf-scroll-fade: 2.5rem;
+  }
 }
 
 @layer components {

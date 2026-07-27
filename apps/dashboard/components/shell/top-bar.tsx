@@ -11,8 +11,13 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const pathname = usePathname();
 
   return (
+    // No `sticky top-0` any more, and its absence is the point: the shell is one
+    // viewport tall and the *content region* scrolls (`app-shell.tsx`), so this
+    // header is a fixed row that scrolls nothing — sticky positioning here would
+    // be dead CSS describing a layout the app no longer has. `z-10` and the
+    // backdrop stay: a popover or a dragged row can still pass beneath it.
     <header
-      className="sticky top-0 z-10 flex h-(--spacing-topbar) shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur-md"
+      className="z-10 flex h-(--spacing-topbar) shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6"
       data-testid={TEST_IDS.topBar}
     >
       <div className="flex min-w-0 items-center gap-2">

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Instrument_Serif,
   JetBrains_Mono,
@@ -50,6 +50,27 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+};
+
+/**
+ * **`interactiveWidget: "resizes-content"` is what makes the AI composer usable on
+ * a phone.**
+ *
+ * By default a mobile keyboard resizes only the *visual* viewport: the layout
+ * viewport stays full height, so a viewport-height app shell keeps its size and
+ * the bottom of it — which is exactly where a chat composer lives — ends up
+ * underneath the keyboard, with no scroll available to reach it because the shell
+ * is not what scrolls. `resizes-content` shrinks the layout viewport instead, so
+ * the shell recomputes and the composer stays above the keyboard.
+ *
+ * It is set at the root rather than per route because a viewport meta cannot be
+ * scoped, and because nothing else in the app is harmed by it: no other surface is
+ * anchored to the bottom of the viewport.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

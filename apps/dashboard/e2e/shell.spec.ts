@@ -178,3 +178,49 @@ test("collapsed rail shows the brand mark and a circular avatar", async ({
     "avatar stays a perfect circle, never an ellipse",
   ).toBeLessThan(0.5);
 });
+
+/**
+ * The scroll container, which is the invariant the AI chat's whole layout rests
+ * on (docs/architecture/13-ai-layer.md).
+ *
+ * **The shell is exactly one viewport tall and the content region scrolls, not the
+ * document.** Every full-height surface in the app inherits its height through
+ * that chain, and the chain is four elements long — the inset, the content grid,
+ * the route-transition wrapper, the page. Break any link and nothing throws:
+ * `flex-1` quietly resolves against `auto`, the document grows a scrollbar, and a
+ * bottom-anchored composer walks off the screen. That is precisely how it broke
+ * the first time.
+ *
+ * Asserted on `/profile` rather than `/ai` deliberately — the chat only renders
+ * with an AI provider configured, and this invariant belongs to the shell, so it
+ * has to be provable on a route that always exists.
+ */
+test("the content region scrolls, not the document", async ({ page }) => {
+  await signIn(page, "mock-google", `scroll-${runId}@example.com`);
+  await assertStyled(page);
+
+  await page.goto("/profile");
+  await expect(page.getByTestId("app-content")).toBeVisible();
+
+  const doc = await page.evaluate(() => ({
+    scrollHeight: document.documentElement.scrollHeight,
+    clientHeight: document.documentElement.clientHeight,
+  }));
+
+  // One pixel of tolerance for subpixel rounding; anything more means the
+  // document itself has become scrollable, which is the regression.
+  expect(
+    doc.scrollHeight - doc.clientHeight,
+    "the document must not scroll",
+  ).toBeLessThanOrEqual(1);
+
+  // And the region that replaced it is a real scroll container, with the profile
+  // form long enough to prove it.
+  const content = await page.getByTestId("app-content").evaluate((element) => ({
+    overflowY: getComputedStyle(element).overflowY,
+    scrollable: element.scrollHeight > element.clientHeight,
+  }));
+
+  expect(content.overflowY).toBe("auto");
+  expect(content.scrollable, "the content region scrolls instead").toBe(true);
+});

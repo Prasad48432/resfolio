@@ -31,6 +31,44 @@ export interface ShellUser {
  * Only the content region transitions on navigation — the sidebar and top bar
  * are persistent chrome, and animating them would re-announce furniture that
  * never moved.
+ *
+ * ## The height chain, which is load-bearing
+ *
+ * **The shell is exactly one viewport tall and the content region is the app's
+ * scroll container.** Not a preference — it is what makes a full-height surface
+ * (the AI chat) possible at all. Before this, `SidebarInset` had no bounded
+ * height, so every `flex-1` and `h-full` below it resolved against `auto`: the
+ * chat's message list grew to fit its content, the *page* scrolled instead of the
+ * list, and the composer walked off the bottom of the screen. No amount of
+ * `min-h-0` on the chat could fix that, because the constraint it needed to
+ * inherit did not exist.
+ *
+ * Three parts, and each is required:
+ *
+ * 1. **`h-dvh overflow-hidden` on the inset.** `dvh` looks like the risky choice —
+ *    it tracks mobile browser chrome, so it can resize the scroll container under
+ *    the reader's thumb — but that risk is removed by the very change below it:
+ *    browsers collapse their chrome in response to *document* scroll, and after
+ *    this the document never scrolls, so `dvh` sits still in practice. What it buys
+ *    is the case `svh` cannot handle at all: with `interactiveWidget:
+ *    "resizes-content"` (root layout), the mobile keyboard shrinks the layout
+ *    viewport and `dvh` follows it, which is what keeps the chat composer above the
+ *    keyboard instead of behind it.
+ * 2. **The content region is `grid` with `grid-rows-[minmax(0,1fr)]`.** This is
+ *    the primitive that does the actual work: the row's `max` of `1fr` gives its
+ *    child a *definite* height (so `flex-1` and `h-full` inside it mean
+ *    something), and the `min` of `0` lets a taller page overflow instead of
+ *    stretching the row — at which point this container scrolls, exactly as body
+ *    scroll used to. A plain `flex-1` child would have given the child a definite
+ *    height too, but only by also making every ordinary page unable to exceed it.
+ * 3. **`RouteTransition` must always render a flex column** (see that file). It
+ *    sits between here and the page, so if it passes children through bare, the
+ *    chain is severed one level above where anyone thinks to look.
+ *
+ * The result: ordinary pages behave exactly as before except the scrollbar lives
+ * on the content region rather than on `<body>`, the top bar is genuinely fixed
+ * because it is outside the scroller, and a page that asks for `flex-1` gets the
+ * viewport.
  */
 export function AppShell({
   user,
@@ -51,14 +89,23 @@ export function AppShell({
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={defaultSidebarOpen}>
         <AppSidebar user={user} />
-        <SidebarInset data-testid={TEST_IDS.appShell}>
+        <SidebarInset
+          className="h-dvh overflow-hidden"
+          data-testid={TEST_IDS.appShell}
+        >
           <TopBar onOpenPalette={() => setPaletteOpen(true)} />
-          <main className="flex-1 px-6 py-6">
+          {/* A `div`, not a `main`: `SidebarInset` already renders one, and two
+              nested `main` landmarks is invalid HTML that a screen reader
+              announces twice. */}
+          <div
+            className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-y-auto overscroll-contain scrollbar-thin px-4 py-6 sm:px-6"
+            data-testid={TEST_IDS.appContent}
+          >
             {/* `children` is the server-rendered route, passed straight through
                 as a prop — the transition wrapper is a client island but the
                 pages inside it stay Server Components. */}
             <RouteTransition routeKey={pathname}>{children}</RouteTransition>
-          </main>
+          </div>
         </SidebarInset>
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       </SidebarProvider>

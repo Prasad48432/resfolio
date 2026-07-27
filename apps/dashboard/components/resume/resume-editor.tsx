@@ -1,7 +1,12 @@
 "use client";
 
 import type { DocumentVisibility } from "@resfolio/document";
-import type { Profile, ViewDefinition } from "@resfolio/profile";
+import {
+  clearTailoring,
+  countTailoredFields,
+  type Profile,
+  type ViewDefinition,
+} from "@resfolio/profile";
 import type { ResumeClassicConfig } from "@resfolio/template-resume-classic";
 import {
   Button,
@@ -15,7 +20,7 @@ import {
   Spinner,
   Switch,
 } from "@resfolio/ui";
-import { ArrowLeft, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -148,6 +153,7 @@ export function ResumeEditor({
         <SplitWorkspace
           form={
             <div className="flex flex-col gap-10">
+              <TailoredNotice view={view} onReset={setView} />
               <ResumeSections
                 profile={profile}
                 view={view}
@@ -176,6 +182,55 @@ export function ResumeEditor({
         />
       </FadeIn>
     </Page>
+  );
+}
+
+/**
+ * "Some of this wording isn't your profile's" (doc 13, Phase 5).
+ *
+ * Job tailoring writes overrides into this document's `view`, so a user who
+ * tailored at `/ai/job` and then opened this editor would otherwise see prose in
+ * the preview that does not appear anywhere in their profile, with nothing on
+ * screen to explain it and no way to undo it. That is the exact confusion the
+ * "a resume presents a profile, it never contains one" rule exists to prevent, so
+ * the deviation gets named where the document is edited.
+ *
+ * **Reset needs no Server Action.** This editor already owns `view` and autosaves
+ * it, so dropping the overrides is a pure state change (`clearTailoring`) that the
+ * existing save path persists — and the preview updates immediately, which is the
+ * point of a reset.
+ */
+function TailoredNotice({
+  view,
+  onReset,
+}: {
+  view: ViewDefinition;
+  onReset: (next: ViewDefinition) => void;
+}) {
+  const count = countTailoredFields(view);
+  if (count === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border px-3 py-2 text-xs text-muted"
+      data-testid={TEST_IDS.resumeTailoredNotice}
+    >
+      <Sparkles className="size-3.5 shrink-0" aria-hidden />
+      <span>
+        {count} {count === 1 ? "field is" : "fields are"} tailored for a job —
+        this resume says something your profile doesn&apos;t.
+      </span>
+      <button
+        type="button"
+        onClick={() => onReset(clearTailoring(view))}
+        className="underline underline-offset-3 transition-colors duration-(--duration-fast) ease-out hover:text-foreground"
+        data-testid={TEST_IDS.resumeTailoredReset}
+      >
+        Use your profile&apos;s wording
+      </button>
+    </div>
   );
 }
 

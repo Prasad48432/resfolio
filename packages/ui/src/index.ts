@@ -130,6 +130,46 @@ export {
   SidebarTrigger,
   useSidebar,
 } from "./components/sidebar";
+/**
+ * Chat primitives (shadcn's 2026-06 chat set), used by the dashboard's AI
+ * surface. Presentational and composable on purpose — they manage layout and
+ * scroll behaviour and know nothing about the AI SDK, a message schema, or
+ * persistence. `MessageScroller` is the only one with a runtime dependency
+ * (`@shadcn/react`); it owns anchored autoscroll during streaming, restore on
+ * mount, and the jump-to-latest control.
+ */
+export {
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+  MessageGroup,
+  MessageHeader,
+} from "./components/message";
+export {
+  Bubble,
+  BubbleContent,
+  BubbleGroup,
+  BubbleReactions,
+} from "./components/bubble";
+export {
+  Marker,
+  MarkerContent,
+  MarkerIcon,
+  markerVariants,
+} from "./components/marker";
+export {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+  useMessageScroller,
+  useMessageScrollerScrollable,
+  useMessageScrollerVisibility,
+} from "./components/message-scroller";
+
 export { useIsMobile } from "./hooks/use-mobile";
 
 export {

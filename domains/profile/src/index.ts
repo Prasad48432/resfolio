@@ -65,16 +65,19 @@ export {
   type ItemSource,
 } from "./schema/primitives";
 
+export { RESERVED_HANDLES, handleSchema, isReservedHandle } from "./handle";
+
 export {
-  RESERVED_HANDLES,
-  handleSchema,
-  isReservedHandle,
-} from "./handle";
+  describeProfileItems,
+  profileItemLabel,
+  type ProfileItemRef,
+} from "./describe";
 
 export { migrateProfile } from "./migrate";
 
 export {
   buildProfileView,
+  orderedSectionKeys,
   sectionViewDefinitionSchema,
   viewDefinitionSchema,
   type ProfileView,
@@ -93,6 +96,40 @@ export {
   updateBasics,
   updateItem,
 } from "./edit";
+
+export {
+  MAX_PROPOSED_CHANGES,
+  PROPOSABLE_ITEM_FIELDS,
+  PROPOSABLE_SECTIONS,
+  applyProfileChanges,
+  profileChangeSchema,
+  profileProposalSchema,
+  reviewProfileChanges,
+  type ChangeRejectionReason,
+  type ProfileChange,
+  type ProfileChangeReview,
+  type ProfileProposal,
+  type ProposableField,
+  type ProposableSection,
+  type RejectedChange,
+  type ReviewedChange,
+} from "./proposal";
+
+export {
+  applyTailoredChanges,
+  applyTailoredEmphasis,
+  clearTailoring,
+  countTailoredFields,
+  hasEmphasis,
+  reviewTailorPlan,
+  tailorEmphasisSchema,
+  tailorPlanSchema,
+  type TailorEmphasis,
+  type TailorEmphasisInput,
+  type TailorPlan,
+  type TailorReview,
+  type TailorSectionEmphasis,
+} from "./tailor";
 
 export {
   createEmptyProfile,

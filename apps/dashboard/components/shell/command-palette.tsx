@@ -12,7 +12,7 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { NAV_ITEMS } from "@/lib/navigation";
+import { PALETTE_ITEMS } from "@/lib/navigation";
 import { paletteItemTestId, TEST_IDS } from "@/lib/testids";
 import { useSignOut } from "@/lib/use-sign-out";
 
@@ -61,7 +61,7 @@ export function CommandPalette({
       <CommandList className="thin-scrollbar">
         <CommandEmpty>No results.</CommandEmpty>
         <CommandGroup heading="Go to">
-          {NAV_ITEMS.map((item) => {
+          {PALETTE_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
               <CommandItem

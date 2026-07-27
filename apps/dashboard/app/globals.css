@@ -266,45 +266,45 @@
   opacity: 0.4;
 }
 
-/* Hide scrollbar but keep scrolling */
-.no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
+/* Scrollbar *behaviour* only. The colours moved to `@resfolio/design`'s
+   `@layer base`, where they are tokens and follow the theme in both directions
+   — these two classes just choose how much bar to show.
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
+   In a layer on purpose (this file's own note about `@layer base`): unlayered
+   rules outrank every Tailwind utility, so a `.no-scrollbar` sitting outside a
+   layer could not be overridden by anything.
 
-/* Thin modern scrollbar */
-.thin-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
-}
+   The global `textarea { scrollbar-width: non }` that used to live here is
+   gone. It was a typo (`non`, so Firefox ignored it entirely) wrapped around a
+   rule that was wrong anyway: the AI composer *earns* a scrollbar past its
+   ceiling — `useAutosize` turns `overflow-y` on for exactly that case — and a
+   pasted job description with no visible bar reads as a field that swallowed
+   half the posting. */
+@layer components {
+  /* Hide the bar, keep the scrolling. The sidebar's, so a rail 3rem wide is
+     not a third scrollbar. */
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
 
-.thin-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+  .no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 
-.thin-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
+  /* A narrower bar for dense overlays (the command palette). Colour is
+     inherited from the base rule; only the width is this class's business. */
+  .thin-scrollbar {
+    scrollbar-width: thin;
+  }
 
-.thin-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--color-border);
-  border-radius: 9999px;
-}
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-.thin-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-muted);
-}
-
-textarea {
-  -ms-overflow-style: none !important;
-  scrollbar-width: non !important;
-}
-
-textarea::-webkit-scrollbar {
-  display: none !important;
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    /* The base rule's 2px inset would leave 2px of thumb in a 6px track. */
+    border-width: 1px;
+  }
 }

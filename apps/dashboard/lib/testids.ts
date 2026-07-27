@@ -8,6 +8,10 @@ export const TEST_IDS = {
   loginPage: "login-page",
   loginError: "login-error",
   appShell: "app-shell",
+  /** The app's scroll container. Assertable because "does the page scroll or does
+   * this element scroll" is the invariant the whole chat layout rests on, and it
+   * regresses invisibly. */
+  appContent: "app-content",
   sidebar: "sidebar",
   sidebarNav: "sidebar-nav",
   topBar: "top-bar",
@@ -99,7 +103,111 @@ export const TEST_IDS = {
   blogCoverField: "blog-cover-field",
   blogImageBudget: "blog-image-budget",
   blogDeleteButton: "blog-delete-button",
+  aiChat: "ai-chat",
+  aiInput: "ai-input",
+  aiSend: "ai-send",
+  aiStop: "ai-stop",
+  aiThinking: "ai-thinking",
+  aiError: "ai-error",
+  /** A finished assistant turn that produced nothing renderable, and the
+   * truncation notice that usually explains it. Both are assertable because both
+   * are states that used to render as blank space. */
+  aiEmptyTurn: "ai-empty-turn",
+  aiTruncated: "ai-truncated",
+  /** The assistant is working but has emitted nothing renderable yet — a
+   * reasoning model's normal opening seconds. Assertable because the alternative
+   * is an avatar next to blank space, which reads as a crash. */
+  aiWorking: "ai-working",
+  aiSuggestions: "ai-suggestions",
+  /** Saved-chat history (Phase 7). The rail, its two creation/destruction
+   * controls, and the mobile trigger that stands in for the rail. */
+  chatHistory: "chat-history",
+  chatHistoryToggle: "chat-history-toggle",
+  chatNew: "chat-new",
+  chatClearAll: "chat-clear-all",
+  chatClearConfirm: "chat-clear-confirm",
+  aiProfileEmpty: "ai-profile-empty",
+  aiProposal: "ai-proposal",
+  aiProposalPreparing: "ai-proposal-preparing",
+  aiProposalEmpty: "ai-proposal-empty",
+  aiProposalFailed: "ai-proposal-failed",
+  aiProposalApplyAll: "ai-proposal-apply-all",
+  aiProposalRejected: "ai-proposal-rejected",
+  aiJobLink: "ai-job-link",
+  jobInput: "job-input",
+  jobSubmit: "job-submit",
+  jobStop: "job-stop",
+  jobError: "job-error",
+  /** A request that succeeded and produced no usable analysis — distinct from
+   * `jobError` (a request that failed), and previously rendered as nothing. */
+  jobEmpty: "job-empty",
+  jobResult: "job-result",
+  jobScore: "job-score",
+  jobDowngraded: "job-downgraded",
+  jobKeywords: "job-keywords",
+  tailorPanel: "tailor-panel",
+  tailorTarget: "tailor-target",
+  tailorSubmit: "tailor-submit",
+  tailorError: "tailor-error",
+  tailorExisting: "tailor-existing",
+  tailorReset: "tailor-reset",
+  tailorPublicNotice: "tailor-public-notice",
+  tailorReview: "tailor-review",
+  tailorEmpty: "tailor-empty",
+  tailorApplyAll: "tailor-apply-all",
+  tailorEmphasis: "tailor-emphasis",
+  tailorEmphasisApply: "tailor-emphasis-apply",
+  tailorRejected: "tailor-rejected",
+  resumeTailoredNotice: "resume-tailored-notice",
+  resumeTailoredReset: "resume-tailored-reset",
+  letterPanel: "letter-panel",
+  letterRecipient: "letter-recipient",
+  letterSubmit: "letter-submit",
+  letterStop: "letter-stop",
+  letterError: "letter-error",
+  /** The letter equivalent of `jobEmpty`: finished, billed, nothing to read. */
+  letterEmpty: "letter-empty",
+  letterResult: "letter-result",
+  letterCopy: "letter-copy",
+  letterDownload: "letter-download",
+  /** The clean-result line. Assertable on purpose: "we checked and found nothing"
+   * is a claim the product makes, so it needs a test that it appears. */
+  letterChecked: "letter-checked",
+  letterFlags: "letter-flags",
+  /** A transcript row, keyed by role — the assistant and user turns need to be
+   * assertable apart, and message ids are generated so they can't be a key. */
+  aiMessage: (role: string) => `ai-message-${role}`,
 } as const;
+
+/** A saved chat, by id — the one AI surface whose rows outlive the request that
+ * drew them, so position would not identify them across a reload. `part` names
+ * a control inside the row. */
+export const chatSessionTestId = (id: string, part?: "delete") =>
+  part ? `chat-session-${id}-${part}` : `chat-session-${id}`;
+
+/** Proposed changes are keyed by position, not by id: a proposal is transient
+ * (nothing persists it) and the model does not assign its changes ids. */
+export const proposalChangeTestId = (index: number) => `ai-change-${index}`;
+export const proposalApplyTestId = (index: number) =>
+  `ai-change-apply-${index}`;
+
+/** Requirements are keyed by position for the same reason — a streamed
+ * analysis is transient and its rows carry no identifier. */
+export const requirementRowTestId = (index: number) =>
+  `job-requirement-${index}`;
+
+/** Tailoring rewrites, likewise by position. Kept separate from the proposal
+ * ids rather than shared: both reviews can be on screen in one session (the chat
+ * and the job page), and a selector that matched either would pass against the
+ * wrong one. */
+export const tailorChangeTestId = (index: number) => `tailor-change-${index}`;
+export const tailorApplyTestId = (index: number) =>
+  `tailor-change-apply-${index}`;
+
+/** A cover letter's body paragraphs, by position — streamed prose carries no
+ * identifier and the letter is never persisted. */
+export const letterParagraphTestId = (index: number) =>
+  `letter-paragraph-${index}`;
 
 export const navItemTestId = (key: string) => `nav-${key}`;
 export const blogPostItemTestId = (id: string) => `blog-post-${id}`;

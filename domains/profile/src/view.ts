@@ -151,7 +151,13 @@ function tidyStandardItem<T extends { id: string }>(item: T): T {
   return tidied as T;
 }
 
-function orderedSectionKeys(view: ViewDefinition): SectionKey[] {
+/** The order sections render in: the view's explicit list first (deduped),
+ * then everything unlisted in canonical order. Exported because two surfaces
+ * have to agree with it exactly — the resume's Sections panel, which presents
+ * this order and lets the user drag it, and the AI tailoring review, which has
+ * to know whether a proposed order differs from the current one. Both used to
+ * carry a copy. */
+export function orderedSectionKeys(view: ViewDefinition): SectionKey[] {
   const explicit = (view.sectionOrder ?? []).filter(
     (key, index, all) => all.indexOf(key) === index,
   );

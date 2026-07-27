@@ -1,0 +1,122 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { createGateway, type LanguageModel } from "ai";
+
+import { env } from "@/lib/env";
+
+/**
+ * The model seam (docs/architecture/13-ai-layer.md).
+ *
+ * **This is the only file in the repository that names a model vendor.**
+ * Everything downstream — the route handlers, the prompts, and every future
+ * workflow — takes a `LanguageModel`, the AI SDK's provider-agnostic interface.
+ * Swapping providers is editing this file and nothing else; that is the whole
+ * point of putting the SDK in front of the vendor rather than calling the
+ * vendor's own client.
+ *
+ * There are **two ways to reach a model, and the gateway wins when both are
+ * configured**:
+ *
+ * - `AI_GATEWAY_API_KEY` → Vercel's AI Gateway. One credential for many
+ *   providers, one place the spend is visible, and switching from
+ *   `openai/gpt-5-mini` to some other provider's model becomes an env change
+ *   rather than a dependency change. It needs no extra package: `ai` re-exports
+ *   `createGateway` from a dependency it already carries.
+ * - `OPENAI_API_KEY` → OpenAI directly, the original path, unchanged.
+ *
+ * The gateway is preferred because an environment carrying both keys has almost
+ * certainly been given the gateway on purpose — it is the more specific choice,
+ * and the one whose budget someone is watching. Nothing downstream can tell
+ * which was used, which is the property that makes preferring one safe.
+ *
+ * Keys are read from `@resfolio/env` (the only sanctioned reader of
+ * `process.env`) and live only here, on the server. The gateway key is passed
+ * to `createGateway` **explicitly** rather than being left to the SDK's own
+ * `AI_GATEWAY_API_KEY` lookup — same variable, but an implicit read would put a
+ * second `process.env` reader inside a dependency, outside the rule doc 11
+ * enforces. Importing this module from a client component is a build error, not
+ * a leak, because `@/lib/env` exposes these as server-only variables.
+ */
+
+/**
+ * Sensible defaults: the cheap tier is more than enough for rewriting prose the
+ * user already wrote and for structured extraction, which is all the profile
+ * and job workflows ask for. `AI_MODEL` promotes either without a code change.
+ *
+ * Two constants rather than one because **the two paths address models
+ * differently** — the gateway wants a provider-qualified slug, the direct
+ * provider wants a bare id. One default shared between them would 404 on
+ * whichever path it wasn't written for.
+ */
+const DEFAULT_MODEL = "gpt-5-mini";
+const DEFAULT_GATEWAY_MODEL = "openai/gpt-5-mini";
+
+/** Which credential this environment is set up to use, or `null` for none.
+ * Every other function in this file derives from it, so the preference order
+ * lives in exactly one place. */
+function activeProvider(): "gateway" | "openai" | null {
+  if (env.AI_GATEWAY_API_KEY) {
+    return "gateway";
+  }
+  return env.OPENAI_API_KEY ? "openai" : null;
+}
+
+/**
+ * Whether the AI layer can run at all. Two independent reasons it might not,
+ * kept separate because they mean different things to a user:
+ * - no credential of either kind → *not configured in this environment* (dev,
+ *   CI, a preview deploy) → the UI hides and the route 501s;
+ * - `AI_ENABLED=false` → *deliberately switched off* (a cost or safety lever)
+ *   → the UI hides and the route 503s.
+ *
+ * Note what this cannot tell you: a key that exists but has no credit behind it
+ * is *configured*, so the UI mounts and the failure surfaces mid-stream instead
+ * (see the routes' `onError`). Checking spendability would mean a network call
+ * on every page render, which is the wrong trade for a wrong-billing-details
+ * case.
+ */
+export function isAiConfigured(): boolean {
+  return activeProvider() !== null;
+}
+
+/** The kill switch. Unset means enabled, so adding it changes no deployment. */
+export function isAiEnabled(): boolean {
+  return env.AI_ENABLED !== "false";
+}
+
+/** Both gates, for the UI's single "should this exist on screen" question. */
+export function isAiAvailable(): boolean {
+  return isAiConfigured() && isAiEnabled();
+}
+
+/** The model id in use — logged with every completion, so a bill that moves is
+ * traceable to the model that moved it. */
+export function aiModelId(): string {
+  if (env.AI_MODEL) {
+    return env.AI_MODEL;
+  }
+  return activeProvider() === "gateway" ? DEFAULT_GATEWAY_MODEL : DEFAULT_MODEL;
+}
+
+/**
+ * The chat model. Throws when unconfigured rather than returning null: every
+ * caller has already checked availability (the routes refuse before they get
+ * here), so a null return would only push an impossible branch outward.
+ */
+export function getChatModel(): LanguageModel {
+  const provider = activeProvider();
+
+  // Constructed per call rather than at module scope so importing this module
+  // never requires a key to be present — the availability checks above have to
+  // be safe to call in an environment that has no AI configured at all.
+  if (provider === "gateway") {
+    return createGateway({ apiKey: env.AI_GATEWAY_API_KEY })(aiModelId());
+  }
+
+  if (provider === "openai") {
+    return createOpenAI({ apiKey: env.OPENAI_API_KEY })(aiModelId());
+  }
+
+  throw new Error(
+    "getChatModel() called with no AI credential — check isAiConfigured() first.",
+  );
+}
