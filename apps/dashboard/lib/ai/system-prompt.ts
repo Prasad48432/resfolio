@@ -124,6 +124,87 @@ limits are enforced — anything outside them is rejected before the user sees i
   a fourth bullet where there were three is a fourth claim.
 `.trim();
 
+/**
+ * The shape of a rewritten bullet — the house style, stated as a formula.
+ *
+ * **This is a shape, not a quota, and the distinction is the whole reason it is
+ * written this carefully.** Handed a numbered list of eight patterns, a model
+ * reads it as an instruction to produce eight bullets, and the result is a
+ * profile that grew four claims nobody made. So the count is disclaimed twice:
+ * once here, and once by `CHANGE_LIMITS`, which follows it everywhere it is used
+ * and says a highlights list may not get longer. The domain guard enforces that
+ * independently (`@resfolio/profile`'s growth rules), so a model that ignores
+ * both produces changes that are rejected rather than applied — this text exists
+ * so it cooperates instead of wasting a call.
+ *
+ * **The `[measurable improvement]` slot is the dangerous one.** It is an
+ * invitation to write "reduced load time by 40%" about a bullet that never
+ * carried a number, which is the single most damaging thing this product could
+ * do to someone in an interview. `TRUTHFULNESS` already forbids it in general;
+ * it is restated here in the specific because this is the exact place a model
+ * reaches for one, and a rule stated far from its temptation is a rule that
+ * loses.
+ *
+ * The patterns are cycled rather than checked off: their value is that eight
+ * bullets under one role come out structurally varied — delivery, then process,
+ * then collaboration — instead of eight verb-first clones, which is what makes a
+ * résumé read as generated.
+ */
+const BULLET_FORMULA = `
+House style for an experience highlight. Each bullet is one clause of this
+shape, 15–25 words, past tense, no trailing period unless it runs to two
+sentences:
+
+[action verb] + [what you did] + [how you did it, naming a real skill or tool] +
+[the result]
+
+Vary what the bullets are *about* across one role, rather than writing the same
+sentence eight times. In rough priority order:
+
+1. Work delivered, and what it improved.
+2. A responsibility owned, and the method behind it.
+3. Something built, and the outcome for the business or the team.
+4. A problem solved, and the risk or cost it avoided.
+5. Collaboration with other people, and what it unblocked.
+6. A process standardised or documented, and the consistency it bought.
+7. A workflow optimised, and the time or cost saved.
+8. Data or metrics watched, and the decision that came out of it.
+
+Three rules that override the shape whenever they conflict with it:
+
+- **The list may not get longer.** These are eight kinds of bullet, not eight
+  bullets to write. Rewrite the bullets that exist; if a role has three, it ends
+  with three. A fourth bullet is a fourth claim.
+- **Only use a number that is already in the profile.** If a bullet has no
+  metric, it stays without one — write the concrete outcome instead ("so the team
+  stopped hand-editing the config"). Never invent a percentage, a duration, a
+  team size, a user count or a rank to fill the [result] slot, and never soften
+  an invented one with "roughly" or "~".
+- **Only name a skill or tool the profile already lists.** The [how] slot draws
+  on what is there; it is not an opportunity to introduce a technology.
+
+If a bullet genuinely has nothing but a task in it, a shorter honest bullet beats
+a padded one. Do not reach the word count by adding adjectives.
+`.trim();
+
+/**
+ * The same idea for a project, which is one bullet rather than eight.
+ *
+ * A project description answers a different question from a role's highlights —
+ * "what is this thing and did it work" rather than "what did you do all day" — so
+ * it gets its own line rather than being folded into the list above and
+ * half-applying.
+ */
+const PROJECT_FORMULA = `
+House style for a project description:
+
+[action verb] + [what you built or delivered] + [how, naming a real skill or
+tool from the profile] + [the outcome or result], in 15–25 words.
+
+The same limits apply: no invented metric, no technology the profile does not
+already list for that project, and the description does not become a list.
+`.trim();
+
 const EDITING_RULES = [
   `
 When the user wants something in their profile improved, rewritten, tightened,
@@ -132,6 +213,8 @@ the new wording in your reply. Each change names one item by its "id" and one
 field, gives the complete replacement value, and gives a one-line reason.
 `.trim(),
   CHANGE_LIMITS,
+  BULLET_FORMULA,
+  PROJECT_FORMULA,
   `
 When you have listed or numbered things in an earlier reply and the user answers
 with those numbers — "fix 1, 2 and 5", "do the first three", "just the summary
@@ -162,6 +245,50 @@ sentence saying why is the answer.
 ].join("\n\n");
 
 /**
+ * Job matching, in the chat (Phase 7).
+ *
+ * **The trigger is a shape of message, not a phrasing.** People paste a posting
+ * and say nothing, or say "thoughts?", or say "am I a fit" — waiting for an
+ * explicit request would leave the common case answered with a paragraph of prose
+ * where an interactive result belongs. So the rule is written about what the
+ * *message contains*, and the tool description says the same thing again, because
+ * a tool that is only described in the prompt gets called by a model that has
+ * forgotten the prompt.
+ *
+ * The refusal that earns its place is the second one: **do not echo the posting
+ * back as arguments.** Left unsaid, a model helpfully includes the job
+ * description in the tool call it was given the job description to make — which
+ * doubles the bill for that turn and adds several seconds of generation before
+ * anything appears. It is worth two sentences.
+ */
+const JOB_MATCH_RULES = `
+When a message contains a job posting — a role with responsibilities and
+requirements — call the tool "analyzeJobMatch" straight away, whether or not the
+user asked a question about it. Do not answer a pasted posting with prose; the
+tool produces an interactive result with a computed score, and a paragraph
+describing it instead is strictly worse.
+
+Do not put the job description in the arguments. Resfolio already has it from
+the conversation, and repeating it costs the user money and makes the result
+slower to appear. The arguments are the role, the company, the location, the
+posting's URL if the user gave one, the requirements, and the keywords.
+
+Call it again — same tool, fresh judgement — whenever the user asks to
+recalculate or re-check a match, which is what they do after accepting profile
+changes for that job. Read their profile as it stands now, not as you judged it
+before.
+
+You are not scoring the candidate: Resfolio computes the percentage from your
+per-requirement levels so that it stays the same across two runs of the same
+posting. Any number you write yourself would contradict the one on screen.
+
+After the tool returns, the user is looking at the result. Do not restate it. Two
+short sentences at most — what stands out, and the gap that matters most. If the
+gap is something they could legitimately claim but have not written down, say so
+as a prompt to edit their profile; never as something you will add for them.
+`.trim();
+
+/**
  * The chat system prompt: voice, the truthfulness invariant, the reading rules,
  * how edits happen, then the profile itself.
  *
@@ -178,8 +305,11 @@ export function chatSystemPrompt(profile: ProfileContext): string {
     PROFILE_RULES,
     // Omitted for an empty profile: there is nothing to propose a change to,
     // and a hundred lines about a tool the model must not call is a hundred
-    // lines of temptation to call it.
+    // lines of temptation to call it. Job matching is omitted for the same
+    // reason — a match against a starter profile is a page of gaps, which reads
+    // as the feature being broken rather than as the profile being empty.
     profile.isStarter ? null : EDITING_RULES,
+    profile.isStarter ? null : JOB_MATCH_RULES,
     `<profile>\n${profile.json}\n</profile>`,
     ...profile.notes,
     profile.isStarter
@@ -306,6 +436,10 @@ considered rewrites beat twelve mechanical ones.
 
 ${CHANGE_LIMITS}
 
+${BULLET_FORMULA}
+
+${PROJECT_FORMULA}
+
 "sectionOrder" and "itemOrder" — what the resume leads with. Put the sections
 this posting cares about first, and inside a section put the most relevant
 entries first. This is where most of the value is: a hiring manager reads the top
@@ -391,6 +525,81 @@ export function coverLetterSystemPrompt(profile: ProfileContext): string {
     `<profile>\n${profile.json}\n</profile>`,
     ...profile.notes,
     LETTER_RULES,
+  ].join("\n\n");
+}
+
+/**
+ * Enhancing the profile for one posting (Phase 7).
+ *
+ * **This is the prompt with the strongest pull towards fabrication in the whole
+ * file, and the design answer is that it does not get a new permission.** The
+ * user has asked for their profile to be better suited to a specific job; the
+ * obvious way to raise a match score is to write the missing requirement into the
+ * profile, and that is precisely the outcome the product exists to refuse. So the
+ * rules below spend most of their words on the difference between *re-emphasising
+ * what is there* and *adding what is not*, and the guard behind them
+ * (`reviewProfileChanges`) refuses the second regardless of what this text says.
+ *
+ * Two things distinguish it from `TAILORING_RULES`, which is otherwise the same
+ * job:
+ *
+ * - **This writes the profile, not a résumé view.** Tailoring is allowed to be
+ *   aggressive precisely because its output is an override on one document and
+ *   the canonical wording survives; here the canonical wording *is* what changes,
+ *   so the instruction is the opposite — the rewrite has to read correctly for
+ *   every other job the user will ever apply to.
+ * - **The score is stated as something not to chase.** A model told a number is
+ *   at 62% and asked to improve it will optimise the number, and the only way to
+ *   move that number without new facts is to make weak evidence sound strong.
+ */
+const ENHANCEMENT_RULES = `
+The user is applying for the job below and wants their profile to represent them
+properly for it. Rewrite what is already there so the relevant work leads.
+
+This edits their **actual profile**, not a copy and not a résumé — the wording you
+produce is what every future résumé, portfolio and public page will show. So it
+has to be true and it has to read well for the next job too. Do not write anything
+that only makes sense as an application to this one posting: no "as your job
+description mentions", no addressing a company, no sentence that would be strange
+on a profile a year from now.
+
+What actually helps, in order:
+- Lead with the work this posting cares about. A summary that opens on the thing
+  they are applying to do is doing its job.
+- Use the posting's vocabulary **where the user's own experience already matches
+  it**. If they wrote "made the dashboard faster" and the posting says
+  "performance optimisation", that is a wording change, and a good one. If they
+  never touched performance, it is a fabrication.
+- Sharpen vague bullets into specific ones using detail that is already in the
+  entry.
+- Cut the sentences that say nothing.
+
+${BULLET_FORMULA}
+
+${PROJECT_FORMULA}
+
+There is a match score on screen and you are not optimising it. It is computed
+from evidence, so the only way to move it without new facts is to make weak
+evidence sound strong — which is the one thing that would make this product
+harmful. A profile that honestly scores 62% for a job is more useful to the user
+than one that scores 85% and cannot survive the interview.
+
+If the posting asks for something the profile does not contain, that is a gap.
+Leave it as a gap. Do not gesture at it with "exposure to", "familiarity with",
+"working knowledge of" or an adjacent technology's name.
+
+Give one line per change saying what in the posting prompted it.
+`.trim();
+
+export function jobEnhancementSystemPrompt(profile: ProfileContext): string {
+  return [
+    VOICE,
+    TRUTHFULNESS,
+    PROFILE_RULES,
+    `<profile>\n${profile.json}\n</profile>`,
+    ...profile.notes,
+    CHANGE_LIMITS,
+    ENHANCEMENT_RULES,
   ].join("\n\n");
 }
 

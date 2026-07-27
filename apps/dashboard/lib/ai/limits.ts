@@ -37,6 +37,16 @@ export const MAX_TOTAL_CHARS = 40_000;
 export const MAX_OUTPUT_TOKENS = 2_000;
 
 /**
+ * Nothing uses {@link MAX_OUTPUT_TOKENS} today, and that is the finding rather
+ * than an oversight worth tidying away.
+ *
+ * Every call this feature makes runs against a reasoning model, and every one of
+ * them needed its own, larger ceiling. The constant is kept as the documented
+ * default for a call whose output is genuinely a sentence — and as the reason the
+ * two below exist, which is the part that would be lost by deleting it.
+ */
+
+/**
  * The ceiling for the two `streamObject` routes (job analysis, cover letter),
  * and the reason it is not {@link MAX_OUTPUT_TOKENS}.
  *

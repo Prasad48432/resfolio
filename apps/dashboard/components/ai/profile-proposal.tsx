@@ -34,8 +34,30 @@ import { ChangeCard } from "./change-diff";
  *   changes is the feature working, and a user who never learns it happened
  *   cannot tell this product from one that would have written "Kubernetes" into
  *   their skills. The detail stays server-side; the count does not.
+ *
+ * **`apply` is injectable, and this component is the reason the job flow did not
+ * grow a second review UI.** A profile enhancement for a posting (Phase 7) is the
+ * same consent, the same diff and the same guard — the only difference is that
+ * the accepted changes are also recorded against the job. Copying this file to
+ * change one import is how two screens that must look identical stop looking
+ * identical; passing the action in is how they cannot.
  */
-export function ProfileProposal({ review }: { review: ProfileChangeReview }) {
+export function ProfileProposal({
+  review,
+  apply: applyChanges = applyProfileChangesAction,
+}: {
+  review: ProfileChangeReview;
+  /** The write. Defaults to the plain profile apply; the job card passes
+   * `applyJobEnhancementAction`, which does the same write and then records what
+   * this posting caused. Both re-run the guard server-side — an injected action
+   * is not an injected trust level. */
+  apply?: (input: {
+    changes: ProfileChange[];
+  }) => Promise<
+    | { ok: true; data: { applied: number; skipped: number } }
+    | { ok: false; error: string }
+  >;
+}) {
   const [applied, setApplied] = useState<ReadonlySet<number>>(new Set());
   const [pending, setPending] = useState<number | "all" | null>(null);
 
@@ -46,7 +68,7 @@ export function ProfileProposal({ review }: { review: ProfileChangeReview }) {
   async function apply(indexes: number[], scope: number | "all") {
     setPending(scope);
     try {
-      const result = await applyProfileChangesAction({
+      const result = await applyChanges({
         changes: indexes.map(
           (index) => review.valid[index]?.change as ProfileChange,
         ),

@@ -120,3 +120,42 @@ export function getChatModel(): LanguageModel {
     "getChatModel() called with no AI credential — check isAiConfigured() first.",
   );
 }
+
+/**
+ * Provider settings for a call whose output is a **structure the user is waiting
+ * to look at**, rather than prose that streams as it is written.
+ *
+ * **This exists because reasoning is invisible latency, and structured output has
+ * nowhere to hide it.** Measured against the real gateway with a realistic
+ * profile and a full posting, the job analysis spent **1,600 reasoning tokens and
+ * emitted nothing at all for 22.6 seconds** before the first character of JSON
+ * appeared — then finished the whole object 7 seconds later. That is the shape of
+ * the bug reported as "analysing forever": not a hang, but a blank panel for
+ * twenty-odd seconds followed by everything at once, with no partial result to
+ * watch in between. On a longer profile the silent stretch grows past
+ * `maxDuration`, the function is killed mid-stream, and the panel stays blank
+ * permanently — which is the same screen, so the two were never told apart.
+ *
+ * `reasoningEffort: "low"` cut that to 832 reasoning tokens and 16.2 seconds to
+ * first chunk on the same input, with the object still validating and still
+ * finding the same requirements. This is classification and extraction against a
+ * document that is already in the context — the work is reading, not deduction —
+ * so the deep-thinking budget was buying latency rather than accuracy.
+ *
+ * **Deliberately not applied to the chat**, which is the opposite case: a chat
+ * turn reasons about which of a dozen profile items an instruction refers to, and
+ * its output streams, so thinking time is spent behind visible text rather than
+ * in front of a blank panel.
+ *
+ * Keyed under `openai` for both credential paths — the gateway forwards provider
+ * options to the upstream provider under its own name, so the key follows the
+ * model (`openai/gpt-5-mini`), not the route taken to reach it. A provider that
+ * does not recognise the option ignores it, so this degrades to today's behaviour
+ * rather than failing.
+ */
+export function structuredProviderOptions(): Record<
+  string,
+  Record<string, string>
+> {
+  return { openai: { reasoningEffort: "low" } };
+}

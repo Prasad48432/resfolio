@@ -228,6 +228,37 @@ in schema order, so the model has to find its support before it may state a
 verdict — better reasoning, and the reason a streamed row never shows a level
 that has not been checked yet.
 
+### The house style is a shape, and the count is disclaimed twice
+
+Rewrites now follow a stated formula: an experience highlight is
+`[action verb] + [what] + [how, naming a real skill] + [the result]` in 15–25
+words, and a project description is the same shape once. Eight *kinds* of bullet
+are listed — work delivered, a responsibility owned, a problem solved, a process
+standardised, and so on — so that eight bullets under one role come out
+structurally varied rather than as eight verb-first clones, which is what makes a
+résumé read as generated.
+
+Two things about it are load-bearing, and both are refusals:
+
+- **It is a shape, not a quota.** Handed a numbered list of eight patterns, a
+  model reads it as an instruction to produce eight bullets, and the result is a
+  profile that grew four claims nobody made. So the count is disclaimed in the
+  formula itself *and* by `CHANGE_LIMITS`, which follows it everywhere it is used
+  — and the domain's growth rule refuses a longer `highlights` list
+  independently, so a model that ignores both produces changes that are rejected
+  rather than applied.
+- **The `[result]` slot is where a metric gets invented.** "Reduced load time by
+  40%" about a bullet that never carried a number is the single most damaging
+  thing this product could do to someone in an interview. `TRUTHFULNESS` already
+  forbids it in general; it is restated in the specific here, because this is the
+  exact place a model reaches for one and a rule stated far from its temptation
+  is a rule that loses. The instruction is to write the concrete outcome instead
+  — and a shorter honest bullet beats one padded to the word count.
+
+The formula is shared by all three workflows that rewrite prose (chat proposals,
+résumé tailoring, job enhancement) for the reason `CHANGE_LIMITS` is: a second
+copy drifts, and the one that drifts is the one nobody rereads.
+
 ### Provider independence is one file
 
 `lib/ai/provider.ts` is the only module in the repository that names a model
@@ -445,6 +476,50 @@ already `streaming` (the composer's "submitted" indicator is gone) and the messa
 has nothing renderable in it. An avatar beside blank space, for as long as the
 thinking takes. `AiMessage` now renders **both** empty cases: still-arriving gets a
 working indicator, settled gets the explanation it already had.
+
+#### Raising the ceiling was necessary and not sufficient: reasoning is latency
+
+The ceiling fix stopped `/ai/job` producing *nothing*. It did not stop it looking
+broken, and the second report — "analysing forever" — was measured rather than
+guessed. Against the real gateway (`openai/gpt-5-mini`), a realistic profile and a
+full posting:
+
+| | first chunk | total | reasoning tokens |
+| --- | --- | --- | --- |
+| default | **22.6s** | 30.0s | 1,600 |
+| `reasoningEffort: "low"` | 16.2s | 31.4s | 832 |
+
+Both produced a valid object with the same requirements. So the route was never
+hung: **a reasoning model emits nothing at all until it has finished thinking**,
+and structured output has nowhere to hide that. The streaming premise the panel
+was designed around — "requirements land one at a time rather than after twenty
+seconds of nothing" — was simply false against this class of model. There is no
+partial object to watch; there is a blank panel and then everything at once. On a
+longer profile the silent stretch grows past `maxDuration`, the function is
+killed, and the panel stays blank permanently — the same screen, which is why the
+two were never told apart.
+
+Three responses, in order of how much they matter:
+
+- **`structuredProviderOptions()` in `provider.ts`** — `reasoningEffort: "low"`
+  for calls whose output is a structure somebody is waiting to look at. This is
+  classification and extraction over a document already in the context; the work
+  is reading, not deduction, so the deep-thinking budget was buying latency rather
+  than accuracy. Deliberately **not** applied to the chat, which is the opposite
+  case: it reasons about which of a dozen items an instruction refers to, and its
+  output streams, so thinking time is spent behind visible text.
+- **`MAX_REQUIREMENTS` lowered from 20 to 12.** Every extra requirement is output
+  tokens the user waits through behind a blank panel, and twenty is more than
+  anyone reads.
+- **The match moved into the chat**, where the wait has an established honest
+  shape — the tool's `input-streaming` state, and a transcript that has always
+  taken a moment to answer. That was not the reason for the move (see below), but
+  it is why the move made the latency legible instead of merely shorter.
+
+The general lesson is the one the ceiling bug taught in a different key: **a
+reasoning model's cost is paid before its first visible output**, so every design
+that assumes progressive rendering has to be checked against a model that renders
+nothing for twenty seconds.
 
 ### A stored transcript is a record, never context
 
@@ -851,6 +926,88 @@ somewhere to live — is still to come, and is unaffected by anything below.
   on tidying up. Clearing reaches everything scrolled out of view, which is what a
   confirmation is for.
 
+### Phase 7, as built (job half)
+
+`/ai/job` is retired — see "Is job matching a chat mode at all?" under Resolved
+for why the Phase 4 answer was reversed. What replaced it:
+
+- **`analyzeJobMatch`, the chat's second tool.** Paste a posting and the model
+  calls it; the card renders where the answer would have been. Its **input is the
+  analysis** (role, company, location, the posting's URL, requirements,
+  keywords) — so it streams as tool input and needs no second model call — and
+  its `execute` is **pure**, exactly like `proposeProfileChanges`: resolve
+  citations, demote unsupported matches, count, return. **The posting is not an
+  input.** It is already in the conversation, so `execute` closes over it
+  (`findJobDescription` walks back to the most recent message long enough to be a
+  posting, which is what makes "recalculate" work as a turn of its own). Echoing
+  it back as arguments would bill the same 4,000 characters twice and delay the
+  first requirement by seconds.
+- **The tool writes nothing.** `saveJobMatchAction` does, fired once by the card
+  on a `useRef`-guarded effect — the same shape as the transcript's save, and for
+  the same reason: an AI tool with a write path is what this architecture exists
+  not to have, and "it only writes a job row" is how that erodes. The job id is
+  minted server-side inside the tool result and lives in the transcript, so
+  reopening a conversation re-saves the same job rather than creating a second.
+
+**`@resfolio/job` is a new domain, and not part of `@resfolio/ai`.** A row is one
+job the user is working on — the posting, the score, what they changed for it, the
+résumé and the letter. Matching is how it gets created; it is not what it is. The
+`status` column (`saved | applied | interviewing | rejected | offer`) is written
+from the first save with the tracker deliberately unbuilt, because a status column
+added later has to be backfilled with a guess about rows that predate the concept.
+`@resfolio/ai` stays what its own CLAUDE.md says it is: saved chat sessions.
+
+**Enhancement is a reason to propose changes, never a permission to make them.**
+"Enhance my profile for this job" runs `generateObject` against
+`profileProposalSchema` and returns a `ProfileChangeReview` through
+`reviewProfileChanges` — the same guard, the same per-change consent, the same
+`ProfileProposal` component, with only the write injected so the job row learns
+what the posting caused. Nothing about the write path is different because a job
+asked for it. Two details:
+
+- **The `<70%` warning is a confirmation, not a gate**, and no server code
+  consults the score. Below the threshold the honest reading is that this is not
+  really the user's job, and rewriting a career record to chase a role it does
+  not fit should be a decision rather than a click; above it a dialog would be a
+  click charged for nothing. The constraint is the guard, which is identical
+  either way.
+- **The re-check is asked for, never automatic.** A new score is a fresh model
+  judgement — it costs a call — so accepting changes ends with a prompt to ask
+  the chat, which produces a new card. `initial_score` is written on insert only;
+  a re-match writes `enhanced_score`, which is what makes "74% → 86%" a
+  measurement rather than two numbers.
+
+**The artefact panel reads the database, not the transcript**, which is the
+distinction that earns it. The card renders one tool result; the panel renders the
+*job*, which outlives the message that created it and accumulates a résumé and a
+letter afterwards. The résumé is a **reference with `on delete set null`**, never
+a copy: a job pointing at a snapshot would offer a version of the résumé that
+exists nowhere else. Phase 5's tailoring moved into this panel, beside the résumé
+it edits — enhancing the profile and tailoring a résumé are two destinations for
+one posting, and the panel is where the difference is visible.
+
+**Cover letters get a real PDF, drawn by `pdf-lib` rather than by Chromium.** This
+is a different decision from the résumé's and the difference is the artefact: a
+résumé is a *template* — arbitrary CSS, per template — so it needs a rendering
+engine, which is why `apps/sites` hands export to a headless Chromium on Fly. A
+letter is one fixed layout that has not changed since the typewriter. Drawing it
+directly means no second service on the request path, no `RENDER_SECRET` hop, a
+file in milliseconds, and letters that keep working where `PDF_EXPORT_ENABLED` is
+off. Three things fall out:
+
+- **The fonts are vendored** (PT Serif, OFL, beside the code). `@pdf-lib/fontkit`
+  embeds a real typeface instead of one of the fourteen PDF base fonts. PT Serif
+  specifically because it ships **static** Regular/Bold/Italic — pdf-lib embeds
+  the default instance of a variable font with no way to select a weight, so a
+  variable family gives you a bold that silently is not bold.
+- **Layout is split from drawing** (`cover-letter-layout.ts`, pure and tested).
+  Pagination, wrapping and the single-word-longer-than-the-measure case are
+  arithmetic, and the failure they prevent is a plausible-looking PDF with a
+  sentence drawn below the bottom edge, in a file somebody sends to an employer.
+- **`sanitize` exists because pdf-lib throws on an unencodable character** rather
+  than dropping it, so one smart quote in a model-written sentence would fail the
+  whole download.
+
 ### The chat is a bounded layout, which required fixing the shell
 
 The chat is the app's first surface that has to **fill** its pane rather than grow
@@ -908,12 +1065,37 @@ to be provable on a route that always exists.
 
 ### Resolved
 
-- **Is job tailoring a chat mode at all?** No (Phase 4). `/ai/job` is a
-  dedicated route: one input, one result, no message thread. A conversation
-  metaphor would add turn-taking to something that has exactly one turn, and
-  would put a structured result — a score, a requirement table — inside a
-  transcript that scrolls it away. Same SDK, `useObject` instead of `useChat`.
-  Phase 5's tailoring hangs off this route, not off the chat.
+- **Is job matching a chat mode at all?** Answered "no" in Phase 4 and
+  **reversed in Phase 7.** `/ai/job` is retired; the match is a tool call inside
+  the conversation.
+
+  The Phase 4 reasoning was sound about the *analysis* and wrong about the
+  *workflow*. One input and one result really is a poor fit for turn-taking — but
+  the analysis was never the workflow. What people do is read a match, decide
+  their profile undersells them, change it, look again, tailor a résumé and write
+  a letter, and every one of those steps is a turn. The route ended up modelling
+  that as three panels stacked under a textarea, with the second and third
+  appearing once the first had a result: a conversation, rendered as a form,
+  without any of a conversation's affordances. And it started by asking someone
+  who had just been discussing their career with an assistant to go to another
+  screen and paste the posting into a second box.
+
+  Two things that were true then are still true and are now solved differently:
+
+  - **A structured result must not scroll away.** It does not — it is in the
+    transcript where the answer was, *and* the job's artefacts (posting, résumé,
+    letter) are pinned in a panel beside the conversation that reads from the
+    database rather than from the messages.
+  - **The score must not move while it is read.** It cannot: the tool's output is
+    computed whole, after verification, in one `execute`. The old route held the
+    score back until streaming finished; there is nothing to hold back now.
+
+  What made the reversal cheap is that nothing about the *analysis* changed.
+  `job-analysis.ts` still classifies, verifies, demotes and counts; it moved from
+  behind a `streamObject` route to behind a tool's pure `execute`, which also
+  removed a route handler rather than adding one. The posting is closed over from
+  the conversation rather than re-emitted as tool arguments — the same principle
+  as the profile, and worth ~4,000 tokens a call.
 - **Where the per-change accept lands when a proposal touches `basics` and items
   in one response** (Phase 3). Accept-one and Apply-all are the **same action
   with a different array**: it takes `changes[]`, so a batch is one revision and

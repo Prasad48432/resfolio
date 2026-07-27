@@ -26,7 +26,7 @@ import {
   applyTailoringAction,
   clearTailoringAction,
   tailorResumeAction,
-} from "@/app/(dashboard)/ai/job/actions";
+} from "@/app/(dashboard)/ai/tailor-actions";
 import { tailorApplyTestId, tailorChangeTestId, TEST_IDS } from "@/lib/testids";
 
 import { ChangeCard } from "./change-diff";

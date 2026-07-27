@@ -13,9 +13,10 @@ import {
 
 import ResfolioMark from "@/components/brand/resfolio-mark";
 import { MatrixSpinner } from "@/components/status/matrix-loader";
-import type { AiUIMessage } from "@/lib/ai/tools";
+import { isJobMatchUnavailable, type AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
 
+import { JobMatchCard } from "./job-match-card";
 import { ProfileProposal } from "./profile-proposal";
 
 /**
@@ -52,11 +53,18 @@ import { ProfileProposal } from "./profile-proposal";
 export function AiMessage({
   message,
   settled = true,
+  chatSessionId,
+  onJobSaved,
 }: {
   message: AiUIMessage;
   /** This turn is complete — the stream has ended, one way or another. While
    * false, an empty message is simply a message that has not started yet. */
   settled?: boolean;
+  /** Passed through to a job match so the row it writes remembers which
+   * conversation produced it. */
+  chatSessionId: string;
+  /** Passed through so the artefact panel can refresh once a job exists. */
+  onJobSaved?: () => void;
 }) {
   const isUser = message.role === "user";
 
@@ -152,6 +160,67 @@ export function AiMessage({
                   return null;
               }
 
+            // The job match (Phase 7). Same four states, and the same rule
+            // about them: while the input streams the model is genuinely
+            // writing out requirement after requirement, so saying so is a
+            // report rather than a placeholder.
+            case "tool-analyzeJobMatch":
+              switch (part.state) {
+                case "input-streaming":
+                case "input-available":
+                  return (
+                    <Marker
+                      key={index}
+                      data-testid={TEST_IDS.jobMatchPreparing}
+                    >
+                      <MatrixSpinner />
+                      <MarkerContent>
+                        Reading the posting against your profile…
+                      </MarkerContent>
+                    </Marker>
+                  );
+                case "output-available":
+                  // The model called the tool with nothing in the conversation
+                  // long enough to be a posting. A real answer — "paste it and
+                  // I'll read it" — rather than an empty card that looks like a
+                  // failure.
+                  return isJobMatchUnavailable(part.output) ? (
+                    <Marker
+                      key={index}
+                      data-testid={TEST_IDS.jobMatchNoPosting}
+                    >
+                      <MarkerContent>
+                        There&apos;s no job posting in this conversation yet.
+                        Paste the description — and the posting&apos;s link if
+                        you have it — and it&apos;ll be read against your
+                        profile.
+                      </MarkerContent>
+                    </Marker>
+                  ) : (
+                    <JobMatchCard
+                      key={index}
+                      review={part.output}
+                      chatSessionId={chatSessionId}
+                      onSaved={onJobSaved}
+                    />
+                  );
+                case "output-error":
+                  return (
+                    <Marker
+                      key={index}
+                      className="text-destructive"
+                      data-testid={TEST_IDS.jobMatchFailed}
+                    >
+                      <MarkerContent>
+                        That posting couldn&apos;t be read against your profile.
+                        Nothing was changed — try pasting it again.
+                      </MarkerContent>
+                    </Marker>
+                  );
+                default:
+                  return null;
+              }
+
             default:
               return null;
           }
@@ -171,7 +240,7 @@ export function AiMessage({
             // rendered — so without this the healthy path is indistinguishable
             // from the broken one for as long as the thinking takes.
             <Marker data-testid={TEST_IDS.aiWorking}>
-              <MatrixSpinner />
+              <MatrixSpinner rows={4} cols={4} />
               <MarkerContent>Working through it…</MarkerContent>
             </Marker>
           )

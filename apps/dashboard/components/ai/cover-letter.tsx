@@ -22,7 +22,9 @@ import {
 // resolve to a name the user recognises, and one that resolves to nothing is how
 // an unsupported claim is caught.
 import { indexProfileItems } from "@/lib/ai/job-analysis";
+import { saveCoverLetterAction } from "@/app/(dashboard)/ai/job-actions";
 import { letterParagraphTestId, TEST_IDS } from "@/lib/testids";
+import { MatrixSpinner } from "../status/matrix-loader";
 
 /**
  * The cover-letter surface (docs/architecture/13-ai-layer.md, Phase 6).
@@ -53,6 +55,8 @@ export function CoverLetter({
   jobDescription,
   signature,
   busy,
+  jobId,
+  onSaved,
 }: {
   items: ProfileItemRef[];
   /** The profile as the model saw it. Unioned with the posting below, this is what
@@ -63,6 +67,13 @@ export function CoverLetter({
   /** The name the letter is signed with, from the profile's own basics. */
   signature: string;
   busy: boolean;
+  /** The job this letter belongs to (Phase 7). With one, a finished letter is
+   * saved against it and becomes downloadable as a PDF; without one — nothing
+   * calls it that way today — the letter is still copy-and-paste only, which is
+   * what it was for all of Phase 6. */
+  jobId?: string;
+  /** The panel's cue that a letter now exists to draw. */
+  onSaved?: () => void;
 }) {
   const [recipient, setRecipient] = useState("");
   const [copied, setCopied] = useState(false);
@@ -78,6 +89,41 @@ export function CoverLetter({
     schema: coverLetterSchema,
     onFinish: ({ object: final }) => {
       setEmptyResult(final === undefined);
+
+      /**
+       * Persist, once, when there is a job to persist against.
+       *
+       * **`onFinish`, not an effect on `object`** — the object is a new value on
+       * every chunk, so an effect would fire per token and a `useRef` guard
+       * would then have to encode "is this the same letter". This callback runs
+       * exactly once per generation, with the validated final value, which is
+       * the only version worth keeping.
+       *
+       * The recipient goes in the record but has never gone to a provider: it is
+       * not in the request body (`{ jobDescription }` only), so the letter the
+       * model wrote has no greeting in it and this is where the user's own text
+       * is joined to it.
+       */
+      if (!jobId || final === undefined) {
+        return;
+      }
+
+      void saveCoverLetterAction({
+        jobId,
+        letter: {
+          opening: final.opening,
+          body: final.body.map((paragraph) => paragraph.text),
+          closing: final.closing,
+          ...(recipient.trim() === "" ? {} : { recipient: recipient.trim() }),
+        },
+      }).then((result) => {
+        if (result.ok) {
+          onSaved?.();
+        }
+        // Quiet on failure, like the transcript's save: the letter is on screen
+        // and copyable, and a toast about a storage write the user did not ask
+        // for would be noise on top of the thing they did ask for.
+      });
     },
   });
 
@@ -260,7 +306,7 @@ export function CoverLetter({
 
       {isLoading && !hasLetter ? (
         <Card className="flex items-center gap-2 p-3 text-[13px] text-muted">
-          <Spinner size="sm" />
+          <MatrixSpinner />
           Reading the posting against your profile…
         </Card>
       ) : null}

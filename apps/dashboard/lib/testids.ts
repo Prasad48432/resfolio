@@ -133,14 +133,39 @@ export const TEST_IDS = {
   aiProposalFailed: "ai-proposal-failed",
   aiProposalApplyAll: "ai-proposal-apply-all",
   aiProposalRejected: "ai-proposal-rejected",
-  aiJobLink: "ai-job-link",
-  jobInput: "job-input",
-  jobSubmit: "job-submit",
-  jobStop: "job-stop",
-  jobError: "job-error",
-  /** A request that succeeded and produced no usable analysis — distinct from
-   * `jobError` (a request that failed), and previously rendered as nothing. */
-  jobEmpty: "job-empty",
+  /** The in-chat job match (Phase 7): the card itself, the two states the tool
+   * has before its result exists, and the actions on it. `jobMatchNoPosting` is
+   * the model calling the match tool when nothing in the conversation is long
+   * enough to be a posting — a real answer, not an error. */
+  jobMatchCard: "job-match-card",
+  jobMatchPreparing: "job-match-preparing",
+  jobMatchFailed: "job-match-failed",
+  jobMatchNoPosting: "job-match-no-posting",
+  jobMatchEnhance: "job-match-enhance",
+  /** The confirmation shown below `ENHANCE_CONFIRM_THRESHOLD`, and its two
+   * answers. Assertable because the warning existing at all is the product
+   * decision — see `@resfolio/job`. */
+  jobMatchConfirm: "job-match-confirm",
+  jobMatchConfirmCancel: "job-match-confirm-cancel",
+  jobMatchConfirmContinue: "job-match-confirm-continue",
+  jobMatchEnhanceError: "job-match-enhance-error",
+  jobMatchRecheck: "job-match-recheck",
+  /** The artefact panel beside the conversation, and the three things on it. */
+  jobPanel: "job-panel",
+  jobPanelToggle: "job-panel-toggle",
+  jobPanelPosting: "job-panel-posting",
+  jobPanelResume: "job-panel-resume",
+  jobPanelResumePick: "job-panel-resume-pick",
+  jobPanelResumeDownload: "job-panel-resume-download",
+  jobPanelLetter: "job-panel-letter",
+  jobPanelLetterDownload: "job-panel-letter-download",
+  jobPanelScore: "job-panel-score",
+  jobPanelDelta: "job-panel-delta",
+  /** The rendered analysis, shared by the in-chat card and anything that comes
+   * to render one later. `jobInput`/`jobSubmit`/`jobStop`/`jobError`/`jobEmpty`
+   * went with `/ai/job` in Phase 7 — there is no textarea, no submit button and
+   * no "finished with nothing" panel any more, because the match is a tool call
+   * inside a turn the transcript already reports on. */
   jobResult: "job-result",
   jobScore: "job-score",
   jobDowngraded: "job-downgraded",

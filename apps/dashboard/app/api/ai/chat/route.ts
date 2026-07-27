@@ -12,6 +12,7 @@ import {
 import { NextResponse } from "next/server";
 
 import { parseChatRequest } from "@/lib/ai/chat-request";
+import { findJobDescription } from "@/lib/ai/job-analysis";
 import { MAX_CHAT_OUTPUT_TOKENS } from "@/lib/ai/limits";
 import {
   aiModelId,
@@ -22,7 +23,7 @@ import {
 import { buildProfileContext } from "@/lib/ai/profile-context";
 import { checkAiRateLimit } from "@/lib/ai/rate-limit";
 import { chatSystemPrompt } from "@/lib/ai/system-prompt";
-import { createProfileTools, type AiUIMessage } from "@/lib/ai/tools";
+import { createAiTools, type AiUIMessage } from "@/lib/ai/tools";
 
 /**
  * Resfolio AI's streaming chat endpoint (docs/architecture/13-ai-layer.md).
@@ -164,7 +165,18 @@ export async function POST(request: Request): Promise<Response> {
       // returns — there is no write path in this request, which is what makes
       // "the AI cannot change your profile" a property of the code rather than
       // of the prompt.
-      const tools = createProfileTools(draft.data);
+      //
+      // The posting is closed over for the same reason the profile is: it is
+      // already in the conversation, so making the model re-emit it as tool
+      // arguments would bill for the same four thousand characters twice and
+      // delay the first requirement by several seconds. `findJobDescription`
+      // walks back to the most recent message long enough to be a posting, which
+      // is what makes "recalculate" work as a turn of its own.
+      const tools = createAiTools(draft.data, {
+        jobDescription: findJobDescription(parsed.messages),
+        profileJson: profile.json,
+        newJobId: () => crypto.randomUUID(),
+      });
 
       const result = streamText({
         model: getChatModel(),

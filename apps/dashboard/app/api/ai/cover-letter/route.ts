@@ -13,6 +13,7 @@ import {
   getChatModel,
   isAiConfigured,
   isAiEnabled,
+  structuredProviderOptions,
 } from "@/lib/ai/provider";
 import { checkAiRateLimit } from "@/lib/ai/rate-limit";
 import { coverLetterSystemPrompt } from "@/lib/ai/system-prompt";
@@ -107,6 +108,15 @@ export async function POST(request: Request): Promise<Response> {
     // structured generation stopped by the ceiling fails validation entirely
     // rather than arriving short (see `limits.ts`).
     maxOutputTokens: MAX_OBJECT_OUTPUT_TOKENS,
+    // **The one route where this is a genuine trade rather than a free win.**
+    // Structured output emits nothing while the model reasons, so the letter's
+    // first sentence appears twenty seconds after the button regardless of how
+    // good the letter is — and lowering the reasoning budget is what closes most
+    // of that gap (see `provider.ts` for the measurement). Composing four
+    // paragraphs is more of a writing task than the job analysis' classification
+    // is, so if letters get noticeably blander this is the line to reconsider
+    // first; the measurement to beat is 16s to first word.
+    providerOptions: structuredProviderOptions(),
     abortSignal: request.signal,
     onFinish: ({ usage, object, error, finishReason }) => {
       log.info(

@@ -1,6 +1,8 @@
 "use client";
 
 import type { ChatSessionSummary } from "@resfolio/ai";
+import type { JobMatchSummary } from "@resfolio/job";
+import type { ProfileItemRef } from "@resfolio/profile";
 import {
   Button,
   Sheet,
@@ -9,7 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@resfolio/ui";
-import { History } from "lucide-react";
+import { Briefcase, History } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,6 +25,8 @@ import { TEST_IDS } from "@/lib/testids";
 
 import { AiChat } from "./ai-chat";
 import { ChatHistory } from "./chat-history";
+import { JobPanel } from "./job-panel";
+import type { TailorTarget } from "./resume-tailor";
 
 /**
  * The chat page's client half: history beside a conversation
@@ -41,16 +45,30 @@ import { ChatHistory } from "./chat-history";
  * would render the first one's. A remount here is correct rather than a cost —
  * two conversations are two components.
  *
- * The rail is a **column on `lg` and a sheet below it**, not a column that gets
- * narrow: 16rem of history beside a 40rem transcript is most of a phone. The
- * sheet trigger sits in this component rather than the page header because the
- * header is a Server Component and the sheet's open state is not serialisable.
+ * **Three columns at the widest, and neither side column ever squeezes the
+ * conversation.** History on the left from `lg`, the job artefact panel on the
+ * right from `xl`; below each breakpoint the column becomes a sheet rather than
+ * getting narrow, because 14rem of rail plus 18rem of panel beside a transcript
+ * is most of a laptop and all of a phone. Both sheet triggers sit in this
+ * component rather than the page header, because the header is a Server Component
+ * and an open state is not serialisable.
+ *
+ * **`jobRefresh` is a counter, not a callback into the panel.** A job saves
+ * itself from inside a message deep in the transcript, and the panel needs to
+ * re-read the database when it does — but handing the panel a ref or re-creating
+ * it would remount the letter someone may be mid-way through generating. A number
+ * that goes up is the smallest thing that crosses that gap.
  */
 export function AiWorkspace({
   profileIsEmpty,
   sessionId,
   initialMessages,
   initialSessions,
+  initialJobs,
+  items,
+  haystack,
+  signature,
+  resumes,
 }: {
   profileIsEmpty: boolean;
   /** Stable for the life of a conversation: either the id in the URL, or one
@@ -58,9 +76,22 @@ export function AiWorkspace({
   sessionId: string;
   initialMessages: AiUIMessage[];
   initialSessions: ChatSessionSummary[];
+  /** The jobs this conversation has already produced, server-rendered so a
+   * reopened chat shows its artefacts in the first paint. */
+  initialJobs: JobMatchSummary[];
+  items: ProfileItemRef[];
+  haystack: string;
+  signature: string;
+  resumes: TailorTarget[];
 }) {
   const [sessions, setSessions] = useState(initialSessions);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [jobSheetOpen, setJobSheetOpen] = useState(false);
+  const [jobRefresh, setJobRefresh] = useState(0);
+
+  const onJobSaved = useCallback(() => {
+    setJobRefresh((current) => current + 1);
+  }, []);
 
   /**
    * Saves are serialised through this.
@@ -172,30 +203,71 @@ export function AiWorkspace({
     />
   );
 
+  const jobPanel = (
+    <JobPanel
+      chatSessionId={sessionId}
+      initialJobs={initialJobs}
+      items={items}
+      haystack={haystack}
+      signature={signature}
+      resumes={resumes}
+      refreshToken={jobRefresh}
+    />
+  );
+
   return (
     <div className="flex min-h-0 flex-1 gap-6">
       <aside className="hidden w-56 shrink-0 lg:block">{history}</aside>
 
       <div className="flex min-w-0 min-h-0 flex-1 flex-col gap-2">
-        <div className="lg:hidden">
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        {/* The two triggers that stand in for the columns this viewport is too
+            narrow to carry. One row, so a phone spends one line of vertical
+            space on navigation rather than two. */}
+        <div className="flex items-center gap-1 xl:hidden">
+          <div className="lg:hidden">
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted"
+                  data-testid={TEST_IDS.chatHistoryToggle}
+                >
+                  <History className="size-4" aria-hidden />
+                  {sessions.length > 0 ? `Chats (${sessions.length})` : "Chats"}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex w-72 flex-col gap-3 p-4">
+                <SheetTitle>Your chats</SheetTitle>
+                <SheetDescription className="sr-only">
+                  Open a saved conversation, start a new one, or delete one.
+                </SheetDescription>
+                {history}
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          <Sheet open={jobSheetOpen} onOpenChange={setJobSheetOpen}>
             <SheetTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-muted"
-                data-testid={TEST_IDS.chatHistoryToggle}
+                data-testid={TEST_IDS.jobPanelToggle}
               >
-                <History className="size-4" aria-hidden />
-                {sessions.length > 0 ? `Chats (${sessions.length})` : "Chats"}
+                <Briefcase className="size-4" aria-hidden />
+                {initialJobs.length > 0 || jobRefresh > 0 ? "This job" : "Job"}
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="flex w-72 flex-col gap-3 p-4">
-              <SheetTitle>Your chats</SheetTitle>
+            <SheetContent
+              side="right"
+              className="flex w-80 max-w-[90vw] flex-col gap-3 overflow-y-auto p-4"
+            >
+              <SheetTitle>This job</SheetTitle>
               <SheetDescription className="sr-only">
-                Open a saved conversation, start a new one, or delete one.
+                The posting, the résumé you&apos;ll send, and the cover letter.
               </SheetDescription>
-              {history}
+              {jobPanel}
             </SheetContent>
           </Sheet>
         </div>
@@ -206,8 +278,16 @@ export function AiWorkspace({
           sessionId={sessionId}
           initialMessages={initialMessages}
           onTurnComplete={persist}
+          onJobSaved={onJobSaved}
         />
       </div>
+
+      {/* `overflow-y-auto` on the column, not the page: the panel is a sibling
+          of the chat's own bounded scroller, and a tall letter here must scroll
+          inside its column rather than growing the shell's content region. */}
+      <aside className="hidden w-72 shrink-0 overflow-y-auto xl:block">
+        {jobPanel}
+      </aside>
     </div>
   );
 }

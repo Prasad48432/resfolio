@@ -34,6 +34,7 @@ import { Page } from "@/components/layout/page";
 import { FadeIn } from "@/components/motion/motion";
 import { SaveIndicator } from "@/components/status/save-indicator";
 import { SplitWorkspace } from "@/components/workspace/split-workspace";
+import { downloadFile } from "@/lib/download";
 import type { SaveStatus } from "@/lib/save-status";
 import { TEST_IDS } from "@/lib/testids";
 
@@ -323,40 +324,28 @@ function DownloadPdfButton({
       description: "This takes a few seconds.",
     });
     try {
-      const response = await fetch(
+      // `lib/download.ts` — shared with the cover letter, which learned the same
+      // lesson. It owns the fetch, the server-supplied filename, the object-URL
+      // lifetime and the Safari revoke delay; what stays here is the copy, which
+      // is the only part that differs between the two.
+      const result = await downloadFile(
         `/api/resumes/${encodeURIComponent(documentId)}/pdf`,
+        `${name || "resume"}.pdf`,
       );
-      if (!response.ok) {
-        // The route sends `{ error }` for the cases it can explain (export not
-        // configured, render host unreachable); anything else gets generic copy.
-        const detail = await response
-          .json()
-          .then((body: { error?: string }) => body.error)
-          .catch(() => undefined);
+
+      if (!result.ok) {
         toast.error("Couldn't generate the PDF", {
           id: pending,
-          description: detail ?? "Please try again in a moment.",
+          // The route sends `{ error }` for the cases it can explain (export not
+          // configured, render host unreachable); anything else gets generic copy.
+          description: result.error ?? "Please try again in a moment.",
         });
         return;
       }
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filenameFrom(response) ?? `${name || "resume"}.pdf`;
-      anchor.click();
-      // Revoking immediately can race the download in Safari; a tick is enough.
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-
       toast.success("PDF downloaded", {
         id: pending,
         description: "Check your downloads folder.",
-      });
-    } catch {
-      toast.error("Couldn't generate the PDF", {
-        id: pending,
-        description: "Check your connection and try again.",
       });
     } finally {
       setDownloading(false);
@@ -376,13 +365,6 @@ function DownloadPdfButton({
       {downloading ? "Generating…" : "Download PDF"}
     </Button>
   );
-}
-
-/** Prefer the server's own filename — it already knows the resume's name. */
-function filenameFrom(response: Response): string | undefined {
-  const header = response.headers.get("content-disposition");
-  const match = header ? /filename="([^"]+)"/.exec(header) : null;
-  return match?.[1];
 }
 
 function DeleteButton({

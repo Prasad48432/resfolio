@@ -2,10 +2,15 @@ import type { ProfileItemRef } from "@resfolio/profile";
 import { describe, expect, it } from "vitest";
 
 import {
+  MIN_JOB_DESCRIPTION_CHARS,
+  buildJobMatchReview,
   coverKeywords,
+  findJobDescription,
   indexProfileItems,
   isKeywordPresent,
   jobAnalysisSchema,
+  jobMatchInputSchema,
+  optionalFact,
   parseJobRequest,
   summarizeMatch,
   verifyRequirement,
@@ -203,5 +208,218 @@ describe("parseJobRequest", () => {
   it("rejects a body that isn't the expected shape", () => {
     expect(parseJobRequest(null).ok).toBe(false);
     expect(parseJobRequest({ jd: "text" }).ok).toBe(false);
+  });
+});
+
+
+/**
+ * The chat tool's half of the analysis (Phase 7).
+ *
+ * `findJobDescription` is the one that would fail silently: get it wrong and the
+ * profile is matched against the word "recalculate", which produces a confident
+ * page of gaps rather than an error.
+ */
+
+/** A `UIMessage`-shaped stub — role and text parts are all this reads. */
+const say = (role: "user" | "assistant", text: string) => ({
+  role,
+  parts: [{ type: "text", text }],
+});
+
+const POSTING =
+  `Senior Frontend Engineer at Acme. ${"We need React, TypeScript and Next.js. ".repeat(10)}`.trim();
+
+describe("findJobDescription", () => {
+  it("finds the posting the user pasted", () => {
+    expect(findJobDescription([say("user", POSTING)])).toBe(POSTING);
+  });
+
+  /**
+   * The case this function exists for. After accepting enhancements the user
+   * types "recalculate the match" — taking the literal last message would match
+   * their profile against those two words.
+   */
+  it("walks back past a short follow-up to the posting", () => {
+    const found = findJobDescription([
+      say("user", POSTING),
+      say("assistant", "You look like a strong fit for the React work."),
+      say("user", "recalculate the match"),
+    ]);
+    expect(found).toBe(POSTING);
+  });
+
+  it("prefers the most recent posting when two were pasted", () => {
+    const second =
+      `Staff Backend Engineer at Northwind. ${"Go, Postgres and Kubernetes. ".repeat(10)}`.trim();
+    expect(findJobDescription([say("user", POSTING), say("user", second)])).toBe(
+      second,
+    );
+  });
+
+  it("ignores the assistant's own long turns", () => {
+    const found = findJobDescription([
+      say("assistant", "A long assistant answer. ".repeat(40)),
+      say("user", "hello"),
+    ]);
+    expect(found).toBeNull();
+  });
+
+  // Better nothing than a confident analysis of a job nobody advertised.
+  it("returns null when nothing is long enough to be a posting", () => {
+    expect(findJobDescription([say("user", "hi")])).toBeNull();
+    expect(findJobDescription([])).toBeNull();
+    expect(
+      findJobDescription([say("user", "x".repeat(MIN_JOB_DESCRIPTION_CHARS - 1))]),
+    ).toBeNull();
+  });
+
+  it("accepts a message exactly at the floor", () => {
+    const text = "x".repeat(MIN_JOB_DESCRIPTION_CHARS);
+    expect(findJobDescription([say("user", text)])).toBe(text);
+  });
+});
+
+describe("jobMatchInputSchema", () => {
+  // The posting is closed over server-side; making the model echo it back would
+  // double the bill for the turn.
+  it("has no field for the job description", () => {
+    const parsed = jobMatchInputSchema.parse({
+      role: "Senior Frontend Engineer",
+      requirements: [
+        { text: "React", evidence: ["exp-1"], level: "strong", note: "Acme." },
+      ],
+      keywords: ["React"],
+      jobDescription: "the whole posting, echoed back",
+    });
+    expect(parsed).not.toHaveProperty("jobDescription");
+  });
+
+  it("caps requirements, because every extra one is latency behind a blank panel", () => {
+    const requirement = {
+      text: "React",
+      evidence: [],
+      level: "gap" as const,
+      note: "Not shown.",
+    };
+    expect(
+      jobMatchInputSchema.safeParse({
+        role: "Engineer",
+        requirements: Array.from({ length: 13 }, () => requirement),
+        keywords: [],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("buildJobMatchReview", () => {
+  const input = {
+    role: "Senior Frontend Engineer",
+    company: "  Acme  ",
+    location: "",
+    jobUrl: "https://acme.com/jobs/1",
+    requirements: [
+      {
+        text: "React",
+        evidence: ["exp-1"],
+        level: "strong" as const,
+        note: "Named in the Acme role.",
+      },
+      {
+        text: "Kubernetes",
+        // The model claimed a match and cited an id that does not exist.
+        evidence: ["exp-99"],
+        level: "strong" as const,
+        note: "Claimed.",
+      },
+    ],
+    keywords: ["React", "Kubernetes"],
+  };
+
+  const context = {
+    jobId: "job-1",
+    jobDescription: POSTING,
+    index: indexProfileItems(REFS),
+    haystack: JSON.stringify({ skills: ["React"] }),
+  };
+
+  it("demotes a match whose citations resolve to nothing", () => {
+    const review = buildJobMatchReview(input, context);
+    expect(review.requirements[1]!.level).toBe("gap");
+    expect(review.requirements[1]!.downgraded).toBe(true);
+  });
+
+  it("computes the score from the verified levels, not the claimed ones", () => {
+    // One strong, one demoted to gap → 50%, never the 100% the model asserted.
+    expect(buildJobMatchReview(input, context).summary.score).toBe(50);
+  });
+
+  it("checks keyword coverage against what the model was shown", () => {
+    const review = buildJobMatchReview(input, context);
+    expect(review.keywords).toEqual([
+      { keyword: "React", present: true },
+      { keyword: "Kubernetes", present: false },
+    ]);
+  });
+
+  it("normalises the posting's own fields without inventing them", () => {
+    const review = buildJobMatchReview(input, context);
+    expect(review.company).toBe("Acme");
+    // An empty string is an absent location, not a location called "".
+    expect(review.location).toBeNull();
+  });
+
+  /**
+   * Observed against the real gateway: asked for a location the posting did not
+   * state, the model answered "Not specified" rather than omitting the field.
+   * Stored as-is, that renders under the job title as a place.
+   */
+  it("drops a model's stand-in for an absent field", () => {
+    const review = buildJobMatchReview(
+      { ...input, company: "N/A", location: "Not specified." },
+      context,
+    );
+    expect(review.company).toBeNull();
+    expect(review.location).toBeNull();
+  });
+
+  it("carries the id and the posting so the card can save itself", () => {
+    const review = buildJobMatchReview(input, context);
+    expect(review.jobId).toBe("job-1");
+    expect(review.jobDescription).toBe(POSTING);
+  });
+});
+
+
+describe("optionalFact", () => {
+  it("keeps a real answer", () => {
+    expect(optionalFact("Acme")).toBe("Acme");
+    expect(optionalFact("  Hyderabad, India  ")).toBe("Hyderabad, India");
+  });
+
+  it("treats the ways a model says 'there isn't one' as absence", () => {
+    for (const phrase of [
+      "N/A",
+      "n/a",
+      "none",
+      "Not specified",
+      "not specified.",
+      "Unspecified",
+      "Not stated",
+      "Not mentioned",
+      "Unknown",
+      "-",
+      "   ",
+      "",
+    ]) {
+      expect(optionalFact(phrase)).toBeNull();
+    }
+    expect(optionalFact(undefined)).toBeNull();
+  });
+
+  // The list is about absence, never about content. Both of these are answers.
+  it("keeps answers that only look like non-answers", () => {
+    expect(optionalFact("Remote")).toBe("Remote");
+    expect(optionalFact("Confidential")).toBe("Confidential");
+    expect(optionalFact("Anywhere")).toBe("Anywhere");
   });
 });

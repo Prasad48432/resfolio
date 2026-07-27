@@ -48,11 +48,23 @@ const requirementSchema = z.object({
   note: z.string().trim().min(1).max(240),
 });
 
+/**
+ * How many requirements one analysis may carry.
+ *
+ * **Lowered from twenty, and it is a latency control as much as a display one.**
+ * Structured output is generated in one uninterrupted run before anything is
+ * shown, so every extra requirement is output tokens the user waits through
+ * behind a blank panel — twenty of them is roughly a thousand tokens of pure
+ * waiting. It is also more than anyone reads: a posting's real asks fit in a
+ * dozen, and a list long enough to scroll turns a judgement into a wall.
+ */
+export const MAX_REQUIREMENTS = 12;
+
 export const jobAnalysisSchema = z.object({
   /** The role as the posting states it. Shown as the analysis' title so the
    * user can tell two pasted JDs apart. */
   role: z.string().trim().max(160),
-  requirements: z.array(requirementSchema).min(1).max(20),
+  requirements: z.array(requirementSchema).min(1).max(MAX_REQUIREMENTS),
   /**
    * Terms the posting leans on. **The model extracts them; it does not say
    * whether the profile has them** — that is a string search, and a string
@@ -63,6 +75,38 @@ export const jobAnalysisSchema = z.object({
 
 export type JobAnalysis = z.infer<typeof jobAnalysisSchema>;
 export type RawRequirement = z.infer<typeof requirementSchema>;
+
+/**
+ * The chat tool's input — the analysis, plus the three facts that make it a
+ * **job** rather than a judgement (docs/architecture/13-ai-layer.md, Phase 7).
+ *
+ * **The job description is deliberately not a field here.** The posting is
+ * already in the conversation — the user pasted it — and asking the model to
+ * echo four thousand characters back as tool arguments would bill for the same
+ * text twice and add seconds of generation before the first requirement appears.
+ * `execute` closes over the posting the request already has, the same way it
+ * closes over the profile (`createAiTools`).
+ *
+ * `jobUrl` is here because the user pastes it in the same breath as the posting
+ * and it is the one field the tracker cannot derive later. It is read off the
+ * message, never fetched: nothing in this product opens a URL a model produced.
+ */
+export const jobMatchInputSchema = z.object({
+  role: z.string().trim().max(160),
+  /** As the posting spells it. Absent rather than guessed — a posting that
+   * hides its company behind "a fast-growing startup" has no company. */
+  company: z.string().trim().max(160).optional(),
+  location: z.string().trim().max(160).optional(),
+  /** The posting's own link, if the user gave one in their message. Validated
+   * and scheme-checked by `@resfolio/job`'s `normalizeJobUrl` before it is
+   * stored or rendered — this is a model-produced string that becomes a link
+   * somebody clicks. */
+  jobUrl: z.string().trim().max(2_000).optional(),
+  requirements: z.array(requirementSchema).min(1).max(MAX_REQUIREMENTS),
+  keywords: z.array(z.string().trim().min(1).max(60)).max(30),
+});
+
+export type JobMatchInput = z.infer<typeof jobMatchInputSchema>;
 
 export type MatchLevel = RawRequirement["level"];
 
@@ -212,6 +256,179 @@ export function indexProfileItems(
   refs: readonly ProfileItemRef[],
 ): Map<string, ProfileItemRef> {
   return new Map(refs.map((ref) => [ref.id, ref]));
+}
+
+/**
+ * A finished, verified job match — what the tool returns and the card renders.
+ *
+ * **Everything on it has been checked**: every `evidence` entry resolved to a
+ * real profile item, every unsupported match was demoted, every keyword was
+ * matched against the exact text the model was shown, and the score is the
+ * arithmetic over those levels rather than a number a model wrote. The only
+ * unchecked fields are the three the posting itself asserts (`role`, `company`,
+ * `location`), which are quotes rather than claims about the user.
+ */
+export interface JobMatchReview {
+  /**
+   * Minted here, server-side, and stable for the life of the tool result.
+   *
+   * It is the id of the row this match will be saved as, and it lands in the
+   * transcript with the rest of the tool output — so reopening the conversation
+   * a week later finds the same job rather than creating a second one. Generated
+   * rather than accepted from the model for the obvious reason: an id is not
+   * something a model should be able to choose.
+   */
+  jobId: string;
+  role: string;
+  company: string | null;
+  location: string | null;
+  jobUrl: string | null;
+  requirements: VerifiedRequirement[];
+  keywords: KeywordCoverage[];
+  summary: MatchSummary;
+  /** Echoed back so the card and the panel can save and re-match without
+   * hunting through the transcript for the message it came from. */
+  jobDescription: string;
+}
+
+/**
+ * The stock phrases a model reaches for instead of leaving a field out.
+ *
+ * **Observed, not imagined.** Asked to read the company and location off a
+ * posting that named neither, `gpt-5-mini` answered `location: "Not specified"` —
+ * a perfectly well-formed string that would be stored as a location, rendered
+ * under the job title in the panel, and read as a place called "Not specified".
+ *
+ * An optional field is the one place a model cannot express absence by writing
+ * less, because writing nothing looks to it like failing to answer. So absence is
+ * recovered here rather than requested in the prompt: a prompt asking for silence
+ * is a prompt that will be disobeyed occasionally, and occasionally is enough.
+ *
+ * **Kept tight and about absence only.** "Remote" is a real location and
+ * "Confidential" is a real company; neither belongs on this list. Everything here
+ * is a way of saying "there isn't one".
+ */
+const ABSENCE_PHRASES = new Set([
+  "n/a",
+  "na",
+  "none",
+  "not specified",
+  "unspecified",
+  "not stated",
+  "not mentioned",
+  "not provided",
+  "not listed",
+  "not given",
+  "unknown",
+  "unlisted",
+  "-",
+  "—",
+]);
+
+/** An optional fact from the posting, or null when the model said there wasn't
+ * one — in any of the several ways it says that. */
+export function optionalFact(value: string | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed === "") {
+    return null;
+  }
+  return ABSENCE_PHRASES.has(trimmed.toLowerCase().replace(/\.$/, ""))
+    ? null
+    : trimmed;
+}
+
+/**
+ * Verify a proposed match against the profile the request loaded.
+ *
+ * Pure, and the division of labour is the one this file exists for: the model
+ * said what each requirement is and which items support it; everything numeric
+ * happens here.
+ */
+export function buildJobMatchReview(
+  input: JobMatchInput,
+  context: {
+    jobId: string;
+    jobDescription: string;
+    /** Resolved profile items, by id — the same refs the UI renders, so a
+     * resolved citation is guaranteed to be displayable. */
+    index: ReadonlyMap<string, ProfileItemRef>;
+    /** Exactly what the model was shown, so coverage can never report a
+     * placeholder that was stripped before the model saw it. */
+    haystack: string;
+  },
+): JobMatchReview {
+  const requirements = input.requirements.map((requirement) =>
+    verifyRequirement(requirement, context.index),
+  );
+
+  return {
+    jobId: context.jobId,
+    role: input.role,
+    company: optionalFact(input.company),
+    location: optionalFact(input.location),
+    // Normalisation (and the `javascript:` refusal behind it) lives in
+    // `@resfolio/job`, so the value stored and the value rendered are cleaned by
+    // one function rather than two that can disagree.
+    jobUrl: optionalFact(input.jobUrl),
+    requirements,
+    keywords: coverKeywords(input.keywords, context.haystack),
+    summary: summarizeMatch(requirements),
+    jobDescription: context.jobDescription,
+  };
+}
+
+/**
+ * The posting a turn is about, found in the conversation rather than re-sent.
+ *
+ * **This is what lets the tool cost twenty tokens instead of four thousand.** The
+ * user pasted the posting; it is already in the transcript, and the only question
+ * is which message it was.
+ *
+ * The rule is "the most recent user message long enough to be a posting", and the
+ * length floor is doing real work: the turn that asks for a *re-match* after an
+ * enhancement says something like "recalculate", and taking the literal last
+ * message would match the profile against the word "recalculate" and report a
+ * page of gaps. Walking back finds the posting that conversation has been about
+ * all along.
+ */
+export const MIN_JOB_DESCRIPTION_CHARS = 200;
+
+export function findJobDescription(
+  messages: readonly { role: string; parts: readonly { type: string }[] }[],
+): string | null {
+  const texts: string[] = [];
+
+  for (const message of messages) {
+    if (message.role !== "user") {
+      continue;
+    }
+    const text = message.parts
+      .filter(
+        (part): part is { type: "text"; text: string } =>
+          part.type === "text" &&
+          typeof (part as { text?: unknown }).text === "string",
+      )
+      .map((part) => part.text)
+      .join("\n")
+      .trim();
+
+    if (text !== "") {
+      texts.push(text);
+    }
+  }
+
+  for (let index = texts.length - 1; index >= 0; index -= 1) {
+    const text = texts[index] ?? "";
+    if (text.length >= MIN_JOB_DESCRIPTION_CHARS) {
+      return text.slice(0, MAX_JD_CHARS);
+    }
+  }
+
+  // Nothing long enough to be a posting. Returning the last message anyway would
+  // produce a confident analysis of a job nobody advertised, which is the
+  // failure this whole file is built to avoid — so the tool has nothing to work
+  // with and says so.
+  return null;
 }
 
 /**

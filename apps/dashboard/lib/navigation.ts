@@ -6,7 +6,6 @@ import {
   Plug,
   Settings,
   Sparkles,
-  Target,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -53,18 +52,20 @@ export const NAV_ITEMS: NavItem[] = [
 /**
  * Destinations that are reachable and searchable but do not earn a sidebar row.
  *
- * The sidebar is the product's shape: eight rows that are each a place you
- * work. Job match is a **tool inside Resfolio AI**, reached from `/ai` — and
- * until Phase 7 gives it a history, a ninth permanent row would open on an
- * empty paste box every time, which tells a returning user nothing.
+ * The sidebar is the product's shape: eight rows that are each a place you work.
  *
- * The palette is a different question. Someone who has used it once will look
- * for it by name, and "I know it exists but can't find it" is exactly what
- * `cmd+k` is for. So: not in the sidebar, always in the palette.
+ * **Job match stopped being a destination in Phase 7.** It used to be `/ai/job`,
+ * listed here so `cmd+k` could find a route with no sidebar row. It is now a
+ * thing that happens *inside* a conversation — you paste a posting into `/ai` and
+ * the match appears in the transcript — so there is nothing to navigate to, and
+ * an entry that pointed at `/ai` under a second name would be one destination
+ * wearing two labels in the same list.
+ *
+ * The list is deliberately kept (empty) rather than deleted: the palette's
+ * `NAV_ITEMS + extras` composition is the shape, and the next tool-with-a-URL
+ * belongs here rather than in a component.
  */
-export const PALETTE_EXTRA_ITEMS: NavItem[] = [
-  { key: "ai-job", label: "Job match", href: "/ai/job", icon: Target },
-];
+export const PALETTE_EXTRA_ITEMS: NavItem[] = [];
 
 /** Everything `cmd+k` can navigate to, in sidebar order with the extras last. */
 export const PALETTE_ITEMS: NavItem[] = [...NAV_ITEMS, ...PALETTE_EXTRA_ITEMS];

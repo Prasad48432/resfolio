@@ -109,6 +109,7 @@ export function AiChat({
   sessionId,
   initialMessages = [],
   onTurnComplete,
+  onJobSaved,
 }: {
   profileIsEmpty: boolean;
   /** The transcript this chat writes to. Minted by the workspace when a new
@@ -121,6 +122,10 @@ export function AiChat({
   initialMessages?: AiUIMessage[];
   /** Persist. Called once per settled turn, never per token. */
   onTurnComplete?: (messages: AiUIMessage[]) => void;
+  /** A job match in this transcript finished writing its row. The workspace
+   * uses it to refresh the artefact panel — the panel reads the database, so it
+   * must not be asked to render a job before the row exists. */
+  onJobSaved?: () => void;
 }) {
   const [input, setInput] = useState("");
   const [progress, setProgress] = useState<AiProgress | null>(null);
@@ -271,6 +276,8 @@ export function AiChat({
                     // one that renders nothing is finished and empty, which is
                     // the case worth explaining.
                     settled={!busy || index < messages.length - 1}
+                    chatSessionId={sessionId}
+                    onJobSaved={onJobSaved}
                   />
                 </MessageScrollerItem>
               ))}
@@ -287,7 +294,7 @@ export function AiChat({
               {status === "submitted" ? (
                 <MessageScrollerItem>
                   <Marker data-testid={TEST_IDS.aiThinking}>
-                    <MatrixSpinner />
+                    <MatrixSpinner rows={4} cols={4} />
                     <MarkerContent>
                       {progress ? PHASE_LABELS[progress.phase] : "Sending…"}
                       {progress?.detail ? (

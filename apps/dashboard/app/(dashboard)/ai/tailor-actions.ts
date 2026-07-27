@@ -34,7 +34,19 @@ import { checkAiRateLimit, type AiMode } from "@/lib/ai/rate-limit";
 import { tailoringSystemPrompt } from "@/lib/ai/system-prompt";
 
 /**
- * Job tailoring (docs/architecture/13-ai-layer.md, Phase 5).
+ * Résumé tailoring (docs/architecture/13-ai-layer.md, Phase 5).
+ *
+ * **Moved here from `app/(dashboard)/ai/job/actions.ts` in Phase 7**, when
+ * `/ai/job` was retired and the job workflow moved into the conversation. Nothing
+ * about the actions changed; they sit beside `job-actions.ts` now because the
+ * page they are invoked from is `/ai`.
+ *
+ * One consequence of the move is worth stating, because it is invisible and it
+ * bites: **`maxDuration` is route-segment configuration**, so a Server Action
+ * inherits it from the page it is invoked from. Tailoring used to inherit
+ * `/ai/job`'s `export const maxDuration = 60`; it now inherits `/ai`'s, which is
+ * why that page has one. Without it the platform default kills a twenty-second
+ * tailoring pass and it reads as a model failure.
  *
  * **These are Server Actions, and the model call is one of them — there is no
  * third route handler.** That looks like an exception to Phase 4's pattern and is

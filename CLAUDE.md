@@ -144,7 +144,25 @@ Business-logic packages live under `domains/`:
   `sanitizeMessages` — which drops reasoning parts and trims oldest-first —
   `deriveSessionTitle`, the ceilings) and `./server`, the only code that touches
   `ai_chat_sessions`. **A stored transcript is a record, never context**: nothing
-  here is read on the way to a provider. See `domains/ai/CLAUDE.md`
+  here is read on the way to a provider. Job matches are **not** here — they are
+  `@resfolio/job`, below. See `domains/ai/CLAUDE.md`
+- `@resfolio/job` (`domains/job`) — job match sessions, which are also the
+  **Application Tracker's rows** (doc 13, Phase 7). A row is *one job the user is
+  working on*: the posting, how well their profile matched it, what they changed
+  for it, and the résumé and letter that came out. Matching is how a row gets
+  created; it is not what a row is — which is why this is not in `@resfolio/ai`,
+  whose CLAUDE.md says that package is saved chat sessions and nothing else. No
+  prompts, no provider, no model call: all of that stays in
+  `apps/dashboard/lib/ai/`. Pure root (schemas, the tracker's `status` values,
+  `ENHANCE_CONFIRM_THRESHOLD`, `deriveJobTitle`, `scoreView`, and
+  `normalizeJobUrl` — which **rejects** any scheme that is not http(s), because
+  the value comes from a chat message a model read and becomes a link somebody
+  clicks) and `./server`, the only code touching `job_match_sessions`
+  (migration `0015`). Two rules the repository keeps: **`saveJobMatch` merges
+  rather than replaces** (one row is written repeatedly as the user works through
+  a posting, so an absent key means "leave it alone"), and **`initial_score` is
+  written on insert only** — it is the baseline "74% → 86%" is measured against.
+  See `domains/job/CLAUDE.md`
 - `@resfolio/profile` (`domains/profile`) — the profile engine: canonical
   Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
   pure edit helpers (framework-free, root export), the **public handle** rules

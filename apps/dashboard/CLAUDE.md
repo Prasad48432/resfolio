@@ -54,10 +54,14 @@ animates. **The 2026-07-17 revision** then: renamed the brand token
 `accent` → `brand` and adopted **shadcn/ui as the UI foundation** (the shell is
 now shadcn's `Sidebar`); rebuilt the resume experience (public/private
 visibility, no tokens, Download PDF, a Sections config layer). **Resfolio AI
-Phases 1–6 (2026-07-27)**: `/ai` — the streaming chat foundation over the Vercel
-AI SDK v7, **read-only Profile awareness**, and the **propose → review → apply**
-editing flow; plus `/ai/job`, which is now the whole application sequence — **job
-match**, **resume tailoring**, **cover letter** (doc 13). The model reads the
+Phases 1–7 (2026-07-27)**: `/ai` — the streaming chat foundation over the Vercel
+AI SDK v7, **read-only Profile awareness**, the **propose → review → apply**
+editing flow, and saved transcripts. **Phase 7 folded the whole job workflow into
+that one conversation** and retired `/ai/job`: paste a posting, the model calls
+`analyzeJobMatch`, and the artefact panel beside the chat carries the posting, the
+résumé and the cover letter — with **job match sessions persisted in the new
+`@resfolio/job` domain**, which is already the Application Tracker's table
+(doc 13). The model reads the
 user's profile and proposes changes to it; it cannot write anything, ever — a
 proposal is an object, and only a Server Action a human triggered writes a draft.
 Tailoring writes a `ViewDefinition` on one resume document and leaves the profile
@@ -253,7 +257,10 @@ features.
   sidebar and the command palette — extend it there, never in components.
   The sidebar renders `NAV_ITEMS`; the **palette renders `PALETTE_ITEMS`**
   (= `NAV_ITEMS` + `PALETTE_EXTRA_ITEMS`), for destinations that are worth
-  finding by name but do not earn a permanent row — `/ai/job` is the first.
+  finding by name but do not earn a permanent row. **`PALETTE_EXTRA_ITEMS` is
+  empty today**: `/ai/job` was its only entry and Phase 7 retired it. Kept rather
+  than deleted, because the composition is the shape and the next
+  tool-with-a-URL belongs there rather than in a component.
 - **Profile editor** (doc 08, form-first; preview pane arrives Phase 4):
   the route reads/seeds the draft server-side via
   `@resfolio/profile/server` (`getOrCreateProfile`) and hands it to the
@@ -541,10 +548,23 @@ features.
   - Editor typography is `.rf-prose` in `app/globals.css`, inside
     `@layer components` — the same stylesheet the published-post renderer will
     use, so writing and reading do not drift.
-- **Resfolio AI** (doc 13, Phases 1–6): `/ai` is a Server Component gate over
-  one client island (`components/ai/`); `/ai/job` is a **sequence** — job match,
-  then resume tailoring, then a cover letter, all off one pasted posting.
-  Everything model-facing lives in `lib/ai/`.
+- **Resfolio AI** (doc 13, Phases 1–7): `/ai` is a Server Component gate over
+  one client island (`components/ai/`) and is now the **whole** feature —
+  conversation, job match, profile enhancement, résumé tailoring and cover
+  letter. Everything model-facing lives in `lib/ai/`.
+  - **`/ai/job` is retired (Phase 7)** and left as a `redirect("/ai")`, because
+    the URL is in people's history and there is a real destination to send it to.
+    The job workflow is now a **tool call inside the conversation** plus an
+    artefact panel beside it — see the "Job match happens in the chat" block
+    below. `PALETTE_EXTRA_ITEMS` is consequently empty: there is nothing to
+    navigate to, and an entry pointing at `/ai` under a second name would be one
+    destination wearing two labels.
+  - **`export const maxDuration = 60` on `ai/page.tsx` is load-bearing**, and it
+    moved there from `/ai/job`. `maxDuration` is route-segment config, so a
+    Server Action inherits it from the page it is invoked from;
+    `enhanceProfileForJobAction` and `tailorResumeAction` both take twenty-odd
+    seconds, and without it the platform default kills them and it reads as a
+    model failure.
   - **`lib/ai/provider.ts` is the only file in the repository that names a model
     vendor.** Everything else takes the AI SDK's `LanguageModel`. Changing
     provider or model is editing that file — do not import `@ai-sdk/openai` (or
@@ -561,16 +581,21 @@ features.
       unfunded key mounts the UI and fails mid-stream via `onError`; the client
       currently renders that as a generic "didn't go through". Making that
       legible is an outstanding fix, not a designed behaviour.
-  - **The three route handlers exist because a stream is the product
-    requirement, and for no other reason.** Doc 06 allows a route "where the
-    caller isn't our React app": `useChat` (`/api/ai/chat`) and `useObject`
-    (`/api/ai/job`, `/api/ai/cover-letter`) all need a response body that is still
-    being written, which a Server Action cannot return. The letter is the clearest
-    case in the feature — the output is prose, so streaming _is_ the product rather
-    than a stand-in for it. **Every mutation stays a Server Action** — accepting a
-    proposed change, applying tailoring, and Phase 7's job-application save. All
-    three routes read; none writes. Do not add a fourth for anything that isn't
-    streamed, and note Phase 5 deliberately isn't one (see below).
+  - **The route handlers exist because a stream is the product requirement, and
+    for no other reason.** Doc 06 allows a route "where the caller isn't our
+    React app": `useChat` (`/api/ai/chat`) and `useObject`
+    (`/api/ai/cover-letter`) need a response body that is still being written,
+    which a Server Action cannot return. The letter is the clearest case in the
+    feature — the output is prose, so streaming _is_ the product rather than a
+    stand-in for it. **Every mutation stays a Server Action** — accepting a
+    proposed change, applying tailoring, saving a transcript, saving a job.
+    Neither AI route writes.
+    **Phase 7 removed one rather than adding one**: `/api/ai/job` is gone,
+    because the match became a tool call inside the chat's existing stream.
+    `GET /api/ai/job/[id]/cover-letter` is not a replacement for it and calls no
+    model — it is a **download**, taking the same exception
+    `/api/resumes/[id]/pdf` does: the product need is `Content-Disposition`,
+    which an action cannot return.
   - **Guard order is the design**: `requireSession` → kill switch (503) →
     configured (501) → rate limit (429) → parse/size (400/413) → model. Each is
     cheaper than the next, so a flood costs a cookie lookup, not an OpenAI
@@ -732,8 +757,9 @@ features.
     filled square centred in a circle, which is what looked unfinished.
   - **Chat sessions are saved (Phase 7)** — `@resfolio/ai` + `ai_chat_sessions`
     (migration **0014**). `/ai?c=<id>` is a **search parameter, not a route
-    segment**: `/ai/job` already occupies that position, and a dynamic sibling
-    would make "job" an id nobody may be assigned. The transcript is loaded
+    segment**: `/ai/job` occupied that position when the decision was made, and
+    the reasoning outlived it — a dynamic segment here makes every future static
+    child an id nobody may be assigned. The transcript is loaded
     server-side and user-scoped, so a stranger's id resolves to nothing.
     - **A stored transcript is a record, never context.** Nothing reads the table
       on the way to a provider — the model's context is still built per request.
@@ -759,10 +785,43 @@ features.
     `abortSignal`, so cancelling actually stops generation and therefore billing.
   - **Usage is logged, not tabled** (`onFinish` → `createLogger("ai")` with
     user, model, mode, token counts). A billing meter later reads that call site.
-  - **Job match (`/ai/job`) is a route, not a chat mode** (doc 13's open
-    question, settled in Phase 4). One input, one result — a conversation
-    metaphor would add turn-taking to something with exactly one turn and bury a
-    score inside a scrolling transcript.
+  - **Job match happens in the chat** (doc 13's open question: answered "route,
+    not chat mode" in Phase 4 and **reversed in Phase 7**). Phase 4 was right
+    that one analysis is one turn and wrong that the analysis was the workflow —
+    read a match, change the profile, look again, tailor a résumé, write a letter
+    is five turns, and `/ai/job` had ended up modelling it as three stacked
+    panels under a textarea: a conversation rendered as a form.
+    - **`analyzeJobMatch` is the chat's second tool** (`lib/ai/tools.ts`, built
+      by `createAiTools`). Its **input is the analysis** — role, company,
+      location, the posting's URL, requirements, keywords — so it streams as tool
+      input and costs no second model call, and its **`execute` is pure**, like
+      the proposal tool's: verify, demote, count, return. **The posting is not an
+      input.** It is closed over from the conversation via `findJobDescription`,
+      which walks back to the most recent user message long enough to be a
+      posting — that is what makes "recalculate" work as a turn of its own, and
+      what stops the model re-emitting 4,000 characters as arguments.
+    - **The tool writes nothing; `JobMatchCard` does**, once, through
+      `saveJobMatchAction` on a `useRef`-guarded effect. Same shape as the
+      transcript's save. The job id is minted server-side inside the tool result
+      and lives in the transcript, so reopening a chat re-saves the same job.
+    - **`JobPanel` reads the database, not the transcript.** The card renders one
+      tool result; the panel renders the *job*, which outlives that message and
+      gains a résumé and a letter afterwards. It refreshes on a **counter**
+      (`jobRefresh`) rather than a callback or `router.refresh()`, because
+      re-rendering the route would remount the transcript — and the letter
+      someone may be mid-way through generating.
+    - **Enhancement keeps per-change consent.** `enhanceProfileForJobAction`
+      returns a `ProfileChangeReview` through the same `reviewProfileChanges`
+      guard, rendered by the same `ProfileProposal` with only the write injected
+      (`applyJobEnhancementAction`, which also records what the posting caused).
+      A job asking for a rewrite changes nothing about the write path.
+    - **The `<70%` warning is a confirmation, not a gate**, and no server code
+      consults the score — the constraint is the guard, which is identical either
+      way. The threshold lives in `@resfolio/job`, because it describes what a
+      match *means* and the dialog copy quotes it.
+    - **The re-check is asked for, never automatic.** A new score costs a model
+      call; `initial_score` is written on insert only, which is what makes
+      "74% → 86%" a measurement rather than two numbers.
     - **`lib/ai/job-analysis.ts` is where every number comes from.** The model
       classifies `strong|partial|gap` and cites profile item **ids**; this file
       resolves the citations, **demotes a match whose citations resolve to
@@ -773,28 +832,35 @@ features.
       direction of that error.
     - **`evidence` comes before `level` in the schema, deliberately.**
       Structured output is generated in schema order, so the model must find its
-      support before stating a verdict, and a streamed row never displays a
-      level that hasn't been verified. A tidy-up that alphabetised those fields
-      would silently undo both; `job-analysis.test.ts` guards it.
+      support before stating a verdict. A tidy-up that alphabetised those fields
+      would silently undo it; `job-analysis.test.ts` guards it.
     - **The page ships the item index and the context JSON, never the raw
       profile.** Keyword coverage is checked against _exactly what the model
-      read_, so a stripped starter placeholder can't be reported as coverage.
-    - **The pasted posting is the only third-party-authored prompt in this
-      product.** It goes in as a delimited user message, never spliced into the
-      system prompt. The real guarantee is that the route has no tools and no
-      write path.
-  - **Resume tailoring (Phase 5) lives on `/ai/job` and has no route handler.**
-    `app/(dashboard)/ai/job/actions.ts` holds all three actions — the model call
-    included. That is doc 13's rule applied, not abandoned: **the guard needs the
+      read_ (`AiToolContext.profileJson`, **not** `JSON.stringify(profile)`), so
+      a stripped starter placeholder can't be reported as coverage.
+    - **The pasted posting is untrusted third-party text.** In the chat it is an
+      ordinary user message; in `enhanceProfileForJobAction` and
+      `tailorResumeAction` it goes in delimited, never spliced into the system
+      prompt. The real guarantee is structural — the model's only tools return
+      objects, and every write is an action a human triggered.
+    - **`MAX_REQUIREMENTS` is 12, down from 20, and it is a latency control.**
+      Structured output is generated in one uninterrupted run before anything is
+      shown, so every extra requirement is output tokens the user waits through
+      behind a blank panel.
+  - **Resume tailoring (Phase 5) has no route handler.**
+    `app/(dashboard)/ai/tailor-actions.ts` holds all three actions — the model
+    call included. (It was `ai/job/actions.ts` until Phase 7 retired that route;
+    the actions did not change, and `ResumeTailor` now renders inside `JobPanel`
+    beside the résumé it edits.) That is doc 13's rule applied, not abandoned: **the guard needs the
     profile's content** (the growth rules compare against stored values), so the
     review must be built server-side, so the client has nothing to render as it
     arrives, so a stream would be streaming to nobody. Phase 4 could stream
     because verifying a match needed only an item index. Do not "improve" this
     into a third route.
-    - **`export const maxDuration = 60` on `job/page.tsx` is load-bearing.**
-      `maxDuration` is route-segment config, so a Server Action inherits it from
-      the page it is invoked from; without it the platform default kills a
-      twenty-second tailoring pass and it reads as a model failure.
+    - **Its `maxDuration` now comes from `ai/page.tsx`** — see the top of this
+      section. A Server Action inherits the segment config of the page it is
+      invoked from, so retiring `/ai/job` moved that ceiling rather than removing
+      the need for it.
     - **The guard ladder is the routes' ladder in action form** —
       `requireAiBudget` (enabled → configured → rate limit under its own `tailor`
       mode), then the JD boundary via the same tested `parseJobRequest`, then the
@@ -819,11 +885,11 @@ features.
     - **`components/ai/change-diff.tsx` is shared by both reviews** — the chat
       proposal and the tailoring review must look identical, and a second copy
       would drift on which side is the new one. `resume-tailor.tsx` renders
-      **inside `JobAnalyzer`**, which owns the pasted posting: a second textarea
-      is the surest way to have the analysis and the tailoring disagree about
-      which job the user meant.
-    - **The page ships three fields per resume**, not documents — a
-      `ViewDefinition` in a browser bundle to answer a question about a name.
+      **inside `JobPanel`** (it was `JobAnalyzer` before Phase 7), which reads
+      the posting off the saved job: a textarea of its own is the surest way to
+      have the match and the tailoring disagree about which job the user meant.
+    - **The page ships four fields per resume** (`TailorTarget`), not documents —
+      a `ViewDefinition` in a browser bundle to answer a question about a name.
     - **Known lost-update window**: a `/resumes/[id]` tab open from before a
       tailoring pass overwrites the new deltas on its next autosave (the editor
       holds the whole `view` in client state and documents carry no `rev`). Same
@@ -854,14 +920,38 @@ features.
     - **A clean result is stated out loud** (`TEST_IDS.letterChecked`). "We checked
       and found nothing" is the claim that distinguishes this from a product that
       shrugged; a user who only ever sees the warning version can't tell.
-    - **Nothing is persisted, and the UI says so.** A letter's home is a column on
-      the job application (Phase 7), by the document domain's rule that documents
-      carry no content fields.
+    - **A finished letter is now persisted (Phase 7)** — on the job match
+      session, as its *parts*, not as rendered prose. That is the home Phase 6
+      predicted, and it is a `job_match_sessions` column rather than a document,
+      by the document domain's rule that documents carry no content fields. The
+      greeting and sign-off are still composed by the platform, so what is stored
+      has no field for either.
+    - **The PDF is drawn by `pdf-lib`, not by Chromium** (`lib/pdf/`), and that
+      is deliberately unlike the résumé's export. A résumé is a template —
+      arbitrary CSS — so it needs a rendering engine on Fly; a letter is one
+      fixed layout, so drawing it directly costs no second service, no
+      `RENDER_SECRET` hop and no `PDF_EXPORT_ENABLED`. Three things not to break:
+      **the fonts are vendored** (PT Serif, because it ships *static* Bold —
+      pdf-lib embeds only the default instance of a variable font, so a variable
+      family gives you a bold that silently isn't); **layout is split from
+      drawing** (`cover-letter-layout.ts`, pure + tested, because a line drawn
+      below the bottom edge is invisible in a file somebody sends to an
+      employer); and **`sanitize` is load-bearing** — pdf-lib *throws* on a
+      character the font cannot encode, so one smart quote would fail the whole
+      download.
   - **`lib/ai/system-prompt.ts`'s `CHANGE_LIMITS` is shared and must stay
-    shared.** Two workflows now emit `ProfileChange`s validated by the same domain
-    code (chat → profile draft, tailoring → resume view). Restating those five
-    lines in the second prompt guarantees one copy drifts, and the one that drifts
-    is the one nobody rereads.
+    shared**, and so are `BULLET_FORMULA` and `PROJECT_FORMULA` beside it. Three
+    workflows now emit `ProfileChange`s validated by the same domain code (chat →
+    profile draft, tailoring → resume view, job enhancement → profile draft).
+    Restating those lines in a second prompt guarantees one copy drifts, and the
+    one that drifts is the one nobody rereads.
+    - **The bullet formula is a shape, not a quota.** Handed eight numbered
+      patterns a model reads them as eight bullets to write, so the count is
+      disclaimed in the formula *and* by `CHANGE_LIMITS` beside it — and the
+      domain's growth rule refuses a longer `highlights` list independently.
+    - **The `[result]` slot is where a metric gets invented**, so `TRUTHFULNESS`'
+      no-numbers rule is restated there in the specific. A rule stated far from
+      its temptation is a rule that loses.
   - **`vitest.config.ts` now aliases `@/`** — needed because `rate-limit.ts` is
     the first unit-tested lib module that reaches env.
 - **String arrays** (skills, technologies) are edited with `TagsField`
