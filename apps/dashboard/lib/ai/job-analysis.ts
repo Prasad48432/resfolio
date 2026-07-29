@@ -60,17 +60,52 @@ const requirementSchema = z.object({
  */
 export const MAX_REQUIREMENTS = 12;
 
+/**
+ * One term the posting leans on — and, when the posting offered a choice, the
+ * options it accepts.
+ *
+ * **This shape exists because "Build features using Angular/React and
+ * Java/Node.js" was being read as four separate requirements, two of which were
+ * then reported missing from a profile that fully satisfies the posting.** A
+ * candidate who knows React and Node.js meets that sentence completely; telling
+ * them they lack Angular and Java is worse than unhelpful, because the whole
+ * value of this screen is that its claims are checkable.
+ *
+ * **The split is the model's judgement, not a regex, and that is the load-bearing
+ * decision.** Splitting on `/` in code gets "Angular/React" right and "CI/CD",
+ * "TCP/IP", "UI/UX" and "I/O" wrong — those are single terms that happen to
+ * contain a slash, and no stoplist of them is ever finished. Deciding whether a
+ * slash means "or" is a reading-comprehension question, which is the one thing
+ * the model in this pipeline is actually better at than the code around it. So it
+ * reports the structure and this file does the arithmetic, exactly as it does for
+ * levels and the score.
+ *
+ * `anyOf` is **empty for an atomic term** rather than optional: strict structured
+ * output requires every property present (the rule `tailor.ts` documents), and an
+ * empty list says "no alternatives" as clearly as an absent field.
+ */
+const keywordSchema = z.object({
+  /** As the posting spells it, alternation and all: `Angular/React`, `CI/CD`. */
+  term: z.string().trim().min(1).max(60),
+  /** The options, when `term` offers a choice. `["Angular", "React"]` for
+   * `Angular/React`; empty for `CI/CD`, which is one thing. */
+  anyOf: z.array(z.string().trim().min(1).max(60)).max(6),
+});
+
+export type RawKeyword = z.infer<typeof keywordSchema>;
+
 export const jobAnalysisSchema = z.object({
   /** The role as the posting states it. Shown as the analysis' title so the
    * user can tell two pasted JDs apart. */
   role: z.string().trim().max(160),
   requirements: z.array(requirementSchema).min(1).max(MAX_REQUIREMENTS),
   /**
-   * Terms the posting leans on. **The model extracts them; it does not say
-   * whether the profile has them** — that is a string search, and a string
-   * search is not something to pay a model to approximate.
+   * Terms the posting leans on. **The model extracts them and says which are
+   * alternatives; it does not say whether the profile has them** — that is a
+   * string search, and a string search is not something to pay a model to
+   * approximate.
    */
-  keywords: z.array(z.string().trim().min(1).max(60)).max(30),
+  keywords: z.array(keywordSchema).max(30),
 });
 
 export type JobAnalysis = z.infer<typeof jobAnalysisSchema>;
@@ -103,7 +138,7 @@ export const jobMatchInputSchema = z.object({
    * somebody clicks. */
   jobUrl: z.string().trim().max(2_000).optional(),
   requirements: z.array(requirementSchema).min(1).max(MAX_REQUIREMENTS),
-  keywords: z.array(z.string().trim().min(1).max(60)).max(30),
+  keywords: z.array(keywordSchema).max(30),
 });
 
 export type JobMatchInput = z.infer<typeof jobMatchInputSchema>;
@@ -122,8 +157,16 @@ export interface VerifiedRequirement {
 }
 
 export interface KeywordCoverage {
+  /** As the posting spells it — `Angular/React`, not one of its halves. */
   keyword: string;
   present: boolean;
+  /** The options this term accepts, when it offered a choice. Empty for an
+   * atomic term. Rendered so "Angular/React ✓" can say *which* half satisfied
+   * it, which is the difference between a claim and a checkable claim. */
+  alternatives: string[];
+  /** Which alternative the profile actually has, when `present` and the term
+   * offered a choice. Null for an atomic term or a genuine gap. */
+  matched: string | null;
 }
 
 export interface MatchSummary {
@@ -225,24 +268,52 @@ export function isKeywordPresent(haystack: string, keyword: string): boolean {
   return new RegExp(`${lead}${escapeRegex(term)}${tail}`, "i").test(haystack);
 }
 
+/**
+ * Coverage, with **alternatives satisfied by any one option**.
+ *
+ * A posting that says "Angular/React" is asking for one of them. Reporting the
+ * unmatched half as missing turns a fully-satisfied requirement into a warning,
+ * and a warning list with false entries in it is one nobody reads — the same
+ * reasoning the cover-letter scanner is built on.
+ *
+ * The `anyOf` list comes from the model (see {@link keywordSchema}); this only
+ * decides whether *any* of them is in the profile, and records which, so the
+ * screen can say "React ✓" under "Angular/React" rather than a bare tick.
+ */
 export function coverKeywords(
-  keywords: readonly string[],
+  keywords: readonly RawKeyword[],
   haystack: string,
 ): KeywordCoverage[] {
   const seen = new Set<string>();
   const coverage: KeywordCoverage[] = [];
 
   for (const keyword of keywords) {
-    const key = keyword.trim().toLowerCase();
+    const term = keyword.term.trim();
+    const key = term.toLowerCase();
     // Models repeat themselves across a long list; showing "React" twice reads
     // as a bug in the analysis rather than a quirk of the extraction.
     if (key === "" || seen.has(key)) {
       continue;
     }
     seen.add(key);
+
+    const alternatives = keyword.anyOf
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== "");
+
+    // An atomic term is its own single candidate, so there is one code path
+    // rather than a branch that can disagree with itself.
+    const candidates = alternatives.length > 0 ? alternatives : [term];
+    const matched =
+      candidates.find((candidate) => isKeywordPresent(haystack, candidate)) ??
+      null;
+
     coverage.push({
-      keyword: keyword.trim(),
-      present: isKeywordPresent(haystack, keyword),
+      keyword: term,
+      present: matched !== null,
+      alternatives,
+      // Null when the term was atomic: "React ✓ satisfies React" is noise.
+      matched: alternatives.length > 0 ? matched : null,
     });
   }
 

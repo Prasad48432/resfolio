@@ -159,3 +159,35 @@ export function structuredProviderOptions(): Record<
 > {
   return { openai: { reasoningEffort: "low" } };
 }
+
+/**
+ * Provider settings for the **chat**, which until now sent none at all.
+ *
+ * The note above says reasoning was "deliberately not applied to the chat", and
+ * the reasoning behind that was sound — a chat turn works out which of a dozen
+ * profile items an instruction refers to, and its output streams, so thinking
+ * time hides behind visible text. What it missed is that **the thinking happens
+ * before the first character, not behind it**: the default model is a reasoning
+ * model, `AiMessage` deliberately renders no reasoning parts, and the SDK opens
+ * the assistant message the moment the stream starts. So the entire reasoning
+ * budget is spent against an empty bubble. That is the several-second stare this
+ * app already had to grow a `data-progress` crumb and an `aiWorking` indicator to
+ * explain — two pieces of UI apologising for latency that was configuration.
+ *
+ * `low` rather than `minimal`: the chat still has to resolve "tighten the second
+ * bullet on the Acme role" to an item id and call a tool with it, and `minimal`
+ * is the setting that makes a model answer in prose where it should have called
+ * the tool — which here means the diff never appears and the turn looks broken.
+ * `low` keeps the tool-selection step and drops the deliberation this workload
+ * does not have.
+ *
+ * `textVerbosity: "low"` is the other half, and it is a *product* setting rather
+ * than a speed one. Every prompt in `system-prompt.ts` already asks for at most a
+ * sentence or two beside a diff the user can read for themselves; verbosity is
+ * the same instruction in the one place the model cannot talk itself out of. It
+ * is also the cheapest possible latency win, because tokens not written are
+ * seconds not waited.
+ */
+export function chatProviderOptions(): Record<string, Record<string, string>> {
+  return { openai: { reasoningEffort: "low", textVerbosity: "low" } };
+}

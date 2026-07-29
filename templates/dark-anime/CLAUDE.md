@@ -54,7 +54,7 @@ Two deliberate departures:
 - **`client/`** — the islands: `command-palette`, `index-rail`, `reveal`,
   `banner-embers`, `github-graph`. (No theme toggle — the template is dark-only.)
 - **`pages/`** — one renderer per `PortfolioPageKind` this template declares.
-  **No `resume`**: a portfolio presents the profile; the résumé is a separate
+  **No `resume`**: a portfolio presents the profile; the resume is a separate
   document surface in the dashboard, so `/resume` is not declared and the
   platform 404s it for this template.
 
@@ -74,7 +74,7 @@ Two deliberate departures:
   read as a SaaS marketing hero instead of profile content. The banner is the
   only thing in the hero that spans the column.
 - **`banner-embers` is the one island allowed to render nothing.** Every other
-  island here enhances markup that is already in the HTML; this one *is* the
+  island here enhances markup that is already in the HTML; this one _is_ the
   effect. That's only acceptable because it is pure atmosphere over a
   decorative image — no content, no destination — so `prefers-reduced-motion`
   bailing out early costs the page literally nothing. It also stops its rAF
@@ -92,6 +92,14 @@ Two deliberate departures:
 - **Dark only.** One palette on `.rf-site`; no theme toggle, no `data-theme`, no
   `prefers-color-scheme`. The GitHub graph island is pinned to `colorScheme="dark"`
   to match.
+- **The experience mark belongs to the header, not to the row.** `.rf-exp-row`
+  is a column of two — `.rf-exp-head` (mark · company/role · dates) and
+  `.rf-exp-body` at full width below it. The mark used to be the row's own first
+  flex child, which made it a column running the entry's full height, so the
+  description was indented under it: 2rem plus a 0.875rem gap is a fifth of a
+  360px screen given up permanently to identify a company already named on the
+  line above. Desktop is unchanged; if you move the mark back into the content
+  flex, the mobile gutter comes back with it.
 - **The rail lists only sections that exist.** Built from the same conditions as
   the sections themselves — a rail pointing at an empty anchor is worse than no
   rail.
@@ -99,7 +107,7 @@ Two deliberate departures:
   server in `paletteItems` and passed to the island (which never constructs a
   URL). Writing is included the way the home page links it — native post → the
   on-site `/blog/<slug>`, imported → its external URL, neither → skipped. There
-  is **no Résumé entry** (the route is gone).
+  is **no Resume entry** (the route is gone).
 - **Writing is one list of one shape.** A post written natively in Resfolio and
   an article imported from RSS arrive identically (the blog domain projects
   posts into the ProfileView before this template runs), so `WritingCard` never
@@ -110,7 +118,7 @@ Two deliberate departures:
   collapse cleanly.
   - **Row separators sit on `.rf-writing > *`, not on `.rf-write`.** Each card
     is wrapped by the `Reveal` island, so `.rf-write:first-child` is true for
-    *every* card — each is the only child of its own wrapper — and styling the
+    _every_ card — each is the only child of its own wrapper — and styling the
     card directly erases every rule in the list.
   - **`styles.ts` is one template literal: no backticks in its comments.** A
     stray pair closes the string and the file stops parsing.

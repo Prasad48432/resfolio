@@ -18,12 +18,50 @@
  * message. Generous enough that a real editing conversation fits. */
 export const MAX_MESSAGES = 30;
 
-/** One message. A profile instruction is a sentence or two; this leaves room
- * for someone pasting a paragraph without leaving room for a novel. */
-export const MAX_CHARS_PER_MESSAGE = 8_000;
+/**
+ * A pasted job description — the largest untrusted text this product accepts,
+ * and the number every other message limit is derived from.
+ *
+ * **12,000 characters, ≈3,000 tokens, ≈2,000 words.** The shape of the data
+ * decides it: an ordinary posting is 2,000–5,000 characters, a verbose
+ * enterprise one with benefits, legal boilerplate and a company history runs
+ * 8,000–12,000, and anything past that is not a longer posting — it is a
+ * careers page pasted whole, nav and footer and three other roles included.
+ * Raising the ceiling to fit that does not buy a better analysis; it buys an
+ * analysis of the wrong text, at several times the price, several seconds
+ * slower, with the actual requirements diluted among the boilerplate the
+ * prompt then has to be told to ignore.
+ *
+ * It was 20,000 and unreachable, which is the more interesting half of the
+ * story: a posting arrives through the chat, so the *message* limit was the
+ * real ceiling and this one was decoration. Two limits where one binds is one
+ * limit and one comment. {@link MAX_CHARS_PER_MESSAGE} is now derived from
+ * this, so the number a user is told is the number that applies.
+ */
+export const MAX_JD_CHARS = 12_000;
+
+/**
+ * One message.
+ *
+ * **A pasted posting is the largest legitimate message, so this _is_ the JD
+ * limit.** A profile instruction is a sentence or two; everything above that is
+ * somebody pasting a job description into the chat, which is the product's main
+ * input path. Any gap between the two numbers is a gap in which the user is told
+ * one limit and refused by another.
+ */
+export const MAX_CHARS_PER_MESSAGE = MAX_JD_CHARS;
+
+/** When to start showing the character count in the composer — quiet until it
+ * could plausibly matter, so an ordinary sentence never gets a counter next to
+ * it. */
+export const COMPOSER_COUNTER_THRESHOLD = Math.round(
+  MAX_CHARS_PER_MESSAGE * 0.75,
+);
 
 /** The whole conversation. The binding limit in practice — `MAX_MESSAGES`
- * alone would still allow 30 × 8k. */
+ * alone would still allow 30 × {@link MAX_CHARS_PER_MESSAGE}. Three full-length
+ * postings plus the conversation around them, after which the oldest turns are
+ * dropped rather than paid for again. */
 export const MAX_TOTAL_CHARS = 40_000;
 
 /** Output ceiling passed to the model. The failure mode this prevents is not a
@@ -99,14 +137,6 @@ export const MAX_CHAT_OUTPUT_TOKENS = 8_000;
  * truncated profile can never be mistaken for a short one.
  */
 export const MAX_PROFILE_CONTEXT_CHARS = 24_000;
-
-/**
- * A pasted job description (Phase 4). Defined now, with the other ceilings,
- * because a JD is the largest untrusted text this product will ever accept and
- * the limit belongs beside the ones it will be compared against — not invented
- * later in whichever file happens to need it first.
- */
-export const MAX_JD_CHARS = 20_000;
 
 /** Requests per user per window, and the window. A conversation is a handful of
  * messages; this stops a stuck client (or someone holding down send) from

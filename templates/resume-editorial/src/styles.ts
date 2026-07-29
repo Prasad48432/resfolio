@@ -184,11 +184,19 @@ export function buildResumeStyles(config: ResumeEditorialConfig): string {
   flex: none;
   font-size: var(--rf-size-dates);
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  /* Lora sets a wide word space, which made "Sep 2021 – Jun 2025" read as
-     loosely spaced against the tight two-column rows. Pull the inter-word gaps
-     in (word-spacing only — no letter-spacing, so the PDF text layer keeps each
-     date as one run and stays ATS-extractable). */
+  /* No tabular-nums, and that is the fix for "Jul 2025" looking letter-spaced.
+     Tabular figures give every digit the same advance width, sized for the
+     widest one — so in Lora a "1" carries the side bearings of a "0" and the
+     year reads as though it had tracking applied to it. Tabular figures exist
+     to align digits in a *column*; these dates sit at the right edge of a flex
+     row, each a different string, so nothing was ever aligning and the cost was
+     paid for nothing.
+
+     The tightening stays on word-spacing only — Lora's word space is wide, and
+     "Sep 2021 – Jun 2025" reads loose against these tight two-column rows.
+     Deliberately not letter-spacing, in either direction: any non-zero tracking
+     makes Chromium emit each glyph as its own run, so the PDF's text layer
+     reads "2 0 2 5" and an ATS parses the date as gibberish. */
   word-spacing: -0.12em;
   white-space: nowrap;
 }

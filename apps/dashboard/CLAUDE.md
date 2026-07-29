@@ -10,6 +10,7 @@ This application is responsible for
 
 - Authentication (sign in / sign up / session)
 - Profile editor (the single source of truth: role, projects, bio, skills)
+- Job Tracker — the application board and the flow view over `@resfolio/job`
 - Sources — the import workspace (GitHub, Dev.to, RSS, Stack Overflow)
 - Portfolio theme + custom domain configuration
 - Resume configuration, sharing, and PDF export
@@ -59,7 +60,7 @@ AI SDK v7, **read-only Profile awareness**, the **propose → review → apply**
 editing flow, and saved transcripts. **Phase 7 folded the whole job workflow into
 that one conversation** and retired `/ai/job`: paste a posting, the model calls
 `analyzeJobMatch`, and the artefact panel beside the chat carries the posting, the
-résumé and the cover letter — with **job match sessions persisted in the new
+resume and the cover letter — with **job match sessions persisted in the new
 `@resfolio/job` domain**, which is already the Application Tracker's table
 (doc 13). The model reads the
 user's profile and proposes changes to it; it cannot write anything, ever — a
@@ -158,6 +159,71 @@ features.
   - Marketing entrances (`animate-fade-up`/`fade-scale`/`focus-in`, 550–900ms)
     are `apps/web`'s. Product overlays use `animate-overlay-in`/`modal-in`/
     `popover-in` (150–200ms).
+  - **The matrix loader reads as a light, not as a coloured dot**
+    (`components/status/matrix.tsx`, reworked 2026-07-29). It looked flat and the
+    obvious diagnosis — "the colour isn't bright enough" — was only a third of it:
+    a real light source has a **white-hot centre** and carries its hue in the
+    falloff, so a dot filled flat in any accent reads as a slightly larger dot
+    whatever value you pick. Four things together, and the first two are the ones
+    that matter: `--matrix-head` (a separate core colour, `--color-surface` rather
+    than a hard-coded white so it does not invert in light mode) inside a gradient
+    that fades to the accent; a **two-radius bloom** merged *under* `SourceGraphic`
+    so the halo throws past the edge while the core stays sharp — merged the other
+    way round it buries the dot in its own light and looks out of focus; a
+    **six-cell tail** with a floor under the dim end, because the eye reads
+    direction from the length of the fade and cells at a literal 0.05 are
+    indistinguishable from the unlit grid; and a 1.35 head scale. The accent is
+    `brand-soft`, not `brand-3` — the soft peach was picked when this was
+    background furniture, and beside a streaming answer it is the one thing on
+    screen claiming work is happening.
+  - **Status text beside a loader shimmers** (`.shimmer`, in `@resfolio/design`).
+    A static line next to a moving grid reads as the label having got stuck, so
+    every "we are working" string wears it: the chat's progress crumbs,
+    `aiWorking`, the job-match and cover-letter panels, `MatrixLoader`'s label.
+    It implements shadcn's `shimmer` contract — same class names, same custom
+    properties, same `shimmer-none` escape hatch — **written rather than
+    installed**: the documented route is `@import "shadcn/tailwind.css"`, and
+    dropping a third-party utility sheet of unknown layering into this cascade
+    (layered design package, deliberately *un*layered dark palette) to obtain one
+    keyframe is not a trade worth making. Three things it must keep doing: derive
+    the highlight from **`currentColor`** via relative colour syntax, so it is
+    correct on muted copy, on brand text and in both themes with nothing passed;
+    **restore `-webkit-text-fill-color` in every off-branch** (reduced motion,
+    unsupported `oklch(from …)`) — a naive `animation: none` leaves transparent
+    glyphs painted by a background that has stopped moving, i.e. blank space
+    where the status was; and carry **`box-decoration-break: clone`**, or an
+    inline element that wraps renders every line after the first as nothing.
+    **The geometry is scale-free, and it has to be.** The sweep layer is
+    `200%` of the element and `--shimmer-spread` is a *percentage* of that —
+    a departure from shadcn's length-based `shimmer-spread-<number>`, forced by
+    the fact that most text wearing this class is two words. A fixed 7rem band
+    was wider than a 4rem "Sending…", so every glyph lit at once and nothing
+    moved; and because `background-position` percentages resolve against
+    (box − image) width, which goes negative once the image is wider than the
+    box, the animation also ran backwards and mostly off-screen. Both failures
+    are silent — the text renders, it just never shimmers — which is why the
+    keyframe's `150% → -50%` endpoints look inverted and are correct.
+  - **And it rotates: `WorkingText` (`components/status/working-text.tsx`) over
+    the banks in `lib/ai/status-words.ts`** (2026-07-29). The shimmer fixed a
+    line that looked *stuck*; it could not fix a line that had nothing further to
+    say for the thirty seconds a reasoning model takes. Every wait now cycles
+    short present participles — "Thinking…", "Weighing it up…", "Joining the
+    dots…" — one every 2.4s.
+    - **A bank is a set of synonyms for one running phase, never a sequence of
+      stages.** That is the whole of what keeps this inside doc 13's "no fake
+      progress": rotating within a bank claims nothing new, and only the server
+      reporting a phase change swaps the bank. Adding a word that names another
+      phase's work turns the rotation into an invented pipeline. Banks are pure,
+      tested data; the words are ≤3 words and carry no punctuation (the ellipsis
+      belongs to the renderer).
+    - **The cycling word is `aria-hidden`, and the bank's first word is rendered
+      once in a `sr-only` span.** A live region changing every 2.4s is re-read
+      every 2.4s for the length of the wait; the rotation is a visual answer to a
+      visual problem and has nothing to say to someone not looking at it. Which
+      is also why index 0 carries the object ("Reading your profile") — it is the
+      announcement, and what reduced motion pins for the whole wait.
+    - **The interval is deliberately not the shimmer's 2s.** Locked together they
+      beat, and the word swaps on the same frame the highlight crosses it.
 - **CSS layering**: base rules in `@resfolio/design` live inside `@layer base`.
   Unlayered CSS beats _every_ cascade layer, so an unlayered rule there would
   override Tailwind utilities app-wide with no way to opt out (this is what made
@@ -181,6 +247,20 @@ features.
       height so full-height routes can fill it, while the `0` min lets an ordinary
       taller page overflow and scroll. A `flex-1` child would get the definite
       height but could never exceed it.
+    - **`grid-cols-[minmax(0,1fr)]` is required for the same reason on the other
+      axis, and its absence was a real bug.** An implicit grid column is an `auto`
+      track whose _minimum_ is the item's min-content width, so the track could not
+      shrink below the widest unbreakable thing anywhere on the page — and
+      everything in the track grew to match. That is how one long token in a pasted
+      job description pushed the **page header** off the right edge of a phone.
+      The subtlety worth knowing: `overflow-wrap: break-word` (Tailwind's
+      `wrap-break-word`, which `MessageContent` sets) breaks a long word when it
+      _would_ overflow but deliberately does **not** reduce the min-content
+      contribution — so the paragraph rendered wrapped while the track sized to the
+      unbroken word. Use **`wrap-anywhere`** (`overflow-wrap: anywhere`) wherever
+      model output or pasted text is rendered; it is the one that counts in the
+      intrinsic size. `RouteTransition` carries `min-w-0` for the same reason; keep
+      both, or the layout's correctness depends on the other file not being edited.
     - **A page fills the viewport by asking for `min-h-0 flex-1`** on its `Page`
       (only `/ai` does). Everything else grows and the region scrolls, exactly as
       body scroll used to.
@@ -255,7 +335,9 @@ features.
   `lib/testids.ts` registry (static keys or the exported helper functions).
 - **Nav**: `lib/navigation.ts` is the single IA source consumed by the
   sidebar and the command palette — extend it there, never in components.
-  The sidebar renders `NAV_ITEMS`; the **palette renders `PALETTE_ITEMS`**
+  **A `key` must equal the first URL segment** — the sidebar's active state and
+  `sectionLabelFor`'s top-bar title both match on `/${key}`, so a mismatch breaks
+  both silently. The sidebar renders `NAV_ITEMS`; the **palette renders `PALETTE_ITEMS`**
   (= `NAV_ITEMS` + `PALETTE_EXTRA_ITEMS`), for destinations that are worth
   finding by name but do not earn a permanent row. **`PALETTE_EXTRA_ITEMS` is
   empty today**: `/ai/job` was its only entry and Phase 7 retired it. Kept rather
@@ -496,16 +578,112 @@ features.
   revalidates `/profile` too because the import mutates the profile draft.
   Nothing reaches the profile without an explicit Import click; imported items
   are ordinary profile content, and publish stays at `/profile`.
-  **A connector may never propose the user's identity** (2026-07-17): no
-  candidate kind carries name/summary/location/avatar and `basics` is
-  not a route target. The one non-section destination is `profileLink` →
-  "Profile links" (`basics.links`, edited by `components/profile/links-editor.tsx`).
-  Only its `label` is inline-editable — the url is a fact the connector derived,
-  and editing it would only break the link.
+  - **Triage rows settle optimistically, and must keep doing so.** Skip and
+    Import used to `await` the action and _then_ `router.refresh()` before the
+    row moved — two sequential round trips, the second a full RSC re-render that
+    re-reads connections, staged items and receipts. Locally both are
+    milliseconds and it feels instant; in production they are a serverless
+    invocation plus a managed Postgres, and the X the user pressed spins for a
+    second or more. The work was never slow, it was **serialised behind the wrong
+    event**. `TriageBoard` holds a `settled` id set, the row leaves on the click,
+    and a failure restores it with the error attached. The "To review · N" count
+    reads the filtered list — a count that disagrees with the rows is the same lag
+    wearing a different hat.
+    **A connector may never propose the user's identity** (2026-07-17): no
+    candidate kind carries name/summary/location/avatar and `basics` is
+    not a route target. The one non-section destination is `profileLink` →
+    "Profile links" (`basics.links`, edited by `components/profile/links-editor.tsx`).
+    Only its `label` is inline-editable — the url is a fact the connector derived,
+    and editing it would only break the link.
+- **Job Tracker** (doc 13, 2026-07-28): `/jobs` reads jobs via
+  `@resfolio/job/server` (`listJobMatches`), maps them to plain DTOs in
+  `lib/jobs.ts`, and hands them to one client island (`components/jobs/`) — the
+  `/sources` shape. Mutations go through `app/(dashboard)/jobs/actions.ts`. **The
+  data layer already existed**: `job_match_sessions.status` has been written on
+  every row since the table was created, precisely so this screen would not
+  arrive with a backfill. Every posting analysed in a conversation is already a
+  card, in Saved.
+  - **`JobTracker` owns the list; the board and the flow are two views of it.**
+    Not one fetch each — a diagram showing eight interviews beside a column
+    holding seven cards is the kind of contradiction that makes a user distrust
+    both numbers, and the surest way to produce one is to let each view read its
+    own copy.
+  - **Moves are optimistic, per the Sources triage lesson.** The card lands in
+    the new column on drop and the action follows; never `await` → `router.refresh()`
+    before it moves. A failure **re-reads** rather than restoring locally: a
+    rollback assumes nothing else changed, and the usual cause of a failure here
+    is the job having been deleted in another tab.
+  - **Columns are rendered from `JOB_STATUSES`**, the domain's array, in its
+    order. A board with its columns declared locally loses one silently the day a
+    state is added, and every card in it becomes invisible rather than mis-sorted.
+  - **This is the repo's first cross-container drag** (`@dnd-kit/core`, already a
+    dependency; the profile and resume editors use `sortable` for vertical
+    lists). Deliberately **not** `sortable`: there is no position column on a job,
+    so ordering within a column would be something the user arranges and the
+    database forgets. Cards are draggable, columns droppable. The `DndContext`
+    needs an explicit **`id`** (generated aria ids collide — see
+    `resume-sections.tsx`), and `KeyboardSensor` is not optional: it is both the
+    accessibility story and the only way Playwright can drive a move.
+  - **The horizontal scroll belongs to the board, not the page.** The shell's
+    content region is `grid-cols-[minmax(0,1fr)]` exactly so a wide child cannot
+    size the page; six columns must scroll in their own box.
+  - **The flow view is hand-drawn SVG over a pure, tested layout**
+    (`lib/job-flow-layout.ts`), splitting layout from drawing the way
+    `lib/pdf/cover-letter-layout.ts` does — geometry you cannot unit-test is
+    geometry that renders wrong in a file somebody sends out. **No charting
+    dependency**: there is none in this workspace and three stages with seven
+    nodes and no crossing edges does not earn the first one. Colours are token
+    utilities (`fill-brand`, `fill-live`, `fill-muted`), deliberately quiet — a
+    wall of red beside fifteen rejections is a chart telling someone how to feel
+    about their own job search.
+  - **Export, not a share link.** The diagram names every company that turned the
+    user down. `job-flow-export.ts` serialises the live SVG with its computed
+    styles inlined (an in-document SVG inherits its colours from the page, so the
+    raw markup opens black-on-black) and rasterises through a **data URL** — a
+    blob URL taints the canvas in Safari and `toBlob` then refuses.
+  - **The company mark is a plain `<img>` on `https://www.google.com/s2/favicons`**,
+    with `referrerPolicy="no-referrer"`, `max-w-none` (preflight's
+    `img { max-width: 100% }` beats `width` — the shell's avatar hit this) and a
+    `Building2` fallback in state. Not `next/image`: a 16px third-party icon
+    through the optimizer is a request larger than the file, and it would need a
+    `remotePatterns` entry. **The CSP's `img-src` in `next.config.ts` is the list
+    that does apply.** Note the trade — every tracked company's domain is sent to
+    Google; the fallback means switching it off is deleting one function.
+  - **`ApplyPrompt` is one component in two places** (the chat's match card and
+    the artefact panel's posting card), and it renders only while the job is
+    `saved`.
+    **It is a `Dialog`, and both answers write.** Inline was the first attempt
+    and it put the question below the fold of a narrow artefact panel — the
+    place it is most often asked from — where it was easy to never see. A toast
+    would be worse (doc 08 reserves those for events that happened; a question
+    that evaporates in five seconds is asked of nobody). The question is "are
+    you applying for this now?" and **"no" is not a dismissal**: someone who is
+    opening a posting is keeping it, so No files under **Saved** and Yes
+    under **Applied**, and the board is right either way with nothing to drag
+    afterwards. No records the status the row already holds, which the domain
+    treats as a no-op, so the flow view is never handed a transition that did not
+    happen.
+    - **The click opens the question; the answer opens the posting**
+      (reversed 2026-07-29 — it used to `preventDefault` nothing and let the
+      navigation through). The dialog was waiting in the tab the user had just
+      left, so it was asked of a screen nobody was looking at and answered, if at
+      all, by somebody who had to reconstruct the question first. Asking on the
+      way out costs one click; asking after costs a context switch, which is the
+      one people don't pay.
+    - **A modifier or middle click is not intercepted.** That is the user asking
+      the *browser* for a tab; breaking a browser affordance to run a product flow
+      is not a trade this earns. The question survives — the job is still `saved`,
+      so the next plain click asks it.
+    - **The tab is opened by a detached `<a target="_blank" rel="noopener
+      noreferrer">`, clicked inside the answer's handler before the `await`** —
+      the shape `lib/download.ts` uses. Two traps in one line: a tab opened after
+      a promise resolves has lost its user gesture and is blocked, and
+      `window.open(url, "_blank", "noopener")` **returns `null` on success**, so
+      the obvious "did it open?" check reports a blocked popup every time.
 - **Blog** (doc 07/01, Phase 8): `/blog` lists posts via `@resfolio/blog/server`;
   `/blog/[id]` is the post editor (`components/blog/`). Mutations go through
   `app/(dashboard)/blog/actions.ts`.
-  - **Not a `SplitWorkspace`, deliberately.** The résumé and portfolio editors
+  - **Not a `SplitWorkspace`, deliberately.** The resume and portfolio editors
     split because their output is a visual artefact you configure while watching
     it. A post's output _is_ the text you are already looking at, so a preview
     pane would show the same words twice and halve the width of both. One
@@ -550,7 +728,7 @@ features.
     use, so writing and reading do not drift.
 - **Resfolio AI** (doc 13, Phases 1–7): `/ai` is a Server Component gate over
   one client island (`components/ai/`) and is now the **whole** feature —
-  conversation, job match, profile enhancement, résumé tailoring and cover
+  conversation, job match, profile enhancement, resume tailoring and cover
   letter. Everything model-facing lives in `lib/ai/`.
   - **`/ai/job` is retired (Phase 7)** and left as a `redirect("/ai")`, because
     the URL is in people's history and there is a real destination to send it to.
@@ -569,18 +747,28 @@ features.
     vendor.** Everything else takes the AI SDK's `LanguageModel`. Changing
     provider or model is editing that file — do not import `@ai-sdk/openai` (or
     the gateway) anywhere else. It resolves **two credentials, gateway first**:
-    `AI_GATEWAY_API_KEY` (Vercel AI Gateway) or `OPENAI_API_KEY` (direct).
-    - The gateway needs **no extra dependency** — `ai` re-exports
-      `createGateway`. Its key is passed **explicitly**, never left to the SDK's
-      own ambient `AI_GATEWAY_API_KEY` lookup, or that lookup becomes a second
-      `process.env` reader outside `@resfolio/env`.
-    - **`AI_MODEL`'s format follows the key**: `openai/gpt-5-mini` through the
-      gateway, `gpt-5-mini` direct. Two defaults, not one — a shared default
-      404s on whichever path it wasn't written for.
-    - **`isAiConfigured()` only proves a key exists, not that it can spend.** An
-      unfunded key mounts the UI and fails mid-stream via `onError`; the client
-      currently renders that as a generic "didn't go through". Making that
-      legible is an outstanding fix, not a designed behaviour.
+    `AI_GATEWAY_API_KEY` (Vercel AI Gateway) or `OPENAI_API_KEY` (direct). - The gateway needs **no extra dependency** — `ai` re-exports
+    `createGateway`. Its key is passed **explicitly**, never left to the SDK's
+    own ambient `AI_GATEWAY_API_KEY` lookup, or that lookup becomes a second
+    `process.env` reader outside `@resfolio/env`. - **`AI_MODEL`'s format follows the key**: `openai/gpt-5-mini` through the
+    gateway, `gpt-5-mini` direct. Two defaults, not one — a shared default
+    404s on whichever path it wasn't written for. - **Every model call carries `providerOptions`, and a call without them is a
+    bug rather than a default.** `structuredProviderOptions()` (`reasoningEffort:
+"low"`) is for output the user waits on behind a blank panel;
+    `chatProviderOptions()` adds `textVerbosity: "low"` for the stream. The chat
+    had none at all on the theory that reasoning hides behind streaming text —
+    but **the thinking happens before the first character, not behind it**:
+    reasoning parts are deliberately not rendered and the SDK opens the
+    assistant message immediately, so the whole budget is spent against an empty
+    bubble. That is the wait `data-progress` and `aiWorking` exist to apologise
+    for. `low`, never `minimal` — the chat still has to resolve an instruction
+    to an item id and call a tool, and `minimal` is the setting that answers in
+    prose where it should have called one. `tailorResumeAction` was missing them
+    outright: the one call with **no stream and no partial output** was also the
+    one running at full default effort. - **`isAiConfigured()` only proves a key exists, not that it can spend.** An
+    unfunded key mounts the UI and fails mid-stream via `onError`; the client
+    currently renders that as a generic "didn't go through". Making that
+    legible is an outstanding fix, not a designed behaviour.
   - **The route handlers exist because a stream is the product requirement, and
     for no other reason.** Doc 06 allows a route "where the caller isn't our
     React app": `useChat` (`/api/ai/chat`) and `useObject`
@@ -606,6 +794,26 @@ features.
     oversized single messages are **rejected, never truncated** — truncation
     silently answers a different question — and over-budget conversations are
     trimmed **oldest-first**, so the turn the user just typed always survives.
+    - **`MAX_CHARS_PER_MESSAGE` _is_ `MAX_JD_CHARS`, 12,000, and that is one
+      number rather than two.** A pasted posting is the largest legitimate
+      message this product accepts, so any gap between the two limits is a gap in
+      which the user is told one and refused by the other — which is what had
+      happened: `MAX_JD_CHARS` was 20,000 and unreachable, because a posting
+      arrives through the chat and the 8,000-char message limit was the real
+      ceiling. 12,000 ≈ 3,000 tokens covers a verbose enterprise posting with
+      benefits and legal boilerplate; past that it is a careers page pasted whole,
+      and analysing it costs more, takes longer and dilutes the requirements.
+    - **The composer carries no `maxLength`, deliberately.** It did, and
+      `maxLength` truncates a paste _silently_ — no event, no message, nothing
+      visible but a caret that stopped — so an over-long posting became a
+      confident analysis of its first two-thirds. That is the exact failure
+      `chat-request.ts` refuses on the server; doing it in the browser did not
+      make it acceptable, it made it invisible. Enforcement is now: text stays
+      whole, a counter appears at 75% (`COMPOSER_COUNTER_THRESHOLD`), and **send
+      is disabled** with a sentence that names the real cause ("that's longer than
+      a job posting — leave out benefits and company history"). Same copy on the
+      server's 413, because a limit explained two ways is a limit users argue
+      with.
   - **`lib/ai/rate-limit.ts` is the app's first general rate limiter** (doc 06
     promised one; Better Auth's is its own and doesn't generalise). Keyed per
     **user and mode**, and **a mode is a real budget, not a key prefix**:
@@ -653,6 +861,130 @@ features.
       assignable to the SDK's `ToolSet`. It is also written out rather than
       inferred, because pnpm's layout makes the inferred type unnameable
       (TS2742).
+  - **A saved transcript is re-judged before it is rendered** —
+    `lib/ai/transcript.ts`'s `reconcileTranscript`, run in `ai/page.tsx` against
+    the profile that page already loaded. **A stored proposal records what was
+    _suggested_, never what was done with it**, so replaying it verbatim put Apply
+    buttons back on changes the user accepted weeks ago; pressing one either did
+    nothing or overwrote wording edited by hand since. This needed no "applied"
+    column and no bookkeeping, because the domain already has the verdict:
+    **`unchanged`**. It is a re-run of `reviewProfileChanges`, not a second guard.
+    - **An applied change stays on screen, marked, and must keep doing so.** The
+      first cut dropped it from `valid` — which fixed the button and lost the
+      diff, so a conversation where you accepted six rewrites came back with no
+      trace of them. The before/after _is_ the record of what was done, and it is
+      the most useful thing on that screen after the fact. It keeps its **stored**
+      before/after (recomputing gives "no change") and is listed in
+      **`settledIndexes`**, which `ProfileProposal` seeds its `applied` set from —
+      so it renders the green "Applied" marker instead of a button.
+    - **`settledIndexes` is on `ProposalOutput`, an app-level widening of
+      `ProfileChangeReview` in `lib/ai/tools.ts`, and belongs there.** The domain
+      type describes what the guard decided about a set of changes; whether the
+      user has since clicked Apply is a fact about a screen. It is optional, so
+      `execute` still returns a plain review and live turns say "nothing settled"
+      by omission.
+    - **Three outcomes, three destinations**: applied → `valid` + `settledIndexes`;
+      **stale** (item deleted, value no longer parses) → `rejected`, because an
+      offer that would fail on click is worse than no offer; outstanding →
+      untouched. A refusal that no longer holds becomes an offer again — the user
+      added the skill, so the rewrite around it is now ordinary.
+    - **Both halves go back in.** Feeding only `valid` would drop the original
+      refusals, and "2 suggestions were dropped" vanishing on reload is the same
+      dishonesty in the other direction.
+    - **`ProfileProposal` splits `rejected` by reason**, and must keep doing so.
+      `unchanged` means _already in your profile_; everything else means the guard
+      **refused** it. Counting them together told users their own accepted edits
+      had been rejected as fabrication. Its heading counts what is _left_
+      ("2 of 6 left"), because a bare "6" over four Applied markers answers no
+      question anyone has.
+    - Live turns do not go through it — a proposal arriving now was reviewed
+      against this same profile seconds ago inside the tool's `execute`.
+  - **The enhance offer is withdrawn once a posting has caused changes, and the
+    card now _says so_ (2026-07-28).** What flows
+    `page` → `AiWorkspace` → `AiChat` → `AiMessage` → `JobMatchCard` is a
+    `ReadonlyMap<string, JobFacts>` (`lib/ai/job-facts.ts`) — `hasEnhancement`,
+    `resumeDocumentId`, `status` — not the old `Set` of enhanced ids, which
+    answered one of those three questions and left the other two as the reason
+    the card kept offering work it had already done.
+    - **The bug was legibility, not logic.** `alreadyEnhanced` did withdraw the
+      profile branch and did explain itself — but only in the sentence that
+      replaced the button, and only while the profile tile was selected, which the
+      same flag had just switched away from. So a reopened conversation showed a
+      fully armed card with no trace of the accepted changes. **State now belongs
+      on the option**, visible whichever tile is selected, with the header stating
+      the overall position when everything is spent.
+    - **One accepted optimisation finishes the card (2026-07-29).** `done` is a
+      single flag, not one per destination: both tiles go to `aria-disabled` with
+      what happened written on them, the picker and the submit disappear, and an
+      "Already optimised" badge takes the button's place. Per-destination
+      retirement was defensible and still read as the product having forgotten,
+      because a reopened conversation showed a live button beside accepted work.
+      **The trade is real and deliberate**: a resume can no longer be tailored for
+      a job after the profile has been enhanced for it, from this card.
+      `/resumes/[id]` still owns everything about a document.
+    - **`aria-disabled`, not `disabled`, on a locked tile.** A `disabled` button
+      leaves the tab order, and the tile's text is by then the entire record of
+      what happened to this job — putting it somewhere a keyboard or screen-reader
+      user cannot reach. The click is inert either way.
+    - **Applying tailoring calls `setJobResumeAction`** (an action that had no
+      caller), which is what makes "which resume was this job optimised for" a
+      fact at all — and incidentally fills the artefact panel's empty resume
+      picker.
+    - **`SkillGaps` stays live after the lock**, and falls back to the `profile`
+      destination. It is the user ticking boxes beside evidence from their own
+      writing — it spends nothing, so locking it would leave terms the posting
+      names unlisted for the sake of a rule about model calls. Profile is also
+      right on its own terms: a term you have demonstrably used is a fact about
+      your career, not an opinion held by one document.
+    - **Every gap between a JSX expression and the next word in that panel is an
+      explicit `{" "}`.** Written as a literal space after `}` it shipped as
+      "1 termthat" and "print itand" — invisible in the source, plain in the
+      product.
+    - **`enhancedJobIds` was memoised on server props and never refreshed**, while
+      `JobPanel` held a freshly-listed set of jobs it kept to itself. The panel now
+      hands its list up through `onJobs` — no extra read, it was fetching this
+      already — and `AiWorkspace` owns the list both the panel and the transcript
+      answer from.
+  - **One conversation covers one job, and it is enforced in two places.** A chat
+    has one artefact panel, one resume slot and one score, so a second posting
+    produces a conversation that is lying about which job it describes — and it is
+    paid for twice over, since every turn re-reads the transcript. It also breaks
+    re-checking: `findJobDescription` walks back to the *most recent* long
+    message, so after a second posting lands, "recalculate" silently re-checks the
+    wrong one.
+    - **The composer refuses to send** (`lib/ai/second-posting.ts`, pure +
+      tested), reading the transcript's own `tool-analyzeJobMatch` parts and the
+      pending text: **no request, no model call**, because a detector that spent
+      one would be a smaller copy of the problem. **There is no "send anyway"** —
+      the server refuses too, so that button could only have meant "spend a call
+      to be told no". What replaces it is "Keep editing".
+    - **The tool refuses to run**, and that is the guarantee. A guard living only
+      in the browser is one a sentence talks the model around; "analyse this other
+      one too" is ordinary English. `AiToolContext.analysedJob` is read from the
+      same transcript, so it cannot disagree with what the user sees, and the
+      refusal (`unavailable: "already-analysed"`) renders in the transcript with a
+      Start-a-new-chat button.
+    - **A re-check of the same posting is not a second job**, and the line is
+      drawn by comparing the posting rather than counting calls. `isSamePosting`
+      is **shared by both guards** so they cannot draw it differently. That path
+      now **reuses the existing job's id** — before it, every re-check minted a
+      row with its own `initial_score`, so the "74% → 86%" comparison this whole
+      feature is built on could never actually be drawn.
+    - **The threshold is `MIN_JOB_DESCRIPTION_CHARS`, the same 200 the server uses
+      to pick a posting out of a transcript** — one number, so this can never warn
+      about a message the analysis would ignore. A **bare link** is the second way
+      in, and it is required: the case that prompted this started with a URL on
+      its own.
+    - **The bar is the false positive.** "Enhance my summary", a re-paste of the
+      same posting with the benefits trimmed, and the description that follows a
+      link must all pass silently. A nudge that fires on ordinary messages is one
+      users click through without reading, at which point the real one is
+      invisible too. Half of `second-posting.test.ts` asserts silence.
+    - **"Start a new chat with this" carries the text in memory**, not through the
+      URL: the thing being carried is a job posting, and a twelve-thousand-character
+      query string is not a link and would land in request logs. `AiWorkspace`
+      holds the active chat id as state seeded from the prop, mints a new one, and
+      `AiChat`'s existing `key` does the rest.
   - **`app/(dashboard)/ai/actions.ts` is the only write in the feature.** It
     re-parses the changes with the domain schema and **re-runs the guard against
     the current draft** — client-round-tripped model output is not less hostile
@@ -685,7 +1017,10 @@ features.
     (`reading` → `thinking`, carrying the real `itemCount`; `truncated` when the
     generation hit its ceiling). Doc 13 refused "Reading your profile…" in Phase 2
     because the read finished before the stream existed — the label became honest
-    when the _order_ changed, not because the standard was relaxed. Three rules:
+    when the _order_ changed, not because the standard was relaxed. **A phase now
+    picks a bank rather than a sentence** — `PHASE_KINDS` → `WorkingText`, see the
+    Motion section — and the rotation stays inside the phase the server reported,
+    which is the same standard applied to the words. Three rules:
     - **Crumbs are `transient: true`.** They never enter `message.parts`, so they
       are not posted back on the next turn, never reach the model as context, and
       cannot linger beside a finished answer. `useChat`'s `onData` holds them in
@@ -788,70 +1123,131 @@ features.
   - **Job match happens in the chat** (doc 13's open question: answered "route,
     not chat mode" in Phase 4 and **reversed in Phase 7**). Phase 4 was right
     that one analysis is one turn and wrong that the analysis was the workflow —
-    read a match, change the profile, look again, tailor a résumé, write a letter
+    read a match, change the profile, look again, tailor a resume, write a letter
     is five turns, and `/ai/job` had ended up modelling it as three stacked
-    panels under a textarea: a conversation rendered as a form.
-    - **`analyzeJobMatch` is the chat's second tool** (`lib/ai/tools.ts`, built
-      by `createAiTools`). Its **input is the analysis** — role, company,
-      location, the posting's URL, requirements, keywords — so it streams as tool
-      input and costs no second model call, and its **`execute` is pure**, like
-      the proposal tool's: verify, demote, count, return. **The posting is not an
-      input.** It is closed over from the conversation via `findJobDescription`,
-      which walks back to the most recent user message long enough to be a
-      posting — that is what makes "recalculate" work as a turn of its own, and
-      what stops the model re-emitting 4,000 characters as arguments.
-    - **The tool writes nothing; `JobMatchCard` does**, once, through
-      `saveJobMatchAction` on a `useRef`-guarded effect. Same shape as the
-      transcript's save. The job id is minted server-side inside the tool result
-      and lives in the transcript, so reopening a chat re-saves the same job.
-    - **`JobPanel` reads the database, not the transcript.** The card renders one
-      tool result; the panel renders the *job*, which outlives that message and
-      gains a résumé and a letter afterwards. It refreshes on a **counter**
-      (`jobRefresh`) rather than a callback or `router.refresh()`, because
-      re-rendering the route would remount the transcript — and the letter
-      someone may be mid-way through generating.
-    - **Enhancement keeps per-change consent.** `enhanceProfileForJobAction`
-      returns a `ProfileChangeReview` through the same `reviewProfileChanges`
-      guard, rendered by the same `ProfileProposal` with only the write injected
-      (`applyJobEnhancementAction`, which also records what the posting caused).
-      A job asking for a rewrite changes nothing about the write path.
-    - **The `<70%` warning is a confirmation, not a gate**, and no server code
-      consults the score — the constraint is the guard, which is identical either
-      way. The threshold lives in `@resfolio/job`, because it describes what a
-      match *means* and the dialog copy quotes it.
-    - **The re-check is asked for, never automatic.** A new score costs a model
-      call; `initial_score` is written on insert only, which is what makes
-      "74% → 86%" a measurement rather than two numbers.
-    - **`lib/ai/job-analysis.ts` is where every number comes from.** The model
-      classifies `strong|partial|gap` and cites profile item **ids**; this file
-      resolves the citations, **demotes a match whose citations resolve to
-      nothing** (an unverifiable match is fabrication arriving as a score), does
-      the arithmetic, and checks keyword coverage with a **word-boundary** match
-      — `includes` reports that a profile saying "Google" has "Go", and telling
-      someone their resume already says something it doesn't is the damaging
-      direction of that error.
-    - **`evidence` comes before `level` in the schema, deliberately.**
-      Structured output is generated in schema order, so the model must find its
-      support before stating a verdict. A tidy-up that alphabetised those fields
-      would silently undo it; `job-analysis.test.ts` guards it.
-    - **The page ships the item index and the context JSON, never the raw
-      profile.** Keyword coverage is checked against _exactly what the model
-      read_ (`AiToolContext.profileJson`, **not** `JSON.stringify(profile)`), so
-      a stripped starter placeholder can't be reported as coverage.
-    - **The pasted posting is untrusted third-party text.** In the chat it is an
-      ordinary user message; in `enhanceProfileForJobAction` and
-      `tailorResumeAction` it goes in delimited, never spliced into the system
-      prompt. The real guarantee is structural — the model's only tools return
-      objects, and every write is an action a human triggered.
-    - **`MAX_REQUIREMENTS` is 12, down from 20, and it is a latency control.**
-      Structured output is generated in one uninterrupted run before anything is
-      shown, so every extra requirement is output tokens the user waits through
-      behind a blank panel.
+    panels under a textarea: a conversation rendered as a form. - **`analyzeJobMatch` is the chat's second tool** (`lib/ai/tools.ts`, built
+    by `createAiTools`). Its **input is the analysis** — role, company,
+    location, the posting's URL, requirements, keywords — so it streams as tool
+    input and costs no second model call, and its **`execute` is pure**, like
+    the proposal tool's: verify, demote, count, return. **The posting is not an
+    input.** It is closed over from the conversation via `findJobDescription`,
+    which walks back to the most recent user message long enough to be a
+    posting — that is what makes "recalculate" work as a turn of its own, and
+    what stops the model re-emitting 4,000 characters as arguments. - **The tool writes nothing; `JobMatchCard` does**, once, through
+    `saveJobMatchAction` on a `useRef`-guarded effect. Same shape as the
+    transcript's save. The job id is minted server-side inside the tool result
+    and lives in the transcript, so reopening a chat re-saves the same job. - **`JobPanel` reads the database, not the transcript.** The card renders one
+    tool result; the panel renders the _job_, which outlives that message and
+    gains a resume and a letter afterwards. It refreshes on a **counter**
+    (`jobRefresh`) rather than a callback or `router.refresh()`, because
+    re-rendering the route would remount the transcript — and the letter
+    someone may be mid-way through generating. - **The list and the open record are two reads, and `refresh()` must bump
+    both.** Listing forty jobs must not mean loading forty postings, so the
+    full record is fetched by its own effect — and every event worth
+    refreshing on (a letter finishing, a resume being picked) changes _the
+    record_ while leaving the list byte-identical: same ids, same order, same
+    active id. Keyed on `activeId` alone that effect never re-ran, so
+    `coverLetter` stayed null and `resumeDocumentId` stayed unset, and the two
+    buttons conditioned on them — "Download cover letter", and an enabled
+    "Download resume" — never appeared. **Both PDF downloads looked broken and
+    neither route was ever called.** `reloadToken` is what re-runs it; a
+    counter rather than clearing `job`, so the record does not flash back to
+    its loading state while it reloads. - **Enhancement keeps per-change consent.** `enhanceProfileForJobAction`
+    returns a `ProfileChangeReview` through the same `reviewProfileChanges`
+    guard, rendered by the same `ProfileProposal` with only the write injected
+    (`applyJobEnhancementAction`, which also records what the posting caused).
+    A job asking for a rewrite changes nothing about the write path. - **The `<70%` warning is a confirmation, not a gate**, and no server code
+    consults the score — the constraint is the guard, which is identical either
+    way. The threshold lives in `@resfolio/job`, because it describes what a
+    match _means_ and the dialog copy quotes it. It moved to `OptimiseForJob`
+    with the trigger, and now fires on the **profile branch only** — see the
+    optimise block below. - **The re-check is asked for, never automatic.** A new score costs a model
+    call; `initial_score` is written on insert only, which is what makes
+    "74% → 86%" a measurement rather than two numbers. - **Either/or requirements are one requirement, and the model says so.**
+    "Build features using Angular/React and Java/Node.js" was read as four
+    demands, so a profile with React and Node.js — which satisfies that sentence
+    completely — was told it lacked Angular and Java. A keyword is now
+    `{ term, anyOf }`: `{"term": "Angular/React", "anyOf": ["Angular",
+"React"]}`, and `coverKeywords` marks it covered when **any** option is
+    present, recording which one so the chip can say "Angular/React · React".
+    **The split is the model's judgement, not a regex**, because a slash means
+    "or" in `Angular/React` and does not in `CI/CD`, `TCP/IP`, `UI/UX` or `I/O` —
+    that is reading comprehension, and no stoplist of atomic slash-terms is ever
+    finished. `ALTERNATIVES_RULE` is shared by the chat tool rules and the
+    standalone analysis prompt; getting it right in one and not the other gives
+    one posting two answers. - **Skills the profile _demonstrates_ but does not _list_ are a separate
+    surface, not a relaxed guard** (`components/ai/skill-gaps.tsx` over
+    `@resfolio/profile`'s `skills.ts`). A project's `technologies` say Docker, a
+    bullet says Docker, the Skills block says nothing — so the analysis reported
+    "Docker ✓" above a resume that never printed it, and every existing path was
+    structurally unable to fix that because the proposer was a model. Here the
+    proposer is the **user**, ticking a box beside evidence drawn from their own
+    writing, and the domain re-derives that evidence server-side. It offers
+    nothing the profile does not already contain, so OWASP stays a gap.
+    `listSkillsForJobAction` honours the same destination `OptimiseForJob` asked:
+    profile → the draft, resume → a `deltas` entry carrying the **guarded**
+    array, never a second growth path. - **`lib/ai/job-analysis.ts` is where every number comes from.** The model
+    classifies `strong|partial|gap` and cites profile item **ids**; this file
+    resolves the citations, **demotes a match whose citations resolve to
+    nothing** (an unverifiable match is fabrication arriving as a score), does
+    the arithmetic, and checks keyword coverage with a **word-boundary** match
+    — `includes` reports that a profile saying "Google" has "Go", and telling
+    someone their resume already says something it doesn't is the damaging
+    direction of that error. - **`evidence` comes before `level` in the schema, deliberately.**
+    Structured output is generated in schema order, so the model must find its
+    support before stating a verdict. A tidy-up that alphabetised those fields
+    would silently undo it; `job-analysis.test.ts` guards it. - **The page ships the item index and the context JSON, never the raw
+    profile.** Keyword coverage is checked against _exactly what the model
+    read_ (`AiToolContext.profileJson`, **not** `JSON.stringify(profile)`), so
+    a stripped starter placeholder can't be reported as coverage. - **The pasted posting is untrusted third-party text.** In the chat it is an
+    ordinary user message; in `enhanceProfileForJobAction` and
+    `tailorResumeAction` it goes in delimited, never spliced into the system
+    prompt. The real guarantee is structural — the model's only tools return
+    objects, and every write is an action a human triggered. - **`MAX_REQUIREMENTS` is 12, down from 20, and it is a latency control.**
+    Structured output is generated in one uninterrupted run before anything is
+    shown, so every extra requirement is output tokens the user waits through
+    behind a blank panel.
+  - **Optimising for a job is ONE action with ONE question: where does it land?**
+    (`components/ai/optimise-for-job.tsx`, 2026-07-28.) There used to be two peer
+    buttons for one posting — "Enhance profile for this job" on the match card and
+    "Tailor for this job" in the artefact panel — and they were **never the same
+    action**: enhancement rewrites the Profile permanently and is therefore written
+    conservatively (the wording has to still read correctly for the next posting),
+    while tailoring writes overrides on one document and is therefore allowed to be
+    pointed, because the canonical record survives. Nothing on screen said any of
+    that, so the honest reading was "press this, then press the other one that does
+    the same thing", and pressing both bought two model calls rewriting the same
+    sentences — the second layered on the first, which is exactly how a resume ends
+    up carrying two postings' worth of overrides and reading for neither.
+    - **The fix was to merge the two _decisions_, not the two capabilities.** They
+      were one question the product had never asked. `OptimiseForJob` asks it up
+      front — **My profile** (permanent, every output) or **This resume only**
+      (overrides on one document) — then runs exactly one of
+      `enhanceProfileForJobAction` / `tailorResumeAction` and renders exactly one
+      of `ProfileProposal` / `TailorReviewPanel`. One model call, one review, one
+      place. Do not add a second entry point back.
+    - **Ordering rides with the resume branch and has no profile equivalent**, and
+      that is the data model rather than a scope cut: section and item order is a
+      property of a _resume_: there is nowhere in a Profile to record "for this
+      posting, lead with Projects".
+    - **The `<70%` confirmation is on the profile branch only.** The rule
+      (`ENHANCE_CONFIRM_THRESHOLD`, `@resfolio/job`) is about rewriting a _career
+      record_ to chase a role it does not fit; pointing one document at a long shot
+      is an ordinary thing to do with a document, and one Reset undoes it.
+    - **Only the spent branch is withdrawn.** `alreadyEnhanced` retires the profile
+      option for a posting already enhanced for; the resume option never retires,
+      because pointing a second resume at the same job is a new thing to do. The
+      default destination flips to the resume when the profile branch is spent.
+    - **`resume-tailor.tsx` kept the review and lost the trigger.** It exports
+      `TailorReviewPanel` and `TailoredNotice` (the override count + Reset, which
+      moved to the resume card in `JobPanel` — it is a fact about a _document_,
+      true whether or not you are looking at a job). `ResumeTailor` is gone, and so
+      are `TEST_IDS.tailorPanel` / `tailorTarget` / `tailorSubmit` / `tailorError`.
   - **Resume tailoring (Phase 5) has no route handler.**
     `app/(dashboard)/ai/tailor-actions.ts` holds all three actions — the model
     call included. (It was `ai/job/actions.ts` until Phase 7 retired that route;
-    the actions did not change, and `ResumeTailor` now renders inside `JobPanel`
-    beside the résumé it edits.) That is doc 13's rule applied, not abandoned: **the guard needs the
+    the actions did not change, and the trigger now lives in `OptimiseForJob`.)
+    That is doc 13's rule applied, not abandoned: **the guard needs the
     profile's content** (the growth rules compare against stored values), so the
     review must be built server-side, so the client has nothing to render as it
     arrives, so a stream would be streaming to nobody. Phase 4 could stream
@@ -884,10 +1280,10 @@ features.
       with no downside.
     - **`components/ai/change-diff.tsx` is shared by both reviews** — the chat
       proposal and the tailoring review must look identical, and a second copy
-      would drift on which side is the new one. `resume-tailor.tsx` renders
-      **inside `JobPanel`** (it was `JobAnalyzer` before Phase 7), which reads
-      the posting off the saved job: a textarea of its own is the surest way to
-      have the match and the tailoring disagree about which job the user meant.
+      would drift on which side is the new one. Both reviews now render inside
+      `OptimiseForJob` on the match card, which reads the posting off the tool
+      result: a textarea of its own is the surest way to have the match and the
+      optimisation disagree about which job the user meant.
     - **The page ships four fields per resume** (`TailorTarget`), not documents —
       a `ViewDefinition` in a browser bundle to answer a question about a name.
     - **Known lost-update window**: a `/resumes/[id]` tab open from before a
@@ -921,24 +1317,71 @@ features.
       and found nothing" is the claim that distinguishes this from a product that
       shrugged; a user who only ever sees the warning version can't tell.
     - **A finished letter is now persisted (Phase 7)** — on the job match
-      session, as its *parts*, not as rendered prose. That is the home Phase 6
+      session, as its _parts_, not as rendered prose. That is the home Phase 6
       predicted, and it is a `job_match_sessions` column rather than a document,
       by the document domain's rule that documents carry no content fields. The
       greeting and sign-off are still composed by the platform, so what is stored
       has no field for either.
     - **The PDF is drawn by `pdf-lib`, not by Chromium** (`lib/pdf/`), and that
-      is deliberately unlike the résumé's export. A résumé is a template —
+      is deliberately unlike the resume's export. A resume is a template —
       arbitrary CSS — so it needs a rendering engine on Fly; a letter is one
       fixed layout, so drawing it directly costs no second service, no
       `RENDER_SECRET` hop and no `PDF_EXPORT_ENABLED`. Three things not to break:
-      **the fonts are vendored** (PT Serif, because it ships *static* Bold —
+      **the fonts are vendored** (PT Serif, because it ships _static_ Bold —
       pdf-lib embeds only the default instance of a variable font, so a variable
       family gives you a bold that silently isn't); **layout is split from
       drawing** (`cover-letter-layout.ts`, pure + tested, because a line drawn
       below the bottom edge is invisible in a file somebody sends to an
-      employer); and **`sanitize` is load-bearing** — pdf-lib *throws* on a
+      employer); and **`sanitize` is load-bearing** — pdf-lib _throws_ on a
       character the font cannot encode, so one smart quote would fail the whole
       download.
+      **`coverLetterFilename` decides the file's type as far as the user is
+      concerned**, so its extension defaults to `pdf` and is a parameter. It
+      hardcoded `.txt` from the copy-it-out days while the PDF route used it for
+      `Content-Disposition` — so the route served real PDF bytes under a `.txt`
+      name, the download succeeded, and the file opened in nothing. Reported, of
+      course, as "it only gives me a text file".
+      **The route has a `POST` as well as a `GET`, and the client uses `POST`.**
+      `GET` draws the _stored_ letter (the panel's button, and what still works
+      when a conversation is reopened). `POST` draws the letter in the body — the
+      one on screen. The letter reaches the database through an action fired from
+      `onFinish` and the panel only sees it on its next read, so a `GET`-only
+      route makes downloading a finished letter depend on a write and a refresh
+      the user cannot observe. The bytes should depend on the letter, not on the
+      bookkeeping around it. `POST` still resolves the job for ownership and the
+      filename, still takes the signature from the profile, and re-parses the
+      prose through the domain's `coverLetterSchema`.
+      **The fonts are read through `path.join(process.cwd(), …)` and are traced
+      anyway** — checked against a clean `next build`, the three `.ttf`s are in
+      the route's `.nft.json`, so no `outputFileTracingIncludes` entry is needed.
+      Worth re-checking if the loader ever moves out of `lib/`, because the
+      failure mode is a production-only ENOENT on a file that is sitting in the
+      repository.
+      **The `.txt` fallback hides when a `jobId` is present**: the letter is
+      stored, the panel offers the real PDF, and two Download buttons a few pixels
+      apart meaning two different formats is how somebody sends the wrong one.
+    - **A finished letter replaces the form that produced it.** `CoverLetter`
+      takes `saved` — the letter stored on the job — and hides the whole compose
+      card (heading, recipient field, "Write a cover letter", the it-will-be-saved
+      note) whenever a letter exists, streamed or restored. What is left is the
+      letter, Copy, Download and one quiet **Rewrite** that brings the form back.
+      Three things this fixed or depends on:
+      - **`saved` is what makes hiding possible at all.** Without it "has a
+        letter" would mean "streamed one in this component's lifetime", so every
+        page load would present the form again over a letter finished last week.
+      - **`LetterCard` no longer owns a Download button.** It had one, gated on
+        `job.coverLetter`, drawing the _stored_ letter via `GET` while the
+        component below drew the _on-screen_ one via `POST` — two buttons a few
+        pixels apart, same letter, different verb. `TEST_IDS.jobPanelLetterDownload`
+        went with it.
+      - **A restored letter renders no flag list, by construction.** The stored
+        shape drops per-paragraph `evidence`, so `verifyCoverLetter` would call
+        every paragraph ungrounded — the check lying about a letter that passed.
+        `review` is null for a restored letter because it reads the streamed
+        values, which are empty.
+      - **Rewrite is not a hedge.** The form is unreachable by any other route
+        once hidden, so without it a user who dislikes their first draft has no
+        path at all.
   - **`lib/ai/system-prompt.ts`'s `CHANGE_LIMITS` is shared and must stay
     shared**, and so are `BULLET_FORMULA` and `PROJECT_FORMULA` beside it. Three
     workflows now emit `ProfileChange`s validated by the same domain code (chat →
@@ -947,8 +1390,21 @@ features.
     one that drifts is the one nobody rereads.
     - **The bullet formula is a shape, not a quota.** Handed eight numbered
       patterns a model reads them as eight bullets to write, so the count is
-      disclaimed in the formula *and* by `CHANGE_LIMITS` beside it — and the
+      disclaimed in the formula _and_ by `CHANGE_LIMITS` beside it — and the
       domain's growth rule refuses a longer `highlights` list independently.
+    - **`SKILLS_RULES` is shared for the same reason and exists because every
+      workflow was silently skipping the skills sections.** `CHANGE_LIMITS` states
+      what is _permitted_ there (prune, reorder, recase; never add) and a rule
+      about what you may not do is not an instruction to do the part you may — so
+      a posting that asked for Testing and Agile produced a draft of summary and
+      highlight rewrites and left the skills list in typing order, which reads as
+      the feature ignoring half the analysis it just showed you. The three moves
+      are real: **order** is what a six-second skim reads, **spelling** is what a
+      keyword scan matches ("Node" → "Node.js" is a naming correction, not a new
+      claim), **pruning** turns twenty-eight entries into eight. The last
+      paragraph — you cannot add an entry, say it as a gap instead — is there
+      because the on-screen "2 missing" count is exactly where a model reaches for
+      one, and the domain's set-growth rule refuses it regardless.
     - **The `[result]` slot is where a metric gets invented**, so `TRUTHFULNESS`'
       no-numbers rule is restated there in the specific. A rule stated far from
       its temptation is a rule that loses.
@@ -967,7 +1423,7 @@ features.
 - **Unit tests** (`vitest`): co-located `lib/**/*.test.ts`. **E2E**
   (`playwright`): `e2e/` runs the real OAuth dance against a local mock
   authorization server (`AUTH_E2E_MOCK_ISSUER`, localhost-only by
-  construction). Locally: start docker Postgres (host port 5433), build the
+  construction). Locally: start docker Postgres (host port 15432), build the
   app, then `pnpm test:e2e`.
 - **Security headers/CSP** live in `next.config.ts`; update the CSP when
   adding an external origin (images, connect). Nonce-based CSP is a

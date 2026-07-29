@@ -35,6 +35,14 @@ const csp = [
     "https://lh3.googleusercontent.com",
     "https://avatars.githubusercontent.com",
     R2_PUBLIC_ORIGIN,
+    // Company marks on the job tracker's cards, via Google's favicon service
+    // (`faviconUrl` in `lib/jobs.ts`). **CSP only, no `remotePatterns` entry**:
+    // these are plain `<img>` tags rather than `next/image`, because routing a
+    // 16px icon through the optimizer buys nothing. Note the trade this makes —
+    // the domain of every company the user is applying to is sent to Google.
+    // Every call site has a local fallback, so removing it is deleting one
+    // function.
+    "https://www.google.com",
   ].join(" "),
 
   "font-src 'self'",

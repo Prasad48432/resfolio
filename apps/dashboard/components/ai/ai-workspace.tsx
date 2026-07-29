@@ -12,7 +12,7 @@ import {
   SheetTrigger,
 } from "@resfolio/ui";
 import { Briefcase, History } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -20,6 +20,7 @@ import {
   clearChatSessionsAction,
   saveChatSessionAction,
 } from "@/app/(dashboard)/ai/actions";
+import { buildJobFacts } from "@/lib/ai/job-facts";
 import type { AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
 
@@ -58,6 +59,23 @@ import type { TailorTarget } from "./resume-tailor";
  * re-read the database when it does — but handing the panel a ref or re-creating
  * it would remount the letter someone may be mid-way through generating. A number
  * that goes up is the smallest thing that crosses that gap.
+ *
+ * **The job list flows back out of the panel, and that is a fix rather than a
+ * flourish.** The panel re-reads jobs on every refresh and used to keep the
+ * result to itself, while the match cards in the transcript read a set derived
+ * once from the server props — which are constant for this component's lifetime.
+ * So "this posting has already been enhanced" was true on a page load and stale
+ * forever after, and the cards fell back to their own in-session flags. The panel
+ * now hands its list up through `onJobs`; no extra read, since it was fetching
+ * this already.
+ *
+ * **The active conversation id is state here, seeded from the prop.** Everything
+ * about a chat's identity used to come from the URL, which is still right for
+ * navigation — but "start a new chat carrying what I just pasted" cannot go
+ * through the URL, because the thing being carried is a job posting and a
+ * twelve-thousand-character query string is not a link. Minting the id here and
+ * keying `AiChat` on it gives the same remount a navigation would, without
+ * putting a posting in the address bar or in a request log.
  */
 export function AiWorkspace({
   profileIsEmpty,
@@ -89,8 +107,46 @@ export function AiWorkspace({
   const [jobSheetOpen, setJobSheetOpen] = useState(false);
   const [jobRefresh, setJobRefresh] = useState(0);
 
+  /**
+   * The conversation being written to.
+   *
+   * Seeded from the prop and only ever changed by {@link startNewChat}. Safe as
+   * state because the page keys this whole component on the same id, so a
+   * navigation to another conversation remounts rather than leaving a stale
+   * value behind.
+   */
+  const [chatId, setChatId] = useState(sessionId);
+  /** Text handed to a freshly minted chat — the posting the user pasted into the
+   * wrong conversation. Null in every other case. */
+  const [seedInput, setSeedInput] = useState<string | null>(null);
+
+  /**
+   * The jobs this conversation has produced, kept current.
+   *
+   * Seeded from the server so a reopened chat renders its artefacts in the first
+   * paint, then replaced by whatever the panel last read. Both the panel and
+   * every match card in the transcript answer questions from this one list, so
+   * the two cannot disagree about whether a posting has been enhanced for.
+   */
+  const [jobs, setJobs] = useState(initialJobs);
+
   const onJobSaved = useCallback(() => {
     setJobRefresh((current) => current + 1);
+  }, []);
+
+  const jobFacts = useMemo(() => buildJobFacts(jobs), [jobs]);
+
+  const startNewChat = useCallback((seed: string) => {
+    // A real new conversation: new id, empty transcript, no jobs. `AiChat` is
+    // keyed on the id, so it remounts with a clean `useChat` — the same thing a
+    // navigation would do, minus the round trip and minus the posting in the URL.
+    setChatId(crypto.randomUUID());
+    setSeedInput(seed);
+    setJobs([]);
+    setJobRefresh(0);
+    // The old conversation's `?c=` no longer describes what is on screen. The
+    // new id claims its own URL on the first save, exactly as a fresh chat does.
+    window.history.replaceState(null, "", "/ai");
   }, []);
 
   /**
@@ -111,7 +167,7 @@ export function AiWorkspace({
           // The SDK's message shape is structurally what the domain stores; the
           // action re-validates and strips reasoning, so nothing here is trusted.
           const result = await saveChatSessionAction({
-            id: sessionId,
+            id: chatId,
             messages,
           });
 
@@ -143,8 +199,8 @@ export function AiWorkspace({
           // user is reading, mid-conversation, to change an address bar. This
           // updates the URL and nothing else, so a refresh or a shared link lands
           // back in the same chat and everything on screen stays where it is.
-          if (window.location.search !== `?c=${sessionId}`) {
-            window.history.replaceState(null, "", `/ai?c=${sessionId}`);
+          if (window.location.search !== `?c=${chatId}`) {
+            window.history.replaceState(null, "", `/ai?c=${chatId}`);
           }
         })
         .catch(() => {
@@ -152,7 +208,7 @@ export function AiWorkspace({
           // to break the chat it is a record of.
         });
     },
-    [sessionId],
+    [chatId],
   );
 
   const remove = useCallback(
@@ -166,7 +222,7 @@ export function AiWorkspace({
 
       setSessions((current) => current.filter((entry) => entry.id !== id));
 
-      if (id === sessionId) {
+      if (id === chatId) {
         // The conversation on screen no longer exists. A hard navigation rather
         // than a router push: this must land on a genuinely new chat with a new
         // id, and the page's own `key` is what guarantees that.
@@ -176,7 +232,7 @@ export function AiWorkspace({
 
       toast.success("Chat deleted");
     },
-    [sessionId],
+    [chatId],
   );
 
   const clear = useCallback(async () => {
@@ -194,9 +250,7 @@ export function AiWorkspace({
   const history = (
     <ChatHistory
       sessions={sessions}
-      activeId={
-        sessions.some((entry) => entry.id === sessionId) ? sessionId : null
-      }
+      activeId={sessions.some((entry) => entry.id === chatId) ? chatId : null}
       onDelete={remove}
       onClear={clear}
       onNavigate={() => setSheetOpen(false)}
@@ -205,8 +259,10 @@ export function AiWorkspace({
 
   const jobPanel = (
     <JobPanel
-      chatSessionId={sessionId}
-      initialJobs={initialJobs}
+      key={chatId}
+      chatSessionId={chatId}
+      initialJobs={jobs}
+      onJobs={setJobs}
       items={items}
       haystack={haystack}
       signature={signature}
@@ -237,7 +293,10 @@ export function AiWorkspace({
                   {sessions.length > 0 ? `Chats (${sessions.length})` : "Chats"}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex w-72 flex-col gap-3 p-4">
+              <SheetContent
+                side="left"
+                className="flex w-72 flex-col gap-3 p-4"
+              >
                 <SheetTitle>Your chats</SheetTitle>
                 <SheetDescription className="sr-only">
                   Open a saved conversation, start a new one, or delete one.
@@ -256,7 +315,7 @@ export function AiWorkspace({
                 data-testid={TEST_IDS.jobPanelToggle}
               >
                 <Briefcase className="size-4" aria-hidden />
-                {initialJobs.length > 0 || jobRefresh > 0 ? "This job" : "Job"}
+                {jobs.length > 0 ? "This job" : "Job"}
               </Button>
             </SheetTrigger>
             <SheetContent
@@ -265,7 +324,7 @@ export function AiWorkspace({
             >
               <SheetTitle>This job</SheetTitle>
               <SheetDescription className="sr-only">
-                The posting, the résumé you&apos;ll send, and the cover letter.
+                The posting, the resume you&apos;ll send, and the cover letter.
               </SheetDescription>
               {jobPanel}
             </SheetContent>
@@ -273,12 +332,18 @@ export function AiWorkspace({
         </div>
 
         <AiChat
-          key={sessionId}
+          key={chatId}
           profileIsEmpty={profileIsEmpty}
-          sessionId={sessionId}
-          initialMessages={initialMessages}
+          sessionId={chatId}
+          // A chat started from here is genuinely new, so it starts empty — the
+          // server's transcript belongs to the conversation the user left.
+          initialMessages={chatId === sessionId ? initialMessages : []}
+          initialInput={chatId === sessionId ? undefined : (seedInput ?? "")}
+          resumes={resumes}
+          jobFacts={jobFacts}
           onTurnComplete={persist}
           onJobSaved={onJobSaved}
+          onStartNewChat={startNewChat}
         />
       </div>
 

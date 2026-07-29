@@ -250,7 +250,7 @@ params, basePath }`). `defineTemplate` enforces page coverage (`home`
   mandatory, every declared page rendered, no stray renderers). `resolveTheme`
   is now kind-agnostic. +5 SDK unit tests (35 total).
 - ✅ **First portfolio template** (`templates/portfolio-minimal`) — home,
-  projects, project detail, about, résumé; two themes (dark/light), serif
+  projects, project detail, about, resume; two themes (dark/light), serif
   editorial language ported from `apps/web/design-refs/portfolio/`; universal
   RSC pages; `.rf-site`-scoped self-contained stylesheet; 12 render-harness
   tests against the fixture ProfileViews (doc 05 impl step 4 seed).
@@ -446,7 +446,7 @@ post yet.
   inside it would make both costs scale with how much the user has written.
 - ✅ **Body = TipTap/ProseMirror JSON** over an explicit node whitelist, a
   second content shape alongside the profile's Markdown subset rather than a
-  widening of it: that subset is small so a résumé survives ATS text
+  widening of it: that subset is small so a resume survives ATS text
   extraction, and headings/code blocks/task lists/callouts are not expressible
   in it. Raw HTML is **unrepresentable**, not filtered — no whitelisted node
   carries markup.

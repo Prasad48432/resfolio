@@ -5,12 +5,13 @@ import { z } from "zod";
  * (docs/architecture/13-ai-layer.md, Phase 7).
  *
  * **A job match session is one job the user is working on.** Today it is created
- * by a match and carries a score, a set of accepted profile changes, a résumé
- * reference and a letter. Later the same row is a tracked application moving
- * through **Saved → Applied → Interviewing → Rejected / Offer**. Nothing in this
- * file mentions a model, and that is deliberate: matching is how a row gets made,
- * not what a row is. The prompts, the provider and every model call stay in
- * `apps/dashboard/lib/ai/` — see `../CLAUDE.md`.
+ * by a match and carries a score, a set of accepted profile changes, a resume
+ * reference and a letter. **The same row is the tracker's card**, moving through
+ * Saved → Applied → Interviewing → Offer / Rejected / Ghosted, and carrying the
+ * history of how it got there. Nothing in this file mentions a model, and that is
+ * deliberate: matching is how a row gets made, not what a row is. The prompts,
+ * the provider and every model call stay in `apps/dashboard/lib/ai/` — see
+ * `../CLAUDE.md`.
  *
  * The one boundary worth stating up front: **what the model emits and what gets
  * stored are two schemas, not one.** The dashboard's `lib/ai/job-analysis.ts`
@@ -32,20 +33,62 @@ import { z } from "zod";
  * is simply true. `saved` is where a match lands, and it is already the honest
  * description of what the user did.
  *
- * `rejected` and `offer` are both terminal and both kept, rather than collapsed
- * into "closed": the difference is the only thing anyone would ever filter on.
+ * The three terminal states are kept apart rather than collapsed into "closed",
+ * because the difference between them is the only thing anyone would ever filter
+ * on — and, now that the flow view exists, the only thing worth counting.
+ * `ghosted` in particular is not a variety of `rejected`: an application nobody
+ * answered says something about the *employer*, and a job search where half the
+ * applications vanish is a different problem from one where half are turned
+ * down. Reading them as one number hides the more actionable of the two.
+ *
+ * **The order is the board's order**, left to right, so the columns are rendered
+ * from this array rather than from a second list that could disagree with it.
  */
 export const JOB_STATUSES = [
   "saved",
   "applied",
   "interviewing",
-  "rejected",
   "offer",
+  "rejected",
+  "ghosted",
 ] as const;
 
 export type JobStatus = (typeof JOB_STATUSES)[number];
 
 export const jobStatusSchema = z.enum(JOB_STATUSES);
+
+/**
+ * A status change, as it happened.
+ *
+ * **The tracker's board needs the current status; the flow view needs the
+ * journey, and one cannot be derived from the other.** A row sitting in
+ * `rejected` might have been turned down after three interviews or filtered out
+ * on the day it was sent, and a snapshot has no way to tell those apart — so a
+ * flow drawn from the `status` column alone has to guess at its own middle. It
+ * would draw every offer as having interviewed, which is not always true, and
+ * could never draw "declined after interview" at all.
+ *
+ * So each change is recorded when it is made. This is the same shape
+ * `profile_changes` already uses — a capped jsonb array, appended to, never
+ * replaced — and for the same reason: the row is written repeatedly over the
+ * life of one application, and history is the part of it that must survive
+ * every one of those writes.
+ */
+export const statusEventSchema = z.object({
+  status: jobStatusSchema,
+  /** `coerce`, because this round-trips through JSON as a string. */
+  at: z.coerce.date(),
+});
+
+export type JobStatusEvent = z.infer<typeof statusEventSchema>;
+
+/** A job that changed status a hundred times is a test fixture, not a job
+ * search. The cap exists so one row cannot grow without bound. */
+export const MAX_STATUS_EVENTS = 100;
+
+export const statusHistorySchema = z
+  .array(statusEventSchema)
+  .max(MAX_STATUS_EVENTS);
 
 /**
  * The score below which enhancing the profile for a posting asks first.
@@ -61,10 +104,17 @@ export const jobStatusSchema = z.enum(JOB_STATUSES);
  */
 export const ENHANCE_CONFIRM_THRESHOLD = 70;
 
-/** A stored job description. The same ceiling the dashboard accepts at its
- * request boundary (`lib/ai/limits.ts`), restated here because a column has to
- * bound itself — the two are checked independently and neither trusts the
- * other. */
+/**
+ * A stored job description, and **deliberately looser than what the dashboard
+ * accepts** (`lib/ai/limits.ts` now stops at 12,000).
+ *
+ * A column has to bound itself — the two are checked independently and neither
+ * trusts the other — but they are not the same bound and should not be kept in
+ * sync. The app's limit is a *cost* control on what may be sent to a model and it
+ * will move as pricing does; this one is a *storage* ceiling, and lowering it to
+ * chase the app's would make rows written by an earlier deploy unwritable by a
+ * later one. Wider here, narrower there, is the correct direction.
+ */
 export const MAX_JOB_DESCRIPTION_CHARS = 20_000;
 
 /** Job rows kept per profile. A tracker is a working list, not an archive;
@@ -152,7 +202,7 @@ export type CoverLetterContent = z.infer<typeof coverLetterSchema>;
  *
  * **Every field is optional except the job description**, because this row is
  * written repeatedly as the user works through one posting — matched, then
- * enhanced, then given a résumé, then a letter — and a save that had to restate
+ * enhanced, then given a resume, then a letter — and a save that had to restate
  * everything would be a save that can clear a field by forgetting it. The
  * repository merges rather than replaces, and the *absence* of a key means "leave
  * it alone" rather than "set it to nothing".
@@ -178,19 +228,88 @@ export const saveJobMatchInputSchema = z.object({
 
 export type SaveJobMatchInput = z.infer<typeof saveJobMatchInputSchema>;
 
+/**
+ * What the tracker may edit on a card by hand.
+ *
+ * **Separate from {@link saveJobMatchInputSchema} because that one requires the
+ * job description**, and correcting a company name the model misread must not
+ * mean shipping four thousand characters of posting back to the server to do it.
+ * That requirement is right where it is — a save from the match flow always has
+ * the posting, and making it optional there would let a later save blank the one
+ * field everything else is derived from — so this is a second, narrower door
+ * rather than a loosening of the first.
+ *
+ * Deliberately not here: `status` (its own function, because it records
+ * history), scores, the analysis, and the letter. Those are results, and a
+ * tracker that let you type your own match score would be a tracker whose
+ * numbers mean nothing.
+ */
+export const updateJobDetailsInputSchema = z.object({
+  role: z.string().trim().max(160).nullish(),
+  company: z.string().trim().max(160).nullish(),
+  location: z.string().trim().max(160).nullish(),
+  jobUrl: z.string().trim().max(2_000).nullish(),
+});
+
+export type UpdateJobDetailsInput = z.infer<typeof updateJobDetailsInputSchema>;
+
 /** A row of the panel and, later, of the tracker board: enough to identify and
  * rank a job, and none of its bulk. Listing forty jobs must not mean loading
  * forty job descriptions. */
 export interface JobMatchSummary {
   id: string;
   title: string;
+  /**
+   * The role and location as read off the posting.
+   *
+   * **`title` is derived from `role` and is lossy** — it joins, and it ellipsises
+   * at {@link MAX_TITLE_CHARS} — so a screen that lets the user correct a role
+   * cannot reconstruct one from it. The tracker's edit form does exactly that,
+   * and deriving the field back out of the title would silently write a truncated
+   * role over a whole one the first time somebody fixed a typo on a long title.
+   * Two short text columns; the rule this list keeps is about `job_description`
+   * and `profile_changes`, which are large.
+   */
+  role: string | null;
   company: string | null;
+  location: string | null;
   jobUrl: string | null;
   status: JobStatus;
   initialScore: number | null;
   enhancedScore: number | null;
   hasResume: boolean;
   hasCoverLetter: boolean;
+  /**
+   * This posting has already caused profile changes the user accepted.
+   *
+   * Derived from `profile_changes` being non-empty, and the reason it is on the
+   * *summary* rather than only on the record: the chat renders a job match card
+   * per tool result, and "offer to enhance" is the wrong thing to show above a
+   * profile that was already enhanced for this exact posting. A card that has to
+   * load the whole record to decide whether to show a button is a card that shows
+   * the button first and then takes it away.
+   */
+  hasEnhancement: boolean;
+  /**
+   * Which resume this application sends, if one has been chosen.
+   *
+   * On the summary as well as the record because two screens ask the same
+   * question of a list: the board card wants to say "has a resume", and the
+   * optimise card in the chat wants to know whether *this* resume has already
+   * been pointed at *this* posting — which `hasResume` cannot answer, and which
+   * is the difference between offering the work and offering to redo it.
+   */
+  resumeDocumentId: string | null;
+  /**
+   * Every status this job has held, oldest first — see {@link statusEventSchema}.
+   *
+   * On the summary because the flow view is built from *all* the user's jobs at
+   * once: fetching each one's record to draw a diagram of forty applications is
+   * forty reads for a handful of timestamps. It is small by construction (a
+   * status and a date, capped at {@link MAX_STATUS_EVENTS}), which is what makes
+   * it affordable here in a way `job_description` is not.
+   */
+  statusHistory: JobStatusEvent[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -199,11 +318,8 @@ export interface JobMatchSummary {
 export interface JobMatchRecord extends JobMatchSummary {
   chatSessionId: string | null;
   jobDescription: string;
-  role: string | null;
-  location: string | null;
   analysis: StoredAnalysis | null;
   profileChanges: unknown[];
-  resumeDocumentId: string | null;
   coverLetter: CoverLetterContent | null;
 }
 
@@ -248,7 +364,9 @@ export function deriveJobTitle(
  * A bare `acme.com/jobs/1` is accepted and promoted to `https://`, because that
  * is what people paste and refusing it would be pedantry with a cost.
  */
-export function normalizeJobUrl(value: string | null | undefined): string | null {
+export function normalizeJobUrl(
+  value: string | null | undefined,
+): string | null {
   const raw = value?.trim() ?? "";
   if (raw === "") {
     return null;

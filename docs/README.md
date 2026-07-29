@@ -24,6 +24,7 @@ document must be updated in the same change.
 | 11  | [Engineering Foundation](architecture/11-engineering-foundation.md) | Task vocabulary, env validation, testing pyramid, CI/CD, observability                  |
 | 12  | [Data Imports & Sources](architecture/12-integrations-and-sync.md)  | Connector contract, auth modes, routing + staging + review pipeline, import semantics   |
 | 13  | [AI Layer](architecture/13-ai-layer.md)                             | Propose → validate → review → apply; no-fabrication as a schema property; provider seam |
+| 14  | [AI Usage & Billing](architecture/14-ai-usage-and-billing.md)       | Plan entitlements, the quota ledger, one spend gate, Dodo subscriptions — **Proposed**  |
 
 ## Development plan
 
@@ -36,8 +37,12 @@ proceeds phase by phase, in order.
 These areas are on the roadmap but have **no accepted design yet**. Do not
 improvise them from scratch — write the architecture document first:
 
-- **Billing & plan gating** — Stripe integration, plan limits (custom
-  domains, version retention, white-label). Referenced by docs 04 and 07.
+- **Non-AI plan gating** — custom domains, version retention, white-label.
+  Referenced by docs 04 and 07. The _billing machinery_ they would hang off is
+  now designed in [14](architecture/14-ai-usage-and-billing.md) (plans,
+  subscriptions, Dodo Payments); what is still undesigned is which non-AI
+  capabilities each plan carries, and how a resource limit — as opposed to a
+  consumption quota — is enforced.
 - **Resume import / onboarding** — PDF import, AI-assisted profile seeding.
   Likely the activation make-or-break; design before building onboarding.
   (The LinkedIn export-file import is designed — doc 12's `file` mode.)
@@ -49,7 +54,8 @@ improvise them from scratch — write the architecture document first:
   ([07](architecture/07-storage.md)) — so deletion stays a cascade, not an
   archaeology project. Design before public launch.
 - **Transactional email** (Resend + React Email) — deliberately absent from
-  V1: social-only auth sends no mail, Stripe sends its own receipts. Do not
+  V1: social-only auth sends no mail, and the payment provider sends its own
+  receipts and dunning mail (doc 14 — Dodo Payments, not Stripe). Do not
   build an email layer until a feature needs one (magic links will be the
   trigger).
 

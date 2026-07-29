@@ -59,6 +59,7 @@ export {
   calendarDateSchema,
   httpUrlSchema,
   inlineRichTextSchema,
+  itemIdSchema,
   itemSourceSchema,
   richTextSchema,
   safeLinkUrlSchema,
@@ -114,6 +115,16 @@ export {
   type RejectedChange,
   type ReviewedChange,
 } from "./proposal";
+
+export {
+  addDemonstratedSkills,
+  demonstrationHaystack,
+  findDemonstratedSkills,
+  termAppearsIn,
+  type DemonstratedSkill,
+  type SkillAddition,
+  type SkillGroupRef,
+} from "./skills";
 
 export {
   applyTailoredChanges,

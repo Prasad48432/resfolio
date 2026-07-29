@@ -6,7 +6,7 @@ import { Fragment, type ReactElement, type ReactNode } from "react";
  * Render a post body — the `@resfolio/blog` node tree — to React.
  *
  * The counterpart to `renderRichText`, for the other content grammar (doc 07):
- * profile rich text is a tiny Markdown subset chosen so a résumé survives
+ * profile rich text is a tiny Markdown subset chosen so a resume survives
  * plain-text extraction; a post body is a validated ProseMirror tree that needs
  * headings, code, callouts and images. One renderer each, matched to what
  * reads them.

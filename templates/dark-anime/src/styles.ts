@@ -283,8 +283,12 @@ export function buildPortfolioStyles(): string {
 
 /* ── Experience rows ─────────────────────────────────────────────── */
 .rf-exp { display: flex; flex-direction: column; }
-.rf-exp-row { display: flex; align-items: flex-start; gap: 0.875rem; padding: 0.875rem 0; border-top: 1px dashed var(--rf-rule); }
+/* The row is a column of two: the header, then the description at full width.
+   The mark lives in .rf-exp-head and therefore reserves no horizontal space
+   below it — see ExperienceRow in shared.tsx for why that matters on a phone. */
+.rf-exp-row { display: flex; flex-direction: column; padding: 0.875rem 0; border-top: 1px dashed var(--rf-rule); }
 .rf-exp-row:first-child { border-top: 0; padding-top: 0; }
+.rf-exp-head { display: flex; align-items: flex-start; gap: 0.875rem; }
 .rf-exp-mark {
   display: flex;
   align-items: center;
@@ -303,7 +307,13 @@ export function buildPortfolioStyles(): string {
 .rf-exp-main { flex: 1; min-width: 0; }
 .rf-exp-title { font-size: 0.875rem; font-weight: 600; }
 .rf-exp-role { font-size: 0.8125rem; color: var(--rf-muted); }
-.rf-exp-body { margin-top: 0.5rem; font-size: 0.8125rem; color: var(--rf-muted); }
+/* Full width of the card, with no left inset: it is a sibling of the header,
+   not a child of the column that sits beside the mark. */
+.rf-exp-body { width: 100%; margin-top: 0.5rem; padding-left: 0; font-size: 0.8125rem; color: var(--rf-muted); }
+/* An entry with bullets and no summary opens with the list, and .rf-highlights
+   carries its own top margin for the case where it follows prose — which would
+   double up against this container's. */
+.rf-exp-body > .rf-highlights:first-child { margin-top: 0; }
 .rf-exp-meta { text-align: right; flex-shrink: 0; }
 .rf-exp-when { font-size: 0.75rem; color: var(--rf-muted); white-space: nowrap; }
 .rf-exp-where { font-size: 0.75rem; color: var(--rf-faint); }

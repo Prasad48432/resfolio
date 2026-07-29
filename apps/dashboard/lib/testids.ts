@@ -105,6 +105,12 @@ export const TEST_IDS = {
   blogDeleteButton: "blog-delete-button",
   aiChat: "ai-chat",
   aiInput: "ai-input",
+  /** The composer's character count, shown only near the ceiling. */
+  aiInputCount: "ai-input-count",
+  /** Over the job-description ceiling. Assertable because the alternative this
+   * replaced — a `maxLength` that truncated a pasted posting — was invisible by
+   * construction, and an invisible failure needs a visible test. */
+  aiInputTooLong: "ai-input-too-long",
   aiSend: "ai-send",
   aiStop: "ai-stop",
   aiThinking: "ai-thinking",
@@ -133,6 +139,10 @@ export const TEST_IDS = {
   aiProposalFailed: "ai-proposal-failed",
   aiProposalApplyAll: "ai-proposal-apply-all",
   aiProposalRejected: "ai-proposal-rejected",
+  /** Changes already in the profile — accepted earlier, or written by hand. The
+   * opposite of `aiProposalRejected` and previously counted with it, which told
+   * users their accepted edits had been refused as fabrication. */
+  aiProposalSettled: "ai-proposal-settled",
   /** The in-chat job match (Phase 7): the card itself, the two states the tool
    * has before its result exists, and the actions on it. `jobMatchNoPosting` is
    * the model calling the match tool when nothing in the conversation is long
@@ -141,7 +151,26 @@ export const TEST_IDS = {
   jobMatchPreparing: "job-match-preparing",
   jobMatchFailed: "job-match-failed",
   jobMatchNoPosting: "job-match-no-posting",
-  jobMatchEnhance: "job-match-enhance",
+  /** The unified optimise card (`optimise-for-job.tsx`), which replaced the two
+   * peer buttons — "Enhance profile for this job" here and "Tailor for this job"
+   * in the artefact panel — with one question about where changes land. */
+  optimisePanel: "optimise-panel",
+  optimiseDestination: "optimise-destination",
+  optimiseToProfile: "optimise-to-profile",
+  optimiseToResume: "optimise-to-resume",
+  optimiseResumePick: "optimise-resume-pick",
+  optimiseSubmit: "optimise-submit",
+  /** The header line shown when every destination is spent. Assertable because
+   * the bug it fixes is a card that offered work it had already done — and the
+   * only visible difference between "done" and "not started" was a sentence
+   * hidden behind the tile that was not selected. */
+  optimiseDone: "optimise-done",
+  /** Terms the posting names that the profile demonstrates but does not list.
+   * Assertable because the failure it fixes is invisible: the analysis said
+   * "Docker ✓" over a resume whose Skills block never printed Docker. */
+  skillGapsPanel: "skill-gaps-panel",
+  skillGapsApply: "skill-gaps-apply",
+  skillGapsDone: "skill-gaps-done",
   /** The confirmation shown below `ENHANCE_CONFIRM_THRESHOLD`, and its two
    * answers. Assertable because the warning existing at all is the product
    * decision — see `@resfolio/job`. */
@@ -149,7 +178,11 @@ export const TEST_IDS = {
   jobMatchConfirmCancel: "job-match-confirm-cancel",
   jobMatchConfirmContinue: "job-match-confirm-continue",
   jobMatchEnhanceError: "job-match-enhance-error",
-  jobMatchRecheck: "job-match-recheck",
+  /** Replaces the enhance offer once this posting has caused profile changes —
+   * in this session or in any earlier one. Assertable because the bug it fixes is
+   * "the button came back after a reload", which is invisible to any test that
+   * only exercises one page load. */
+  jobMatchEnhanced: "job-match-enhanced",
   /** The artefact panel beside the conversation, and the three things on it. */
   jobPanel: "job-panel",
   jobPanelToggle: "job-panel-toggle",
@@ -158,7 +191,6 @@ export const TEST_IDS = {
   jobPanelResumePick: "job-panel-resume-pick",
   jobPanelResumeDownload: "job-panel-resume-download",
   jobPanelLetter: "job-panel-letter",
-  jobPanelLetterDownload: "job-panel-letter-download",
   jobPanelScore: "job-panel-score",
   jobPanelDelta: "job-panel-delta",
   /** The rendered analysis, shared by the in-chat card and anything that comes
@@ -170,10 +202,10 @@ export const TEST_IDS = {
   jobScore: "job-score",
   jobDowngraded: "job-downgraded",
   jobKeywords: "job-keywords",
-  tailorPanel: "tailor-panel",
-  tailorTarget: "tailor-target",
-  tailorSubmit: "tailor-submit",
-  tailorError: "tailor-error",
+  /* `tailorPanel` / `tailorTarget` / `tailorSubmit` / `tailorError` went with the
+     "Tailor for this job" entry point (2026-07-28). The trigger, its resume
+     picker and its error line are all `optimise*` now; only the review half of
+     `resume-tailor.tsx` survives, and it keeps its own ids below. */
   tailorExisting: "tailor-existing",
   tailorReset: "tailor-reset",
   tailorPublicNotice: "tailor-public-notice",
@@ -195,6 +227,10 @@ export const TEST_IDS = {
   letterResult: "letter-result",
   letterCopy: "letter-copy",
   letterDownload: "letter-download",
+  /** Brings the compose form back after a letter exists. The form is hidden once
+   * there is a letter — this is the only way back to it, so it is the one control
+   * whose absence would strand a user with a draft they don't like. */
+  letterRewrite: "letter-rewrite",
   /** The clean-result line. Assertable on purpose: "we checked and found nothing"
    * is a claim the product makes, so it needs a test that it appears. */
   letterChecked: "letter-checked",
@@ -202,6 +238,48 @@ export const TEST_IDS = {
   /** A transcript row, keyed by role — the assistant and user turns need to be
    * assertable apart, and message ids are generated so they can't be a key. */
   aiMessage: (role: string) => `ai-message-${role}`,
+
+  /** The nudge shown when a second job posting is about to land in a chat that
+   * already carries one. Assertable because the whole point is that it costs no
+   * model call — a test can prove it appears with no request in flight. */
+  secondPosting: "second-posting",
+  secondPostingNewChat: "second-posting-new-chat",
+  secondPostingCancel: "second-posting-cancel",
+  /** The server's own refusal of a second job, rendered in the transcript. The
+   * composer's block is the one users meet; this is what catches a model talked
+   * into trying anyway, and it must stay assertable separately for that reason. */
+  jobMatchSecond: "job-match-second",
+  jobMatchSecondNewChat: "job-match-second-new-chat",
+
+  /** "Applied to this one?", under the posting link — in the chat card and in
+   * the artefact panel, one component in both. */
+  applyPrompt: "apply-prompt",
+  applyPromptSaved: "apply-prompt-saved",
+  applyPromptApplied: "apply-prompt-applied",
+  applyPromptDone: "apply-prompt-done",
+
+  /** The job tracker (`/jobs`). The board and the flow are two views of one
+   * list, so they share a toggle and are asserted apart by these. */
+  jobTracker: "job-tracker",
+  jobTrackerEmpty: "job-tracker-empty",
+  jobTrackerViewBoard: "job-tracker-view-board",
+  jobTrackerViewFlow: "job-tracker-view-flow",
+  jobBoard: "job-board",
+  jobFlow: "job-flow",
+  jobFlowEmpty: "job-flow-empty",
+  jobFlowSummary: "job-flow-summary",
+  jobFlowExportPng: "job-flow-export-png",
+  jobFlowExportSvg: "job-flow-export-svg",
+  jobFlowCopy: "job-flow-copy",
+  /** The edit sheet over one card. */
+  jobEdit: "job-edit",
+  jobEditRole: "job-edit-role",
+  jobEditCompany: "job-edit-company",
+  jobEditLocation: "job-edit-location",
+  jobEditUrl: "job-edit-url",
+  jobEditStatus: "job-edit-status",
+  jobEditSave: "job-edit-save",
+  jobEditDelete: "job-edit-delete",
 } as const;
 
 /** A saved chat, by id — the one AI surface whose rows outlive the request that
@@ -231,6 +309,21 @@ export const tailorApplyTestId = (index: number) =>
 
 /** A cover letter's body paragraphs, by position — streamed prose carries no
  * identifier and the letter is never persisted. */
+/** One demonstrated-but-unlisted skill row, by term — these have no id of their
+ * own, and the term is what the user is deciding about. */
+export const skillGapTestId = (skill: string) =>
+  `skill-gap-${skill.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+
+/** A tracker card, **by id** — a job outlives the request that drew it and moves
+ * between columns, so position identifies nothing across a drag or a reload.
+ * That is the same rule the blog and triage rows follow. */
+export const jobCardTestId = (id: string) => `job-card-${id}`;
+
+/** A board column, by status. Statuses are a closed set from `@resfolio/job`, so
+ * this is a name rather than a generated key — a spec asserting on
+ * `job-column-applied` reads as what it is. */
+export const jobColumnTestId = (status: string) => `job-column-${status}`;
+
 export const letterParagraphTestId = (index: number) =>
   `letter-paragraph-${index}`;
 

@@ -10,6 +10,7 @@ import {
   normalizeJobUrl,
   saveJobMatchInputSchema,
   scoreView,
+  statusHistorySchema,
   storedAnalysisSchema,
 } from "./match";
 
@@ -186,6 +187,30 @@ describe("schemas", () => {
 
   it("knows the tracker's states", () => {
     expect(jobStatusSchema.safeParse("applied").success).toBe(true);
-    expect(jobStatusSchema.safeParse("ghosted").success).toBe(false);
+    // `ghosted` was this assertion's example of a *non*-status until the tracker
+    // was built and it became one. Kept as a live case rather than deleted,
+    // because "an application nobody answered" is the state most likely to be
+    // renamed later by someone who thinks it is a variety of `rejected`.
+    expect(jobStatusSchema.safeParse("ghosted").success).toBe(true);
+    expect(jobStatusSchema.safeParse("withdrawn").success).toBe(false);
+  });
+
+  it("records a status change with a date, whatever JSON did to it", () => {
+    // Round-tripping through jsonb turns the date into a string, so the schema
+    // coerces. Without that, every history read back from the database would
+    // fail validation and the flow view would silently draw nothing.
+    const parsed = statusHistorySchema.parse([
+      { status: "applied", at: "2026-07-28T10:00:00.000Z" },
+    ]);
+
+    expect(parsed[0]?.at).toBeInstanceOf(Date);
+    expect(parsed[0]?.status).toBe("applied");
+  });
+
+  it("refuses a history holding a state the tracker does not have", () => {
+    expect(
+      statusHistorySchema.safeParse([{ status: "hired", at: new Date() }])
+        .success,
+    ).toBe(false);
   });
 });

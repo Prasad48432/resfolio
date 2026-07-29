@@ -115,18 +115,28 @@ export function JobMatchResult({
                 key={entry.keyword}
                 className={
                   entry.present
-                    ? "rounded-full border border-border px-2 py-0.5 text-xs text-muted"
-                    : "rounded-full border border-brand/40 px-2 py-0.5 text-xs"
+                    ? "max-w-full rounded-full border border-border px-2 py-0.5 text-xs wrap-anywhere text-muted"
+                    : "max-w-full rounded-full border border-brand/40 px-2 py-0.5 text-xs wrap-anywhere"
                 }
                 // Presence is checked by us against the profile, not asserted by
-                // the model — so the title can state it as fact.
+                // the model — so the title can state it as fact. An either/or
+                // term names the option that satisfied it, because "Angular/React
+                // ✓" against a profile with no Angular is the kind of tick a
+                // reader is right to distrust until it shows its working.
                 title={
                   entry.present
-                    ? "Appears in your profile"
-                    : "Not found anywhere in your profile"
+                    ? entry.matched
+                      ? `Covered by ${entry.matched} — this posting accepts any of ${entry.alternatives.join(", ")}`
+                      : "Appears in your profile"
+                    : entry.alternatives.length > 0
+                      ? `None of ${entry.alternatives.join(", ")} appears in your profile`
+                      : "Not found anywhere in your profile"
                 }
               >
                 {entry.keyword}
+                {entry.matched ? (
+                  <span className="text-live"> · {entry.matched}</span>
+                ) : null}
               </span>
             ))}
           </div>
@@ -151,8 +161,11 @@ function RequirementRow({
       className="flex flex-col gap-2 p-3"
       data-testid={requirementRowTestId(index)}
     >
+      {/* The requirement is the model's reading of a posting, so it can be a long
+          run of unbroken characters. `min-w-0` + `wrap-anywhere` keep it inside
+          the card instead of setting the card's width. */}
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px]">{requirement.text}</p>
+        <p className="min-w-0 text-[13px] wrap-anywhere">{requirement.text}</p>
         <span
           className={`flex shrink-0 items-center gap-1 text-xs ${style.className}`}
         >
@@ -161,7 +174,7 @@ function RequirementRow({
         </span>
       </div>
 
-      <p className="text-xs text-muted">{requirement.note}</p>
+      <p className="text-xs text-muted wrap-anywhere">{requirement.note}</p>
 
       {requirement.evidence.length > 0 ? (
         // Every match points at something. These are links because the natural
@@ -173,7 +186,7 @@ function RequirementRow({
             <Link
               key={ref.id}
               href="/profile"
-              className="rounded-full border border-border px-2 py-0.5 text-xs underline-offset-3 hover:underline"
+              className="max-w-full rounded-full border border-border px-2 py-0.5 text-xs wrap-anywhere underline-offset-3 hover:underline"
             >
               {ref.label}
             </Link>

@@ -22,7 +22,7 @@ export const MARGIN = 72;
 export const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
 /** 11pt on a 16.5pt leading — the ratio a page of continuous prose is read at.
- * Bigger than a résumé's because a letter is read rather than scanned. */
+ * Bigger than a resume's because a letter is read rather than scanned. */
 export const BODY_SIZE = 11;
 export const BODY_LEADING = 16.5;
 export const PARAGRAPH_GAP = 11;
@@ -143,7 +143,13 @@ export function layoutLetter(
       }
 
       cursor += block.leading;
-      lines.push({ text, top: cursor, size: block.size, font: block.font, page });
+      lines.push({
+        text,
+        top: cursor,
+        size: block.size,
+        font: block.font,
+        page,
+      });
     }
   }
 

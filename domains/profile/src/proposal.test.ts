@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { addItem, updateBasics } from "./edit";
 import { ProfileDataError } from "./errors";
@@ -10,6 +11,7 @@ import {
   type ProfileChange,
 } from "./proposal";
 import { createEmptyProfile } from "./seed";
+import { tailorPlanSchema } from "./tailor";
 import type { Profile } from "./schema/profile";
 
 /**
@@ -109,6 +111,60 @@ describe("profileChangeSchema", () => {
   it("caps how many changes one proposal may carry", () => {
     const changes = Array.from({ length: 13 }, () => rewriteExperienceSummary);
     expect(profileProposalSchema.safeParse({ changes }).success).toBe(false);
+  });
+});
+
+/**
+ * The provider-compatibility rule, as a test — because it is invisible in the
+ * schema itself.
+ *
+ * Both schemas below are handed to a model as strict structured output, and
+ * OpenAI's strict `response_format` subset **permits `anyOf` and rejects
+ * `oneOf`**: a schema carrying one is refused with a 400 before generation
+ * starts, which on screen is indistinguishable from the model failing to answer.
+ * Zod emits `oneOf` for `z.discriminatedUnion` and `anyOf` for `z.union`, so the
+ * difference between the two — otherwise a matter of taste — decides whether the
+ * job-enhancement and resume-tailoring passes work at all.
+ *
+ * A reader of `proposal.ts` cannot see that from the schema; this is where they
+ * can.
+ */
+describe("model-facing JSON Schema", () => {
+  /** Every key in the emitted schema, at any depth. */
+  function keysOf(node: unknown): string[] {
+    if (Array.isArray(node)) {
+      return node.flatMap(keysOf);
+    }
+    if (node === null || typeof node !== "object") {
+      return [];
+    }
+    return Object.entries(node).flatMap(([key, value]) => [
+      key,
+      ...keysOf(value),
+    ]);
+  }
+
+  const asJsonSchema = (schema: z.ZodType): unknown =>
+    z.toJSONSchema(schema, {
+      // The conversion the AI SDK performs on the way to `response_format`.
+      target: "draft-7",
+      io: "output",
+      unrepresentable: "any",
+    });
+
+  it("never emits oneOf for a proposal", () => {
+    expect(keysOf(asJsonSchema(profileProposalSchema))).not.toContain("oneOf");
+  });
+
+  it("never emits oneOf for a tailoring plan", () => {
+    expect(keysOf(asJsonSchema(tailorPlanSchema))).not.toContain("oneOf");
+  });
+
+  it("still expresses the change union — as anyOf", () => {
+    // Guards the other direction: a "fix" that flattened the union into one
+    // object with optional halves would also pass the two tests above, and would
+    // quietly reintroduce the `.optional()` fields strict output rejects.
+    expect(keysOf(asJsonSchema(profileProposalSchema))).toContain("anyOf");
   });
 });
 

@@ -36,10 +36,10 @@ consume.
 ## The body is TipTap JSON, not the profile's rich text
 
 `@resfolio/profile`'s `richTextSchema` is a deliberately tiny Markdown subset
-(bold, italic, links, hyphen lists) chosen so a résumé survives plain-text ATS
+(bold, italic, links, hyphen lists) chosen so a resume survives plain-text ATS
 extraction. A post needs headings, code blocks, task lists, images with captions
 and callouts — none expressible in that grammar, and widening it would widen it
-for résumés too, where the constraint is the point.
+for resumes too, where the constraint is the point.
 
 **Raw HTML is not filtered, it is unrepresentable.** A node is valid only if its
 `type` is in the whitelist, and no node type carries markup. Same reasoning as

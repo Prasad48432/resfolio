@@ -309,35 +309,59 @@ export function Highlights({ items }: { items: readonly string[] }): ReactNode {
   );
 }
 
-/** One experience row — the reference's shape: mark, company/role, dates. */
+/**
+ * One experience row — the reference's shape: mark, company/role, dates.
+ *
+ * **The mark belongs to the header, not to the row.** It used to be the first
+ * child of the row's own flex, which made it a column running the full height of
+ * the entry — so the description was indented under it and, on a phone, read in a
+ * gutter two thirds of the card wide. The mark is 2rem plus a 0.875rem gap; on a
+ * 360px screen that is a fifth of the line gone, permanently, to identify a
+ * company already named on the line above.
+ *
+ * So the row is now a column of two: a header (mark · company/role · dates) and
+ * the description below it, at the card's full width. Desktop is unchanged — the
+ * header is the same three-part row it always was — and the mobile gutter is gone
+ * because there is no longer anything beside the prose to reserve space for it.
+ */
 export function ExperienceRow({
   item,
 }: {
   item: ItemOf<"experience">;
 }): ReactElement {
+  const hasBody = Boolean(item.summary) || item.highlights.length > 0;
+
   return (
     <li className="rf-exp-row">
-      {/* The reference shows a company logo here. We have no logo field and
-          won't invent one — a letter mark is honest and needs no upload. */}
-      <span className="rf-exp-mark" aria-hidden>
-        {item.company.trim().charAt(0).toUpperCase() || "·"}
-      </span>
-      <div className="rf-exp-main">
-        <div className="rf-exp-title">{item.company}</div>
-        <div className="rf-exp-role">{item.role}</div>
-        {item.summary ? (
-          <div className="rf-exp-body">{renderRichText(item.summary)}</div>
-        ) : null}
-        <Highlights items={item.highlights} />
-      </div>
-      <div className="rf-exp-meta">
-        <div className="rf-exp-when">
-          {formatDateRange(item.startDate, item.endDate)}
+      <div className="rf-exp-head">
+        {/* The reference shows a company logo here. We have no logo field and
+            won't invent one — a letter mark is honest and needs no upload. */}
+        <span className="rf-exp-mark" aria-hidden>
+          {item.company.trim().charAt(0).toUpperCase() || "·"}
+        </span>
+        <div className="rf-exp-main">
+          <div className="rf-exp-title">{item.company}</div>
+          <div className="rf-exp-role">{item.role}</div>
         </div>
-        {item.location ? (
-          <div className="rf-exp-where">{item.location}</div>
-        ) : null}
+        <div className="rf-exp-meta">
+          <div className="rf-exp-when">
+            {formatDateRange(item.startDate, item.endDate)}
+          </div>
+          {item.location ? (
+            <div className="rf-exp-where">{item.location}</div>
+          ) : null}
+        </div>
       </div>
+
+      {/* Outside the header's flex, so nothing above it reserves horizontal
+          space here. Rendered only when there is something to render, or an
+          empty entry would carry a stray margin. */}
+      {hasBody ? (
+        <div className="rf-exp-body">
+          {item.summary ? renderRichText(item.summary) : null}
+          <Highlights items={item.highlights} />
+        </div>
+      ) : null}
     </li>
   );
 }

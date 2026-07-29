@@ -13,9 +13,11 @@ import { NextResponse } from "next/server";
 
 import { parseChatRequest } from "@/lib/ai/chat-request";
 import { findJobDescription } from "@/lib/ai/job-analysis";
+import { postingsInTranscript } from "@/lib/ai/second-posting";
 import { MAX_CHAT_OUTPUT_TOKENS } from "@/lib/ai/limits";
 import {
   aiModelId,
+  chatProviderOptions,
   getChatModel,
   isAiConfigured,
   isAiEnabled,
@@ -172,10 +174,26 @@ export async function POST(request: Request): Promise<Response> {
       // delay the first requirement by several seconds. `findJobDescription`
       // walks back to the most recent message long enough to be a posting, which
       // is what makes "recalculate" work as a turn of its own.
+      // One chat, one job. The composer refuses to send a second posting, but a
+      // refusal that lives only in the browser is one a sentence can talk the
+      // model around — so the tool is told what this conversation already
+      // analysed and decides for itself. Read from the transcript's own earlier
+      // tool results: no request, no database, and it cannot disagree with what
+      // the user is looking at. A *re-check* of the same posting is still
+      // allowed and reuses that job's id (see `AiToolContext.analysedJob`).
+      const analysed = postingsInTranscript(parsed.messages).at(-1) ?? null;
+
       const tools = createAiTools(draft.data, {
         jobDescription: findJobDescription(parsed.messages),
         profileJson: profile.json,
         newJobId: () => crypto.randomUUID(),
+        analysedJob: analysed
+          ? {
+              id: analysed.jobId,
+              title: analysed.title,
+              jobDescription: analysed.jobDescription,
+            }
+          : null,
       });
 
       const result = streamText({
@@ -205,6 +223,11 @@ export async function POST(request: Request): Promise<Response> {
         // character appears, so a ceiling set for prose silently truncates a
         // turn that has to think (see `limits.ts`).
         maxOutputTokens: MAX_CHAT_OUTPUT_TOKENS,
+        // The reasoning budget and the answer's length, both dialled down — see
+        // `chatProviderOptions`. This is where the wait before the first token
+        // comes from: it is spent thinking against an empty bubble, because
+        // reasoning parts are deliberately not rendered.
+        providerOptions: chatProviderOptions(),
         // Cancellation is a cost control, not just a UX affordance: `useChat`'s
         // stop() and a closed tab both abort this request, and without the
         // signal the model would keep generating — and billing — into nothing.

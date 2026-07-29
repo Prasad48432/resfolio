@@ -62,9 +62,39 @@ the first `domains/*` package and sets the pattern every future domain
   **sets may not gain a member** (case-insensitive, so a spelling fix is not a
   new claim) and **prose lists may not lengthen** (a fourth bullet is a fourth
   claim); **every value re-parses through the section's own schema**.
+  **`profileChangeSchema` is a `z.union`, and must not be "tidied" into a
+  `z.discriminatedUnion`.** They are equivalent in TypeScript and accept the same
+  values, but Zod emits **`anyOf` for the former and `oneOf` for the latter**, and
+  OpenAI's strict `response_format` subset permits `anyOf` and rejects `oneOf`
+  outright — a 400 before generation starts, which on screen is indistinguishable
+  from the model failing to answer. It went unnoticed because the _chat_ passes
+  this schema as a **tool** input, which is not validated under that subset, so
+  the one path that never called `generateObject` kept working while job
+  enhancement and resume tailoring both failed. `proposal.test.ts` asserts the
+  emitted JSON Schema for `profileProposalSchema` and `tailorPlanSchema` carries
+  no `oneOf` — the only form of this rule a reader can check.
   `applyProfileChanges` **re-runs the guard** rather than trusting its caller —
   `updateItem` alone would accept a grown `skills` array, because that is valid
   _data_; it is only invalid relative to what was there.
+- **`skills.ts` is the one place a set-valued field may grow, and the reason is
+  _who is asking_.** `proposal.ts`' rule stays absolute for a `ProfileChange`,
+  because a model proposes those. Here the user ticks a box beside their own
+  sentence: `findDemonstratedSkills` offers only terms that already appear
+  **elsewhere in the profile** — the Skills section is excluded from
+  `demonstrationHaystack`, so a listed term can never vouch for a copy of itself
+  in a second group — and `addDemonstratedSkills` **re-derives that evidence and
+  throws** rather than trusting its caller. There is no argument that lists a
+  term the profile does not already contain, which makes it a structural
+  guarantee rather than a policy.
+  The gap it exists for is real and common: a project's `technologies` say
+  Docker, an experience bullet says Docker, and the Skills section — the block a
+  resume prints and an ATS scans — says nothing, so "Docker ✓" sat above a resume
+  that never mentioned it. It cannot invent a group, and it cannot judge
+  competence: appearing in the user's own writing is the whole bar.
+  **`termAppearsIn` lives here, not in the dashboard**, because a guard depends
+  on it — "does the profile mention this" must have one answer, and the direction
+  two answers would diverge in is a screen saying you have Docker over a guard
+  refusing to list it.
 - **`tailor.ts` is job tailoring, and it reuses the guard rather than relaxing
   it** (doc 13, Phase 5). A tailoring plan writes a **`ViewDefinition`** — deltas
   and a `basics` summary on one resume document — never the Profile. It fits

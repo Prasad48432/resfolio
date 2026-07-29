@@ -28,7 +28,7 @@ import {
  *
  * ## Layout
  *
- * One centred column, not a split workspace. The résumé and portfolio editors
+ * One centred column, not a split workspace. The resume and portfolio editors
  * split because their output is a *visual artefact* you need to see while you
  * configure it. A post's output is the text you are already looking at — a
  * preview pane would show the same words twice and halve the width of both.

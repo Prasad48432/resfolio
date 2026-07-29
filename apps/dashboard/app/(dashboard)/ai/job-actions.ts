@@ -1,6 +1,6 @@
 "use server";
 
-import { getDocument } from "@resfolio/document/server";
+import { getDocument, updateDocument } from "@resfolio/document/server";
 import {
   coverLetterSchema,
   saveJobMatchInputSchema,
@@ -18,7 +18,10 @@ import {
 import { createLogger } from "@resfolio/observability";
 import {
   MAX_PROPOSED_CHANGES,
+  addDemonstratedSkills,
   applyProfileChanges,
+  findDemonstratedSkills,
+  itemIdSchema,
   profileChangeSchema,
   profileProposalSchema,
   reviewProfileChanges,
@@ -306,6 +309,147 @@ export const applyJobEnhancementAction = createAction({
 });
 
 /**
+ * The posting's terms that this profile **demonstrates but does not list**
+ * (docs/architecture/13-ai-layer.md).
+ *
+ * **This is the answer to "the analysis says I have Docker and my resume's Skills
+ * block doesn't".** A profile routinely proves a technology in a project's
+ * `technologies` or an experience bullet while the Skills section — the block a
+ * resume prints and an ATS scans — never mentions it. Every other path in this
+ * feature was structurally unable to fix that: the proposal guard forbids a set
+ * gaining a member, and it must, because the proposer is a model.
+ *
+ * Here the proposer is the **user**, ticking a box beside their own sentence, and
+ * `@resfolio/profile`'s `findDemonstratedSkills` is what makes that safe — a term
+ * with no appearance elsewhere in the profile is never offered, and
+ * `addDemonstratedSkills` re-checks rather than trusting this list. OWASP stays a
+ * gap; Docker stops being a lie of omission.
+ *
+ * Reads the job's **stored** keywords rather than taking them from the client:
+ * the analysis is already on the row, and a term arriving from a browser is a
+ * term somebody could have chosen.
+ */
+export const listDemonstratedSkillsAction = createAction({
+  name: "job.listDemonstratedSkills",
+  input: z.object({ jobId: z.uuid() }),
+  handler: async ({ jobId }, ctx) => {
+    const [job, draft] = await Promise.all([
+      getJobMatch(ctx.userId, jobId),
+      getOrCreateProfile(ctx.userId),
+    ]);
+
+    if (!job) {
+      throw new ActionError("That job isn't there any more.");
+    }
+
+    // Only the terms the posting actually leans on, in its own order.
+    const terms = (job.analysis?.keywords ?? []).map((entry) => entry.keyword);
+
+    return {
+      skills: findDemonstratedSkills(draft.data, terms),
+      groups: draft.data.sections.skills.map((group) => ({
+        id: group.id,
+        name: group.name,
+      })),
+    };
+  },
+});
+
+/**
+ * List demonstrated skills — on the profile, or on one resume.
+ *
+ * **The destination is the same choice `OptimiseForJob` asks**, and it is honoured
+ * the same way: the profile branch writes the draft, the resume branch writes a
+ * `deltas` entry on that document's `ViewDefinition` and leaves the profile
+ * exactly as it was. Both go through `addDemonstratedSkills`, so neither can list
+ * a term the profile does not already contain — the destination decides where the
+ * result is stored, never what may be stored.
+ *
+ * The resume branch computes the group's new `skills` array with the domain
+ * function and then writes **that array** as a delta, rather than inventing a
+ * second growth path: the delta is a value, and the value came from the guard.
+ */
+export const listSkillsForJobAction = createAction({
+  name: "job.listSkills",
+  input: z.object({
+    jobId: z.uuid(),
+    destination: z.enum(["profile", "resume"]),
+    documentId: z.uuid().optional(),
+    additions: z
+      .array(
+        z.object({
+          groupId: itemIdSchema,
+          skill: z.string().trim().min(1).max(80),
+        }),
+      )
+      .min(1)
+      .max(20),
+  }),
+  handler: async ({ jobId, destination, documentId, additions }, ctx) => {
+    const draft = await getOrCreateProfile(ctx.userId);
+
+    // Throws `ProfileDataError` for a term with no demonstration, which is the
+    // guarantee — this is not a re-statement of the client's check, it is the
+    // check.
+    let next;
+    try {
+      next = addDemonstratedSkills(draft.data, additions);
+    } catch (error) {
+      throw new ActionError(
+        error instanceof Error
+          ? error.message
+          : "Those skills couldn't be listed.",
+      );
+    }
+
+    if (destination === "profile") {
+      try {
+        await saveDraft(ctx.userId, next, draft.draftRev);
+      } catch (error) {
+        if (error instanceof StaleDraftError) {
+          throw new ActionError(
+            "Your profile was saved somewhere else while this was applying. Try again.",
+          );
+        }
+        throw error;
+      }
+      revalidatePath("/profile");
+      await recordJobEnhancement(ctx.userId, jobId, {
+        appliedChanges: additions,
+      });
+      return { listed: additions.length, destination };
+    }
+
+    if (!documentId) {
+      throw new ActionError("Pick a resume first.");
+    }
+
+    const document = await getDocument(ctx.userId, documentId);
+    if (!document) {
+      throw new ActionError("That resume isn't there any more.");
+    }
+
+    // One delta per touched group, carrying the guarded array. Merged into any
+    // deltas already there, because tailoring may have written some — replacing
+    // the map would silently drop a pass the user accepted.
+    const touched = new Set(additions.map((entry) => entry.groupId));
+    const deltas = { ...(document.view.deltas ?? {}) };
+    for (const group of next.sections.skills) {
+      if (touched.has(group.id)) {
+        deltas[group.id] = { ...deltas[group.id], skills: group.skills };
+      }
+    }
+
+    await updateDocument(ctx.userId, documentId, {
+      view: { ...document.view, deltas },
+    });
+
+    revalidatePath(`/resumes/${documentId}`);
+    return { listed: additions.length, destination };
+  },
+});
+
+/**
  * Record a re-match against the same posting.
  *
  * Separate from {@link saveJobMatchAction} because it writes `enhancedScore`
@@ -336,7 +480,7 @@ export const recordRematchAction = createAction({
   },
 });
 
-/** Attach a résumé to a job. A reference, never a copy — see the domain. */
+/** Attach a resume to a job. A reference, never a copy — see the domain. */
 export const setJobResumeAction = createAction({
   name: "job.setResume",
   input: z.object({ jobId: z.uuid(), documentId: z.uuid() }),

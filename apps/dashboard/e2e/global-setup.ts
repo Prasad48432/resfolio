@@ -15,7 +15,7 @@ export default function globalSetup() {
       ...process.env,
       DATABASE_URL:
         process.env.DATABASE_URL ??
-        "postgres://resfolio:resfolio@localhost:5433/resfolio",
+        "postgres://resfolio:resfolio@localhost:15432/resfolio",
     },
   });
 }

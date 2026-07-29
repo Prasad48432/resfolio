@@ -36,6 +36,9 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   palette?: {
     on: string;
     off: string;
+    /** The core of the leading dot. Defaults to `on`, so a caller that does not
+     * think about it gets a flat dot rather than an unexpected white centre. */
+    head?: string;
   };
   brightness?: number;
   /** How visible the unlit grid is behind the animation. */
@@ -170,15 +173,20 @@ function setPixel(frame: Frame, row: number, col: number, value: number): void {
 }
 
 /**
- * Head, then the trail behind it.
+ * Head, then the comet tail behind it.
  *
  * The head is the only value above the render's `isActive` threshold (0.5), so
- * exactly one dot per frame gets the glow and the scale — which is what makes it
- * read as *the* dot rather than as the brightest of several. The drop to 0.48 is
- * deliberately steep; a gentle ramp is what makes a trail look like a uniform
- * ring.
+ * exactly one dot per frame gets the white-hot core, the bloom and the scale —
+ * which is what makes it read as *the* dot rather than as the brightest of
+ * several. The drop to 0.46 is deliberately steep; a gentle ramp is what makes a
+ * trail look like a uniform ring instead of something travelling.
+ *
+ * **Six cells rather than four**, and the extra two are what turned a lit dot
+ * into a light *moving*: the eye reads direction from the length of the fade, so
+ * a short tail is a dot that teleports and a long one is a dot with momentum.
+ * They are dim enough (0.10, 0.05) to be sensed rather than counted.
  */
-const LOADER_TRAIL = [1, 0.48, 0.27, 0.15];
+const LOADER_TRAIL = [1, 0.46, 0.28, 0.18, 0.1, 0.05];
 
 /** Every cell of the grid, spiralling clockwise from the top-left inward. */
 function spiralPath(rows: number, cols: number): Array<[number, number]> {
@@ -341,11 +349,19 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
     const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
     const onId = `matrix-on-${uid}`;
     const offId = `matrix-off-${uid}`;
+    const headId = `matrix-head-${uid}`;
     const glowId = `matrix-glow-${uid}`;
 
     // The blur has to scale with the dot. A fixed stdDeviation of 2 against a
     // size={4} pixel (r = 1.8) blurs wider than the thing it is lighting.
-    const glowRadius = Math.max(0.4, size * 0.18);
+    //
+    // **Two radii, and the pair is what makes it look lit rather than blurred.**
+    // A single Gaussian spreads the dot's own light and leaves it softer than it
+    // started; a tight blur merged *under* the untouched source keeps the core
+    // crisp while a wide one throws a halo past the dot's edge. That is the
+    // difference between a smudge and a bulb.
+    const glowRadius = Math.max(0.4, size * 0.22);
+    const bloomRadius = Math.max(0.9, size * 0.55);
 
     return (
       <div
@@ -358,6 +374,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
           {
             "--matrix-on": palette.on,
             "--matrix-off": palette.off,
+            "--matrix-head": palette.head ?? palette.on,
             "--matrix-gap": `${gap}px`,
             "--matrix-size": `${size}px`,
           } as React.CSSProperties
@@ -404,9 +421,55 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
               />
             </radialGradient>
 
-            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation={glowRadius} result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            {/**
+             * The head, lit like a filament rather than filled like a dot.
+             *
+             * **A white-hot core inside the accent colour**, which is how an
+             * actual light source photographs: the centre of anything bright
+             * enough to glow reads as white and only its falloff carries the
+             * hue. Painting the head flat in the brand colour is what made the
+             * old loader look like a slightly-larger dot instead of a light —
+             * no amount of raising the colour's brightness fixes that, because
+             * the missing thing is the *gradient*, not the value.
+             *
+             * `--matrix-head` defaults to the on-colour, so a caller that does
+             * not set it gets the previous behaviour rather than a surprise.
+             */}
+            <radialGradient id={headId} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--matrix-head)" stopOpacity="1" />
+              <stop
+                offset="45%"
+                stopColor="var(--matrix-on)"
+                stopOpacity="1"
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--matrix-on)"
+                stopOpacity="0.75"
+              />
+            </radialGradient>
+
+            {/**
+             * Bloom, then glow, then the untouched source on top.
+             *
+             * Order is the whole filter: `feMerge` paints back to front, so the
+             * wide halo goes down first, the tight one over it, and
+             * `SourceGraphic` last — which is what keeps the dot's own edge
+             * sharp. Merging in the other order buries the dot under its own
+             * light and the result is a smudge that reads as being out of focus.
+             */}
+            <filter id={glowId} x="-150%" y="-150%" width="400%" height="400%">
+              <feGaussianBlur stdDeviation={bloomRadius} result="bloom" />
+              <feGaussianBlur
+                in="SourceGraphic"
+                stdDeviation={glowRadius}
+                result="glow"
+              />
+              <feMerge>
+                <feMergeNode in="bloom" />
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
             </filter>
           </defs>
 
@@ -440,9 +503,12 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
 
               const opacity = clamp(brightness * value);
               const isActive = opacity > 0.5;
-              const isOn = opacity > 0.05;
+              const isOn = opacity > 0.04;
 
-              const scale = isActive ? 1.1 : 1;
+              // The head swells noticeably. 1.1 was a change you had to be told
+              // about; at 1.35 the leading dot reads as nearer than the grid,
+              // which is most of what sells the movement.
+              const scale = isActive ? 1.35 : 1;
               const radius = (size / 2) * 0.9;
 
               return (
@@ -452,8 +518,20 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
                   cx={pos.x + size / 2}
                   cy={pos.y + size / 2}
                   r={radius}
-                  fill={isOn ? `url(#${onId})` : `url(#${offId})`}
-                  opacity={isOn ? opacity : offOpacity}
+                  fill={
+                    isActive
+                      ? `url(#${headId})`
+                      : isOn
+                        ? `url(#${onId})`
+                        : `url(#${offId})`
+                  }
+                  // **The trail is floored well above its raw value.** The tail
+                  // exists to show where the light has been, and at its literal
+                  // 0.05 the last two cells were indistinguishable from the unlit
+                  // grid — so the animation lost exactly the part that makes it
+                  // read as travelling. The curve is compressed rather than
+                  // rescaled, keeping the head unambiguously brightest.
+                  opacity={isOn ? 0.22 + opacity * 0.78 : offOpacity}
                   filter={isActive ? `url(#${glowId})` : undefined}
                   style={{
                     transform: `scale(${scale})`,

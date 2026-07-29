@@ -33,7 +33,7 @@ import { profile } from "./profiles";
  * `body` is a **ProseMirror/TipTap document**, not the Markdown subset the
  * profile's rich-text fields use. That subset is deliberately small (bold,
  * italic, links, hyphen lists) because it has to survive plain-text ATS
- * extraction in a résumé. A post needs headings, code blocks, task lists,
+ * extraction in a resume. A post needs headings, code blocks, task lists,
  * images with captions and callouts — none of which it can express. The node
  * whitelist lives in `@resfolio/blog`, which re-validates on every write; raw
  * HTML is not representable in the node types at all.

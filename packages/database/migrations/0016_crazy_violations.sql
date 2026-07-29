@@ -1,0 +1,1 @@
+ALTER TABLE "job_match_sessions" ADD COLUMN "status_history" jsonb DEFAULT '[]'::jsonb NOT NULL;

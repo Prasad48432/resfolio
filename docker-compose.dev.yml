@@ -10,8 +10,11 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      # Host 5433: leaves room for a natively installed Postgres on 5432.
-      - "5433:5432"
+      # Host 15432: leaves room for a natively installed Postgres on 5432.
+      # NOT 5433 — Windows (Hyper-V/WinNAT) reserves the 5433-5532 range, so
+      # binding anything in it fails with "socket access forbidden". Check with
+      # `netsh interface ipv4 show excludedportrange protocol=tcp`.
+      - "15432:5432"
     environment:
       POSTGRES_USER: resfolio
       POSTGRES_PASSWORD: resfolio

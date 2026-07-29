@@ -200,7 +200,7 @@ pnpm --filter sites export:pdf   # → cache hit, no Chromium boot
 pnpm --filter sites check:ats    # headings extractable, in reading order
 ```
 
-The product path needs both (Docker Postgres on host **5433**):
+The product path needs both (Docker Postgres on host **15432**):
 
 ```bash
 RENDER_SECRET=<≥16 chars> DATABASE_URL=<…> pnpm --filter sites dev

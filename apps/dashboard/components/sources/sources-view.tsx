@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   checkForUpdatesAction,
@@ -283,10 +283,52 @@ function PublicConnectCard({
 
 const NEEDS_A_HOME = "Needs a home";
 
+/**
+ * The triage list, with rows that leave the screen when the user says so rather
+ * than when the database agrees.
+ *
+ * **Skip and Import used to `await` the Server Action and then `router.refresh()`
+ * before the row moved.** That is two sequential round trips — the write, then a
+ * full RSC re-render of this route, which re-reads connections, staged items and
+ * receipts — and only then does the X the user pressed take effect. On a
+ * developer's machine both hops are single-digit milliseconds and it feels
+ * instant; in production they are a serverless invocation plus a managed
+ * Postgres, and the row sits there spinning for a second or more. The work is not
+ * slow so much as **serialised behind the wrong event**: nothing about it needed
+ * to happen before the row disappeared.
+ *
+ * So the id goes into `settled` immediately, the row is gone on the click, and
+ * the action and the refresh run behind it. A failure puts the row back with its
+ * error attached — the only case where the optimism was wrong, and the one where
+ * the user has to be told.
+ *
+ * `settled` is pruned against the server's list on every render, so an item that
+ * genuinely came back (a failed import that stayed staged) is visible again
+ * rather than hidden by a stale id.
+ */
 function TriageBoard({ items }: { items: PendingItemView[] }) {
+  const [settled, setSettled] = useState<ReadonlySet<string>>(new Set());
+
+  const visible = useMemo(
+    () => items.filter((item) => !settled.has(item.id)),
+    [items, settled],
+  );
+
+  const settle = useCallback((id: string) => {
+    setSettled((current) => new Set(current).add(id));
+  }, []);
+
+  const restore = useCallback((id: string) => {
+    setSettled((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
   const groups = useMemo(() => {
     const byLabel = new Map<string, PendingItemView[]>();
-    for (const item of items) {
+    for (const item of visible) {
       const key =
         item.destination === null ? NEEDS_A_HOME : item.destinationLabel;
       byLabel.set(key, [...(byLabel.get(key) ?? []), item]);
@@ -297,17 +339,19 @@ function TriageBoard({ items }: { items: PendingItemView[] }) {
       if (b === NEEDS_A_HOME) return -1;
       return a.localeCompare(b);
     });
-  }, [items]);
+  }, [visible]);
 
   return (
     <section
       className="flex flex-col gap-3"
       data-testid={TEST_IDS.sourcesTriage}
     >
+      {/* The count follows what is on screen, not what the server last sent —
+          "To review · 7" above six rows is the same lag in a different place. */}
       <p className="label-section">
-        To review{items.length > 0 ? ` · ${items.length}` : ""}
+        To review{visible.length > 0 ? ` · ${visible.length}` : ""}
       </p>
-      {items.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="Nothing to review"
@@ -316,7 +360,13 @@ function TriageBoard({ items }: { items: PendingItemView[] }) {
         />
       ) : (
         groups.map(([label, groupItems]) => (
-          <TriageGroup key={label} label={label} items={groupItems} />
+          <TriageGroup
+            key={label}
+            label={label}
+            items={groupItems}
+            onSettled={settle}
+            onRestored={restore}
+          />
         ))
       )}
     </section>
@@ -326,9 +376,13 @@ function TriageBoard({ items }: { items: PendingItemView[] }) {
 function TriageGroup({
   label,
   items,
+  onSettled,
+  onRestored,
 }: {
   label: string;
   items: PendingItemView[];
+  onSettled: (id: string) => void;
+  onRestored: (id: string) => void;
 }) {
   const router = useRouter();
   const [importingAll, setImportingAll] = useState(false);
@@ -342,6 +396,10 @@ function TriageGroup({
         if (!result.ok) {
           break;
         }
+        // Row by row as each lands, rather than all of them at the end: a batch
+        // of twelve is twelve sequential writes, and a list that empties as it
+        // goes is the only honest report of where that has got to.
+        onSettled(item.id);
       }
       router.refresh();
     } finally {
@@ -378,13 +436,28 @@ function TriageGroup({
         )}
       </div>
       {items.map((item) => (
-        <TriageRow key={item.id} item={item} />
+        <TriageRow
+          key={item.id}
+          item={item}
+          onSettled={onSettled}
+          onRestored={onRestored}
+        />
       ))}
     </div>
   );
 }
 
-function TriageRow({ item }: { item: PendingItemView }) {
+function TriageRow({
+  item,
+  onSettled,
+  onRestored,
+}: {
+  item: PendingItemView;
+  /** Take this row off the screen now; the write is still in flight. */
+  onSettled: (id: string) => void;
+  /** Put it back — the write failed and the item is still staged. */
+  onRestored: (id: string) => void;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState<"import" | "skip" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -412,6 +485,9 @@ function TriageRow({ item }: { item: PendingItemView }) {
     }
     setPending("import");
     setError(null);
+    // Gone on the click. The write and the route refresh behind it are what used
+    // to hold the row on screen — see `TriageBoard`.
+    onSettled(item.id);
     try {
       const result = await importItemAction({
         itemId: item.id,
@@ -422,10 +498,12 @@ function TriageRow({ item }: { item: PendingItemView }) {
       if (result.ok) {
         router.refresh();
       } else {
+        onRestored(item.id);
         setError(result.error);
         setPending(null);
       }
     } catch {
+      onRestored(item.id);
       setError("Something went wrong. Please try again.");
       setPending(null);
     }
@@ -434,15 +512,18 @@ function TriageRow({ item }: { item: PendingItemView }) {
   async function skip() {
     setPending("skip");
     setError(null);
+    onSettled(item.id);
     try {
       const result = await dismissItemAction({ itemId: item.id });
       if (result.ok) {
         router.refresh();
       } else {
+        onRestored(item.id);
         setError(result.error);
         setPending(null);
       }
     } catch {
+      onRestored(item.id);
       setError("Something went wrong. Please try again.");
       setPending(null);
     }

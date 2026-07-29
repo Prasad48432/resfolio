@@ -1,12 +1,13 @@
 ﻿"use client";
 
 import { Button, Card, Spinner } from "@resfolio/ui";
-import type { ProfileChange, ProfileChangeReview } from "@resfolio/profile";
-import { ShieldCheck } from "lucide-react";
+import type { ProfileChange } from "@resfolio/profile";
+import { Check, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { applyProfileChangesAction } from "@/app/(dashboard)/ai/actions";
+import type { ProposalOutput } from "@/lib/ai/tools";
 import {
   proposalChangeTestId,
   proposalApplyTestId,
@@ -46,7 +47,7 @@ export function ProfileProposal({
   review,
   apply: applyChanges = applyProfileChangesAction,
 }: {
-  review: ProfileChangeReview;
+  review: ProposalOutput;
   /** The write. Defaults to the plain profile apply; the job card passes
    * `applyJobEnhancementAction`, which does the same write and then records what
    * this posting caused. Both re-run the guard server-side — an injected action
@@ -58,12 +59,42 @@ export function ProfileProposal({
     | { ok: false; error: string }
   >;
 }) {
-  const [applied, setApplied] = useState<ReadonlySet<number>>(new Set());
+  /**
+   * Seeded from the server's reconciliation, so a reopened conversation shows
+   * what it did rather than offering to do it again.
+   *
+   * **Seeded, not merged on every render.** `useState`'s initialiser runs once,
+   * which is exactly right: `settledIndexes` is a fact about the profile as the
+   * page loaded, and after that this component owns the set — a change the user
+   * applies in this session belongs in the same collection as one they applied
+   * last week, because the screen makes no distinction between them and neither
+   * should the state.
+   */
+  const [applied, setApplied] = useState<ReadonlySet<number>>(
+    () => new Set(review.settledIndexes ?? []),
+  );
   const [pending, setPending] = useState<number | "all" | null>(null);
 
   const outstanding = review.valid
     .map((entry, index) => ({ entry, index }))
     .filter(({ index }) => !applied.has(index));
+
+  /**
+   * The two reasons a change is not on offer, which are opposite in meaning and
+   * used to be reported as one number.
+   *
+   * `unchanged` means **the profile already says this** — either the user
+   * accepted it (the common case, on a reopened conversation reconciled by
+   * `reconcileTranscript`) or they had written the same thing themselves. Every
+   * other reason means the guard **refused** it, which is the no-fabrication rule
+   * doing its job. Lumping the first into "dropped for adding information your
+   * profile doesn't have" told users their accepted changes had been rejected as
+   * fabrication, which is close to the worst thing this screen could say.
+   */
+  const settled = review.rejected.filter(
+    (entry) => entry.reason === "unchanged",
+  ).length;
+  const refused = review.rejected.length - settled;
 
   async function apply(indexes: number[], scope: number | "all") {
     setPending(scope);
@@ -91,19 +122,30 @@ export function ProfileProposal({
   }
 
   if (review.valid.length === 0) {
-    // The guard refused everything. This is a real outcome â€” the model tried to
-    // add content â€” and it gets said plainly rather than rendered as an empty
-    // card that looks like a bug.
+    // Nothing left to offer, for one of two opposite reasons — and saying the
+    // wrong one is worse than saying nothing. `settled` dominating means this is
+    // a reopened conversation whose changes are in the profile; anything else
+    // means the guard refused them.
     return (
       <Card
         className="flex items-start gap-2 p-3 text-[13px] text-muted"
         data-testid={TEST_IDS.aiProposalEmpty}
       >
         <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>
-          No changes to review â€” every suggestion would have added information
-          your profile doesn&apos;t contain, so none of them were kept.
-        </p>
+        {settled > 0 && refused === 0 ? (
+          <p>
+            {settled === 1
+              ? "This change is already in your profile."
+              : `These ${settled} changes are already in your profile.`}{" "}
+            Nothing left to apply here.
+          </p>
+        ) : (
+          <p>
+            No changes to review â€” every suggestion would have added
+            information your profile doesn&apos;t contain, so none of them were
+            kept.
+          </p>
+        )}
       </Card>
     );
   }
@@ -113,8 +155,14 @@ export function ProfileProposal({
   return (
     <div className="flex flex-col gap-2" data-testid={TEST_IDS.aiProposal}>
       <div className="flex items-center justify-between gap-3">
+        {/* The count says what is left, not just what was proposed. With applied
+            changes still on screen (they stay, marked — see
+            `reconcileTranscript`) a bare "6" over four green Applied markers and
+            two buttons is a number that answers no question anyone has. */}
         <p className="label-section">
-          Suggested changes Â· {review.valid.length}
+          {outstanding.length === review.valid.length
+            ? `Suggested changes Â· ${review.valid.length}`
+            : `Suggested changes Â· ${outstanding.length} of ${review.valid.length} left`}
         </p>
         {outstanding.length > 1 ? (
           <Button
@@ -153,14 +201,25 @@ export function ProfileProposal({
         />
       ))}
 
-      {review.rejected.length > 0 ? (
+      {settled > 0 ? (
+        <p
+          className="flex items-start gap-1.5 text-xs text-muted"
+          data-testid={TEST_IDS.aiProposalSettled}
+        >
+          <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          {settled === 1
+            ? "1 more is already in your profile."
+            : `${settled} more are already in your profile.`}
+        </p>
+      ) : null}
+
+      {refused > 0 ? (
         <p
           className="flex items-start gap-1.5 text-xs text-muted"
           data-testid={TEST_IDS.aiProposalRejected}
         >
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          {review.rejected.length}{" "}
-          {review.rejected.length === 1 ? "suggestion was" : "suggestions were"}{" "}
+          {refused} {refused === 1 ? "suggestion was" : "suggestions were"}{" "}
           dropped for adding information your profile doesn&apos;t have.
         </p>
       ) : null}

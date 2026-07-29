@@ -179,9 +179,9 @@ revisit only if session reads show up in p99s).
   content JSONB body, no new stores. Two things worth recording, because
   neither was obvious from the prediction:
   - **The body is a second content shape, not the profile's rich text.** The
-    profile's Markdown subset is small so a résumé survives plain-text ATS
+    profile's Markdown subset is small so a resume survives plain-text ATS
     extraction; a post needs headings, code blocks, task lists and callouts,
-    which it cannot express. Widening it would have widened it for résumés too.
+    which it cannot express. Widening it would have widened it for resumes too.
     The post body is TipTap/ProseMirror JSON over a node whitelist, which also
     makes raw HTML **unrepresentable** rather than filtered.
   - **Posts are rows precisely because the Profile is one document.** The

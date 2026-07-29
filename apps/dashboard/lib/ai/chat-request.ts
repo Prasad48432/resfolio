@@ -99,7 +99,10 @@ export function parseChatRequest(body: unknown): ChatRequestResult {
       ok: false,
       problem: {
         kind: "too-large",
-        message: `That message is too long — keep it under ${MAX_CHARS_PER_MESSAGE.toLocaleString()} characters.`,
+        // Phrased for the case that actually produces it. Nobody types 12,000
+        // characters; they paste a careers page, and "your message is too long"
+        // sends them looking for a message they did not write.
+        message: `That's longer than a job posting — keep it under ${MAX_CHARS_PER_MESSAGE.toLocaleString()} characters. Paste the role, responsibilities and requirements; leave out benefits and company history.`,
       },
     };
   }

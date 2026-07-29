@@ -148,7 +148,7 @@ limits are enforced — anything outside them is rejected before the user sees i
  * The patterns are cycled rather than checked off: their value is that eight
  * bullets under one role come out structurally varied — delivery, then process,
  * then collaboration — instead of eight verb-first clones, which is what makes a
- * résumé read as generated.
+ * resume read as generated.
  */
 const BULLET_FORMULA = `
 House style for an experience highlight. Each bullet is one clause of this
@@ -188,6 +188,51 @@ a padded one. Do not reach the word count by adding adjectives.
 `.trim();
 
 /**
+ * What to do about the skills sections, and why it needed saying out loud.
+ *
+ * **Every workflow was silently skipping them.** `CHANGE_LIMITS` states what is
+ * *permitted* for `skills` and `technologies` — prune, reorder, fix casing, never
+ * add — and a rule about what you may not do is not an instruction to do the part
+ * you may. So a posting that asked for Testing and Agile produced a draft of
+ * summary and highlight rewrites and left the skills list in whatever order it
+ * had been typed in, which reads on screen as the feature having ignored half the
+ * analysis it just showed you.
+ *
+ * The three moves below are real and are worth the tokens: **order** is what a
+ * six-second skim reads, **spelling** is what a keyword scan matches (a profile
+ * saying "Node" and a posting saying "Node.js" is a miss that costs nothing to
+ * fix and is not a new claim), and **pruning** is how twenty-eight skills become
+ * the eight this job cares about.
+ *
+ * **The fourth move does not exist, and the last paragraph is there because this
+ * is exactly where a model reaches for it.** The keyword list on screen says
+ * "2 missing"; the obvious way to clear it is to type them in. The domain's growth
+ * rule refuses that outright — a set may not gain a member, case-insensitively —
+ * so a model that tries produces a rejected change and a wasted call. Saying so
+ * here is what turns that into a sentence the user can act on.
+ */
+const SKILLS_RULES = `
+The skills sections are part of this, not something to leave alone. Three things
+worth doing, and one that is not available:
+
+- **Reorder.** Put the groups this posting cares about first, and inside a group
+  put the technologies it names first. A skills list is read in about six seconds
+  and the order is most of what gets read.
+- **Fix spelling to match the posting**, where it is the same thing under a
+  different name: "Node" to "Node.js", "postgres" to "PostgreSQL", "react" to
+  "React". That is a casing and naming correction, not a new claim, and it is what
+  a keyword scan actually matches on.
+- **Prune.** A group of twenty-eight entries says less than a group of eight. Cut
+  the ones this job has no use for — they are still in the profile's other groups
+  and on every other resume.
+
+You cannot add an entry, even one the posting asks for by name, even one the user
+just mentioned in the conversation. If a skill the posting wants is not in the
+profile, say so in your reply as a gap and tell them to add it at /profile — do
+not try to write it in, and do not gesture at it by renaming something adjacent.
+`.trim();
+
+/**
  * The same idea for a project, which is one bullet rather than eight.
  *
  * A project description answers a different question from a role's highlights —
@@ -215,6 +260,7 @@ field, gives the complete replacement value, and gives a one-line reason.
   CHANGE_LIMITS,
   BULLET_FORMULA,
   PROJECT_FORMULA,
+  SKILLS_RULES,
   `
 When you have listed or numbered things in an earlier reply and the user answers
 with those numbers — "fix 1, 2 and 5", "do the first three", "just the summary
@@ -261,6 +307,48 @@ sentence saying why is the answer.
  * doubles the bill for that turn and adds several seconds of generation before
  * anything appears. It is worth two sentences.
  */
+/**
+ * Either/or requirements — shared by the chat's tool rules and the standalone
+ * analysis prompt, because getting it right in one and not the other is how the
+ * same posting produces two different answers.
+ *
+ * **This is the fix for a real, reported wrong answer.** "Build product features
+ * using Angular/React and Java/Node.js" was being extracted as four independent
+ * technologies, so a profile with React and Node.js — which satisfies that
+ * sentence completely — was told it was missing Angular and Java. The whole value
+ * of the keyword list is that its claims are checkable; two false entries in a
+ * list of thirteen is a list nobody trusts, and then the real gap (OWASP) goes
+ * unread beside them.
+ *
+ * **The judgement is asked of the model rather than done with a regex**, because
+ * a slash means "or" in `Angular/React` and does not in `CI/CD`, `TCP/IP`,
+ * `UI/UX` or `I/O`. That is reading comprehension, not string handling, and no
+ * stoplist of atomic slash-terms is ever finished. The examples below are chosen
+ * to teach exactly that boundary.
+ */
+const ALTERNATIVES_RULE = `
+Postings routinely offer a choice, and it must not be read as two demands.
+"Angular/React", "Java or Node.js", "Python/Go/Rust" each ask for **one** of the
+options listed.
+
+- Emit **one requirement**, not one per option. Its text keeps the posting's own
+  phrasing ("Angular/React"), and it is "strong" if the profile clearly has any
+  one of the options — not downgraded to "partial" for lacking the others.
+- Emit **one keyword** for it too, with "term" as the posting spells it and
+  "anyOf" listing the options: {"term": "Angular/React", "anyOf": ["Angular",
+  "React"]}. Resfolio then treats the term as covered when the profile has any
+  one of them.
+- **A slash is not always a choice.** "CI/CD", "TCP/IP", "UI/UX", "I/O" and
+  "A/B testing" are single terms. Give those an empty "anyOf" — splitting them
+  produces keywords like "CD" and "IP" that mean nothing.
+- Leave "anyOf" empty for every ordinary keyword. It is only for a genuine
+  either/or.
+
+When a posting asks for several things at once — "Docker and Kubernetes",
+"Postgres, Redis and Kafka" — that is not a choice, and it stays as separate
+keywords.
+`.trim();
+
 const JOB_MATCH_RULES = `
 When a message contains a job posting — a role with responsibilities and
 requirements — call the tool "analyzeJobMatch" straight away, whether or not the
@@ -272,6 +360,8 @@ Do not put the job description in the arguments. Resfolio already has it from
 the conversation, and repeating it costs the user money and makes the result
 slower to appear. The arguments are the role, the company, the location, the
 posting's URL if the user gave one, the requirements, and the keywords.
+
+${ALTERNATIVES_RULE}
 
 Call it again — same tool, fresh judgement — whenever the user asks to
 recalculate or re-check a match, which is what they do after accepting profile
@@ -382,6 +472,8 @@ number you write would contradict it.
 them. Do not mark them as present or missing — Resfolio checks each one against
 the profile itself.
 
+${ALTERNATIVES_RULE}
+
 A gap is useful information, not a failure to be smoothed over. Report it
 plainly. Never imply experience the profile does not contain in order to make a
 requirement look met.
@@ -439,6 +531,8 @@ ${CHANGE_LIMITS}
 ${BULLET_FORMULA}
 
 ${PROJECT_FORMULA}
+
+${SKILLS_RULES}
 
 "sectionOrder" and "itemOrder" — what the resume leads with. Put the sections
 this posting cares about first, and inside a section put the most relevant
@@ -543,7 +637,7 @@ export function coverLetterSystemPrompt(profile: ProfileContext): string {
  * Two things distinguish it from `TAILORING_RULES`, which is otherwise the same
  * job:
  *
- * - **This writes the profile, not a résumé view.** Tailoring is allowed to be
+ * - **This writes the profile, not a resume view.** Tailoring is allowed to be
  *   aggressive precisely because its output is an override on one document and
  *   the canonical wording survives; here the canonical wording *is* what changes,
  *   so the instruction is the opposite — the rewrite has to read correctly for
@@ -556,8 +650,8 @@ const ENHANCEMENT_RULES = `
 The user is applying for the job below and wants their profile to represent them
 properly for it. Rewrite what is already there so the relevant work leads.
 
-This edits their **actual profile**, not a copy and not a résumé — the wording you
-produce is what every future résumé, portfolio and public page will show. So it
+This edits their **actual profile**, not a copy and not a resume — the wording you
+produce is what every future resume, portfolio and public page will show. So it
 has to be true and it has to read well for the next job too. Do not write anything
 that only makes sense as an application to this one posting: no "as your job
 description mentions", no addressing a company, no sentence that would be strange
@@ -577,6 +671,14 @@ What actually helps, in order:
 ${BULLET_FORMULA}
 
 ${PROJECT_FORMULA}
+
+${SKILLS_RULES}
+
+The keyword list on screen names the terms this posting leans on and marks the
+ones the profile does not contain. Reordering and renaming can legitimately clear
+some of those — a profile that says "Node" and a posting that says "Node.js" is a
+miss worth fixing. The rest are genuine gaps and stay marked. Do not treat that
+count as something to drive to zero.
 
 There is a match score on screen and you are not optimising it. It is computed
 from evidence, so the only way to move it without new facts is to make weak

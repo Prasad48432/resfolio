@@ -19,8 +19,8 @@ import { themes } from "./theme";
  * header below it, a dashed reading column, a fixed INDEX rail, and a
  * single-scroll home — Experience, a GitHub activity graph, Projects, Skills,
  * Writing, a pull-quote — plus `/blog` and `/blog/<slug>` for posts written
- * natively in Resfolio. There is **no résumé route** and **no light mode**: the
- * résumé lives in the dashboard's document surface, and the template ships one
+ * natively in Resfolio. There is **no resume route** and **no light mode**: the
+ * resume lives in the dashboard's document surface, and the template ships one
  * fixed palette.
  *
  * **What we kept and what we changed.** The reference is a personal site: its
@@ -101,7 +101,7 @@ export const darkAnime = defineTemplate({
     ],
   },
 
-  // No `resume`: a portfolio presents the profile; the résumé is a separate
+  // No `resume`: a portfolio presents the profile; the resume is a separate
   // document surface in the dashboard, not a page of the public site. The
   // platform 404s `/resume` for this template because it isn't declared here.
   capabilities: {

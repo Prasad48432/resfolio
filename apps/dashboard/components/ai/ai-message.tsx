@@ -13,11 +13,14 @@ import {
 
 import ResfolioMark from "@/components/brand/resfolio-mark";
 import { MatrixSpinner } from "@/components/status/matrix-loader";
+import { WorkingText } from "@/components/status/working-text";
+import type { JobFacts } from "@/lib/ai/job-facts";
 import { isJobMatchUnavailable, type AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
 
 import { JobMatchCard } from "./job-match-card";
 import { ProfileProposal } from "./profile-proposal";
+import type { TailorTarget } from "./resume-tailor";
 
 /**
  * One message, rendered from its **parts** (docs/architecture/13-ai-layer.md).
@@ -54,7 +57,10 @@ export function AiMessage({
   message,
   settled = true,
   chatSessionId,
+  resumes,
+  jobFacts,
   onJobSaved,
+  onStartNewChat,
 }: {
   message: AiUIMessage;
   /** This turn is complete — the stream has ended, one way or another. While
@@ -63,8 +69,17 @@ export function AiMessage({
   /** Passed through to a job match so the row it writes remembers which
    * conversation produced it. */
   chatSessionId: string;
+  /** The user's resumes, for a match card's "this resume only" destination. */
+  resumes?: TailorTarget[];
+  /** What has already happened to each job in this conversation, so a match card
+   * replayed from history does not offer to do again what was done — see
+   * `lib/ai/job-facts.ts`. */
+  jobFacts?: ReadonlyMap<string, JobFacts>;
   /** Passed through so the artefact panel can refresh once a job exists. */
   onJobSaved?: () => void;
+  /** Offered when the server refuses a second job in this conversation — the
+   * refusal has to come with the way out, or it is just a dead end. */
+  onStartNewChat?: (seed: string) => void;
 }) {
   const isUser = message.role === "user";
 
@@ -116,7 +131,16 @@ export function AiMessage({
                       : undefined
                   }
                 >
-                  <BubbleContent className="leading-relaxed whitespace-pre-wrap">
+                  {/* **`wrap-anywhere`, not the inherited `wrap-break-word`.**
+                      A message here is routinely a pasted job posting, which
+                      means URLs and 60-character tokens with no space in them.
+                      `overflow-wrap: break-word` breaks such a word only once it
+                      would visibly overflow — it does *not* reduce the element's
+                      min-content width, so the token still sizes every ancestor
+                      that can be sized by content. `anywhere` counts the break
+                      opportunity in the intrinsic size too, which is what makes
+                      the bubble genuinely shrinkable on a phone. */}
+                  <BubbleContent className="leading-relaxed wrap-anywhere whitespace-pre-wrap">
                     {part.text}
                   </BubbleContent>
                 </Bubble>
@@ -175,7 +199,7 @@ export function AiMessage({
                     >
                       <MatrixSpinner />
                       <MarkerContent>
-                        Reading the posting against your profile…
+                        <WorkingText kind="matching" />
                       </MarkerContent>
                     </Marker>
                   );
@@ -185,22 +209,54 @@ export function AiMessage({
                   // I'll read it" — rather than an empty card that looks like a
                   // failure.
                   return isJobMatchUnavailable(part.output) ? (
-                    <Marker
-                      key={index}
-                      data-testid={TEST_IDS.jobMatchNoPosting}
-                    >
-                      <MarkerContent>
-                        There&apos;s no job posting in this conversation yet.
-                        Paste the description — and the posting&apos;s link if
-                        you have it — and it&apos;ll be read against your
-                        profile.
-                      </MarkerContent>
-                    </Marker>
+                    part.output.reason === "already-analysed" ? (
+                      // The server refused a *second* job in this conversation.
+                      // Rendered as a real answer with the way forward, not as a
+                      // dead end — the button is the whole point of saying it.
+                      <Marker key={index} data-testid={TEST_IDS.jobMatchSecond}>
+                        <MarkerContent>
+                          This chat already covers{" "}
+                          <span className="font-medium">
+                            {part.output.existingTitle ?? "a job"}
+                          </span>
+                          , and one chat covers one job — so its match, resume
+                          and letter all stay about that one. Start a new chat
+                          for the other posting.
+                          {onStartNewChat ? (
+                            <>
+                              {" "}
+                              <button
+                                type="button"
+                                className="underline underline-offset-3"
+                                onClick={() => onStartNewChat("")}
+                                data-testid={TEST_IDS.jobMatchSecondNewChat}
+                              >
+                                Start a new chat
+                              </button>
+                            </>
+                          ) : null}
+                        </MarkerContent>
+                      </Marker>
+                    ) : (
+                      <Marker
+                        key={index}
+                        data-testid={TEST_IDS.jobMatchNoPosting}
+                      >
+                        <MarkerContent>
+                          There&apos;s no job posting in this conversation yet.
+                          Paste the description — and the posting&apos;s link if
+                          you have it — and it&apos;ll be read against your
+                          profile.
+                        </MarkerContent>
+                      </Marker>
+                    )
                   ) : (
                     <JobMatchCard
                       key={index}
                       review={part.output}
                       chatSessionId={chatSessionId}
+                      resumes={resumes}
+                      facts={jobFacts?.get(part.output.jobId)}
                       onSaved={onJobSaved}
                     />
                   );
@@ -241,7 +297,12 @@ export function AiMessage({
             // from the broken one for as long as the thinking takes.
             <Marker data-testid={TEST_IDS.aiWorking}>
               <MatrixSpinner rows={4} cols={4} />
-              <MarkerContent>Working through it…</MarkerContent>
+              <MarkerContent>
+                {/* The same bank the composer's indicator was on when this
+                    message opened — one continuous wait handed over, so the
+                    words should not change register halfway through it. */}
+                <WorkingText kind="thinking" />
+              </MarkerContent>
             </Marker>
           )
         ) : null}

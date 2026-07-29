@@ -27,8 +27,10 @@ true })`) for every instant, so times are unambiguous across
 - CI/e2e apply migrations via `db:migrate` (e2e global-setup runs it before
   the suite); production runs it as a pre-deploy step (doc 11). Migrations
   are never applied implicitly at runtime.
-- Local dev Postgres is `docker-compose.dev.yml` on **host port 5433** (5432
-  is left free for a native install).
+- Local dev Postgres is `docker-compose.dev.yml` on **host port 15432** (5432
+  is left free for a native install; 5433 is unusable on Windows, where
+  Hyper-V/WinNAT reserves the 5433-5532 range — `netsh interface ipv4 show
+  excludedportrange protocol=tcp`).
 
 ## Connection
 

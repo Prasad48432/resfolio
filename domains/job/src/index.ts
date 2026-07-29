@@ -8,3 +8,4 @@
  * See `CLAUDE.md` in this package for what belongs here and what does not.
  */
 export * from "./match";
+export * from "./flow";

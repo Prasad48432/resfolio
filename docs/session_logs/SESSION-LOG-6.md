@@ -55,7 +55,7 @@ generous whitespace, project-forward) in a dark (`midnight`) or light
   `basics` + actions + socials + featured-project grid), `projects` (full
   grid), `projectDetail` (resolved by `params.slug` = the item's **stable id**,
   never the mutable name; graceful not-found body), `about` (summary +
-  experience + writing), `resume` (on-site résumé view: experience, education,
+  experience + writing), `resume` (on-site resume view: experience, education,
   skills — distinct from the downloadable PDF the resume template produces).
 - **Structure:** `config.ts` (Zod presentation config — accent, hero layout,
   avatar toggle, featured count; the dashboard settings form reads this),
@@ -64,7 +64,7 @@ generous whitespace, project-forward) in a dark (`midnight`) or light
   via `:where()` at zero specificity so it never leaks in-browser),
   `shared.tsx` (the `href(basePath, page, slug?)` routing seam, section
   accessors, `Shell` nav/footer, `Socials`, `ProjectCard`), `sections.tsx`
-  (experience/education/skills/writing renderers shared by About + Résumé).
+  (experience/education/skills/writing renderers shared by About + Resume).
 - Imports `@resfolio/template-sdk` and nothing else platform-side; all content
   types derived from `ProfileView`.
 

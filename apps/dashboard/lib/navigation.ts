@@ -1,4 +1,5 @@
 import {
+  Briefcase,
   FileText,
   Globe,
   Link2,
@@ -30,6 +31,12 @@ export const NAV_ITEMS: NavItem[] = [
   // action layer over the profile, not a separate product bolted beside it, and
   // parking it at the bottom of the list would say the opposite (doc 13).
   { key: "ai", label: "Resfolio AI", href: "/ai", icon: Sparkles },
+  // Immediately after the AI, because it is the other half of the same
+  // workflow: a posting analysed in a conversation is already a row here, and
+  // the tracker is where that row goes on living once the chat is over. Note
+  // `key` must equal the first URL segment — the sidebar's active state and the
+  // top bar's title both match on `/${key}`.
+  { key: "jobs", label: "Job Tracker", href: "/jobs", icon: Briefcase },
   { key: "resumes", label: "Resumes", href: "/resumes", icon: FileText },
   { key: "portfolio", label: "Portfolio", href: "/portfolio", icon: Globe },
   {

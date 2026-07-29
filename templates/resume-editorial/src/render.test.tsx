@@ -9,7 +9,7 @@ import { defaultResumeEditorialConfig, resumeEditorial } from "./index";
  * The template contract harness (doc 05). It renders the real document, so a
  * crash or a lost section shows up here rather than in a PDF. Draws from
  * `@resfolio/fixtures` for the "every section renders" cases, and from a
- * hand-built copy of the reference résumé for the "matches the PDF" cases.
+ * hand-built copy of the reference resume for the "matches the PDF" cases.
  */
 
 const theme = resolveTheme(resumeEditorial, {});

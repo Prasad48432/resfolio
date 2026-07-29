@@ -104,6 +104,34 @@ stores one. So:
 
 Two destinations, one review UI, and the default is the safe one.
 
+**Two destinations became one question (2026-07-28).** The design above was right
+about the destinations and wrong about how they reach the user: Phase 5 shipped
+"Tailor for this job" in the artefact panel and Phase 7 shipped "Enhance profile
+for this job" on the match card, as peers, in different places, with no stated
+relationship. Two entry points for two destinations reads as two ways to do one
+thing — and pressing both spends two model calls rewriting the same sentences,
+the second layered on the first, which is precisely the ratchet the guard's
+canonical base exists to prevent, arriving through the UI instead.
+
+So the destination is now **asked once, up front**, by a single "Optimise for this
+job" (`components/ai/optimise-for-job.tsx`): _My profile_ (permanent, every
+output, written conservatively) or _This resume only_ (overrides on one document,
+free to be pointed). One choice, one model call, one review. Nothing about the
+guard, the schemas or the two write paths changed — this is a UI decision about
+which question gets asked, and it is the question this section was already the
+answer to.
+
+Two consequences worth recording:
+
+- **Ordering belongs to the resume branch and has no profile equivalent.** A
+  Profile has nowhere to record "for this posting, lead with Projects" — section
+  and item order is a property of a resume. That is the data model, not a
+  simplification.
+- **The `<70%` confirmation applies to the profile branch only.** It exists
+  because rewriting a _career record_ to chase a role it does not fit should be
+  deliberate. Pointing one document at a long shot is an ordinary thing to do with
+  a document, and one Reset undoes it.
+
 **The guard does not relax for the safer destination** (Phase 5). The temptation
 is real: a delta is scoped to one document, reversible, and never touches the
 source of truth. But the tailored copy is the one that gets sent to the employer,
@@ -232,18 +260,18 @@ that has not been checked yet.
 
 Rewrites now follow a stated formula: an experience highlight is
 `[action verb] + [what] + [how, naming a real skill] + [the result]` in 15–25
-words, and a project description is the same shape once. Eight *kinds* of bullet
+words, and a project description is the same shape once. Eight _kinds_ of bullet
 are listed — work delivered, a responsibility owned, a problem solved, a process
 standardised, and so on — so that eight bullets under one role come out
 structurally varied rather than as eight verb-first clones, which is what makes a
-résumé read as generated.
+resume read as generated.
 
 Two things about it are load-bearing, and both are refusals:
 
 - **It is a shape, not a quota.** Handed a numbered list of eight patterns, a
   model reads it as an instruction to produce eight bullets, and the result is a
   profile that grew four claims nobody made. So the count is disclaimed in the
-  formula itself *and* by `CHANGE_LIMITS`, which follows it everywhere it is used
+  formula itself _and_ by `CHANGE_LIMITS`, which follows it everywhere it is used
   — and the domain's growth rule refuses a longer `highlights` list
   independently, so a model that ignores both produces changes that are rejected
   rather than applied.
@@ -256,7 +284,7 @@ Two things about it are load-bearing, and both are refusals:
   — and a shorter honest bullet beats one padded to the word count.
 
 The formula is shared by all three workflows that rewrite prose (chat proposals,
-résumé tailoring, job enhancement) for the reason `CHANGE_LIMITS` is: a second
+resume tailoring, job enhancement) for the reason `CHANGE_LIMITS` is: a second
 copy drifts, and the one that drifts is the one nobody rereads.
 
 ### Provider independence is one file
@@ -479,15 +507,15 @@ working indicator, settled gets the explanation it already had.
 
 #### Raising the ceiling was necessary and not sufficient: reasoning is latency
 
-The ceiling fix stopped `/ai/job` producing *nothing*. It did not stop it looking
+The ceiling fix stopped `/ai/job` producing _nothing_. It did not stop it looking
 broken, and the second report — "analysing forever" — was measured rather than
 guessed. Against the real gateway (`openai/gpt-5-mini`), a realistic profile and a
 full posting:
 
-| | first chunk | total | reasoning tokens |
-| --- | --- | --- | --- |
-| default | **22.6s** | 30.0s | 1,600 |
-| `reasoningEffort: "low"` | 16.2s | 31.4s | 832 |
+|                          | first chunk | total | reasoning tokens |
+| ------------------------ | ----------- | ----- | ---------------- |
+| default                  | **22.6s**   | 30.0s | 1,600            |
+| `reasoningEffort: "low"` | 16.2s       | 31.4s | 832              |
 
 Both produced a valid object with the same requirements. So the route was never
 hung: **a reasoning model emits nothing at all until it has finished thinking**,
@@ -951,11 +979,131 @@ for why the Phase 4 answer was reversed. What replaced it:
 
 **`@resfolio/job` is a new domain, and not part of `@resfolio/ai`.** A row is one
 job the user is working on — the posting, the score, what they changed for it, the
-résumé and the letter. Matching is how it gets created; it is not what it is. The
-`status` column (`saved | applied | interviewing | rejected | offer`) is written
-from the first save with the tracker deliberately unbuilt, because a status column
-added later has to be backfilled with a guess about rows that predate the concept.
-`@resfolio/ai` stays what its own CLAUDE.md says it is: saved chat sessions.
+resume and the letter. Matching is how it gets created; it is not what it is. The
+`status` column (`saved | applied | interviewing | offer | rejected | ghosted`) is
+written from the first save, which was done **before** the tracker existed because
+a status column added later has to be backfilled with a guess about rows that
+predate the concept. `@resfolio/ai` stays what its own CLAUDE.md says it is: saved
+chat sessions.
+
+### The Application Tracker (2026-07-28)
+
+`/jobs` is the surface those states were written for. Two views over one list:
+a **board** (a column per state, drag to move) and a **flow** (a Sankey of the
+whole search). Every posting analysed in a conversation is already a card, in
+Saved.
+
+- **The tracker is a UI over data that was already there** — no backfill, and the
+  only migration (`0016`) adds one column for something genuinely new.
+- **A snapshot cannot draw a funnel, so transitions are recorded.**
+  `status_history` is a capped jsonb array appended by `setJobStatus`, the same
+  shape `profile_changes` uses. A row sitting in `rejected` might have been turned
+  down after three interviews or filtered out the day it was sent, and the
+  `status` column cannot tell those apart — a flow derived from it has to invent
+  its own middle, drawing every offer as having interviewed and never able to draw
+  "declined after interview" at all. Two rules ride with it: **history is seeded on
+  insert only** (like `initial_score`, and for the same reason — it is a baseline),
+  and **a move to the status a job already holds records nothing**, because
+  dropping a card back where it came from is not an event and counting it would
+  put a self-loop in the funnel.
+- **Rows predating the column get a synthesised single event on read**, not a
+  backfill migration. The only honest thing that can be said about such a row is
+  where it is now and when it was created; writing invented transition timestamps
+  into the table would put fiction somewhere it outlives the migration that wrote
+  it, and every later read would trust it.
+- **`saved` is not in the flow.** A posting read and never applied to is a
+  bookmark, and counting bookmarks in a funnel makes every rate below it look
+  worse than it is. The board is where saved jobs live.
+- **`ghosted` is not a variety of `rejected`.** An application nobody answered
+  says something about the employer; a job search where half the applications
+  vanish is a different problem from one where half are turned down, and reading
+  them as one number hides the more actionable of the two.
+- **The flow is computed in the browser**, from `buildJobFlow` in the package's
+  pure root, against the same list the board renders. A diagram that could only be
+  rebuilt by the server would contradict the column the user just dropped into
+  until the next navigation — and two views fetching their own copies is how a
+  product ends up showing eight interviews beside a column holding seven cards.
+- **Sharing is an export, not a link.** The diagram is drawn from a list that
+  names every company that turned the user down. PNG / SVG / copy ships; a public
+  URL is a decision with its own privacy posture, revocation UI and noindex rules,
+  and bolting one onto a chart component is how those get skipped.
+- **The prompt that fills it in sits where the application happens.** Clicking
+  through to a posting is the moment somebody would file it — not later, on
+  another page — so `ApplyPrompt` asks once per job, and only while the job is
+  still `saved`.
+  **The click opens the question and the answer opens the posting**
+  (reversed 2026-07-29). It shipped the other way round, letting the navigation
+  through and leaving the dialog waiting in the tab behind, on the principle that
+  blocking a link teaches people not to press links. But the tab it waits in is
+  the tab the user has just left: the question is asked of a screen nobody is
+  looking at, and answering it costs a context switch back plus the work of
+  reconstructing what was being asked. Asking first costs one click on the way
+  out — the cheaper of the two, and the only one people actually pay. Nothing is
+  lost but the order; the posting still opens in its own tab, opened by the
+  answer. A modifier or middle click is left alone, because that is the user
+  talking to the browser rather than to this product.
+  **It asks how to file the job, not whether you applied**: a yes/no question
+  makes "no" mean nothing, when the honest answers are "I'm keeping this" and
+  "I've sent it". So the two answers are the two columns — **Saved** and
+  **Applied** — and both write, which is what stops the board needing a drag
+  afterwards. Choosing Saved records the status the row already holds, which the
+  domain treats as a no-op rather than a transition, so the flow view is never
+  handed a hop that did not happen.
+
+**One conversation covers one job, and this is a rule rather than advice.** A
+chat has one artefact panel, one resume slot and one score; a second posting in it
+does not degrade the experience, it produces a conversation that is lying about
+which job it describes. It is also paid for twice over, since every turn re-reads
+the whole transcript — and `findJobDescription` walks back to the most recent long
+message, so after a second posting lands, asking to re-check the first one
+silently re-checks the second.
+
+It is enforced **twice, in two different places, for two different reasons**:
+
+- **The composer refuses to send.** A pure predicate over the transcript's own
+  tool results and the pending text (`lib/ai/second-posting.ts`) — no request, no
+  model call, since a detector that spent one would be a smaller copy of the
+  problem. There is no "send anyway": the server would refuse it, so the button
+  could only ever have meant "spend a call to be told no". What is offered
+  instead is a new chat **carrying the pasted text**, in memory rather than
+  through the URL, because a twelve-thousand-character query string is not a link.
+- **The tool refuses to run.** A guard that exists only in the browser is one a
+  sentence can talk the model around — "analyse this other one too" is ordinary
+  English. `analyzeJobMatch` is told what the conversation already analysed
+  (read from the same transcript, so it cannot disagree with what the user sees)
+  and returns `unavailable: "already-analysed"`, which the transcript renders with
+  a Start-a-new-chat button.
+
+**A re-check of the same posting is not a second job**, and the distinction is
+made by comparing the posting rather than by counting calls — `isSamePosting` is
+shared by both guards precisely so they cannot draw the line differently. "Recalculate
+the match" leaves the original paste as the most recent long message, so it
+resolves to the same text, and that path now **reuses the existing job's id**.
+That is not a detail: before it, every re-check minted a fresh row with its own
+`initial_score`, so the "74% → 86%" comparison the feature is built around could
+never actually be drawn.
+
+The bar for the composer's half is the false positive. Ordinary work — "enhance my
+summary", "what am I missing?", a re-paste of the same posting with the benefits
+trimmed, the description that follows a link — must all pass silently, or the
+block becomes something users route around without reading.
+
+**Optimising happens once per posting, and then the card is finished.** It used to
+retire one destination at a time, which is defensible and was still read as the
+product having forgotten: a reopened conversation showed a live button next to
+work the user had already accepted. So any accepted optimisation closes the whole
+card — both destinations disabled and labelled with what happened, no submit. The
+cost is named rather than hidden: a resume can no longer be tailored for a job
+after the profile has been enhanced for it *from that card*. `/resumes/[id]` still
+owns everything about a document.
+
+**What stays live after the lock is the step that spends nothing.** `SkillGaps`
+is the user ticking boxes beside evidence from their own writing, re-derived
+server-side — a step of the job session rather than an optimisation. Locking it
+would leave terms the posting names unlisted for the sake of a rule about model
+calls. Once the card is finished it falls back to the **profile** destination,
+which is also the right answer on its own terms: a term you have demonstrably used
+is a fact about your career, not an opinion held by one document.
 
 **Enhancement is a reason to propose changes, never a permission to make them.**
 "Enhance my profile for this job" runs `generateObject` against
@@ -979,16 +1127,19 @@ asked for it. Two details:
 
 **The artefact panel reads the database, not the transcript**, which is the
 distinction that earns it. The card renders one tool result; the panel renders the
-*job*, which outlives the message that created it and accumulates a résumé and a
-letter afterwards. The résumé is a **reference with `on delete set null`**, never
-a copy: a job pointing at a snapshot would offer a version of the résumé that
-exists nowhere else. Phase 5's tailoring moved into this panel, beside the résumé
-it edits — enhancing the profile and tailoring a résumé are two destinations for
-one posting, and the panel is where the difference is visible.
+_job_, which outlives the message that created it and accumulates a resume and a
+letter afterwards. The resume is a **reference with `on delete set null`**, never
+a copy: a job pointing at a snapshot would offer a version of the resume that
+exists nowhere else. Phase 5's tailoring moved into this panel beside the resume
+it edits — and then moved out again on 2026-07-28, because a second trigger in a
+second place is what made two destinations read as two duplicate features (see
+"Two destinations became one question" above). What the panel keeps is the
+_state_ of the document: how many fields a resume overrides and the way back,
+which is true whether or not a job is on screen.
 
 **Cover letters get a real PDF, drawn by `pdf-lib` rather than by Chromium.** This
-is a different decision from the résumé's and the difference is the artefact: a
-résumé is a *template* — arbitrary CSS, per template — so it needs a rendering
+is a different decision from the resume's and the difference is the artefact: a
+resume is a _template_ — arbitrary CSS, per template — so it needs a rendering
 engine, which is why `apps/sites` hands export to a headless Chromium on Fly. A
 letter is one fixed layout that has not changed since the typewriter. Drawing it
 directly means no second service on the request path, no `RENDER_SECRET` hop, a
@@ -1069,10 +1220,10 @@ to be provable on a route that always exists.
   **reversed in Phase 7.** `/ai/job` is retired; the match is a tool call inside
   the conversation.
 
-  The Phase 4 reasoning was sound about the *analysis* and wrong about the
-  *workflow*. One input and one result really is a poor fit for turn-taking — but
+  The Phase 4 reasoning was sound about the _analysis_ and wrong about the
+  _workflow_. One input and one result really is a poor fit for turn-taking — but
   the analysis was never the workflow. What people do is read a match, decide
-  their profile undersells them, change it, look again, tailor a résumé and write
+  their profile undersells them, change it, look again, tailor a resume and write
   a letter, and every one of those steps is a turn. The route ended up modelling
   that as three panels stacked under a textarea, with the second and third
   appearing once the first had a result: a conversation, rendered as a form,
@@ -1081,21 +1232,21 @@ to be provable on a route that always exists.
   screen and paste the posting into a second box.
 
   Two things that were true then are still true and are now solved differently:
-
   - **A structured result must not scroll away.** It does not — it is in the
-    transcript where the answer was, *and* the job's artefacts (posting, résumé,
+    transcript where the answer was, _and_ the job's artefacts (posting, resume,
     letter) are pinned in a panel beside the conversation that reads from the
     database rather than from the messages.
   - **The score must not move while it is read.** It cannot: the tool's output is
     computed whole, after verification, in one `execute`. The old route held the
     score back until streaming finished; there is nothing to hold back now.
 
-  What made the reversal cheap is that nothing about the *analysis* changed.
+  What made the reversal cheap is that nothing about the _analysis_ changed.
   `job-analysis.ts` still classifies, verifies, demotes and counts; it moved from
   behind a `streamObject` route to behind a tool's pure `execute`, which also
   removed a route handler rather than adding one. The posting is closed over from
   the conversation rather than re-emitted as tool arguments — the same principle
   as the profile, and worth ~4,000 tokens a call.
+
 - **Where the per-change accept lands when a proposal touches `basics` and items
   in one response** (Phase 3). Accept-one and Apply-all are the **same action
   with a different array**: it takes `changes[]`, so a batch is one revision and

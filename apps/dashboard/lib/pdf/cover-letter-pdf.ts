@@ -24,9 +24,9 @@ import {
  * Cover letters as PDF (docs/architecture/13-ai-layer.md, Phase 7).
  *
  * **Composed with `pdf-lib`, not rendered by a browser, and that is a different
- * decision from the résumé's.** A résumé is a *template* — arbitrary CSS, per
+ * decision from the resume's.** A resume is a *template* — arbitrary CSS, per
  * template, with a preview the user configures against — so it needs a real
- * rendering engine, which is why `apps/sites` hands résumé export to a headless
+ * rendering engine, which is why `apps/sites` hands resume export to a headless
  * Chromium on Fly. A cover letter is one fixed layout that has not changed since
  * the typewriter: a header, a date, a salutation, three paragraphs, a sign-off.
  * Drawing it directly means no Chromium, no second service on the request path,
@@ -218,8 +218,9 @@ export async function renderCoverLetterPdf(
   pdf.setCreator("Resfolio");
   pdf.setProducer("Resfolio");
 
-  const { lines, pages } = layoutLetter(letterBlocks(input), (text, size, font) =>
-    fonts[font].widthOfTextAtSize(sanitize(text), size),
+  const { lines, pages } = layoutLetter(
+    letterBlocks(input),
+    (text, size, font) => fonts[font].widthOfTextAtSize(sanitize(text), size),
   );
 
   const sheets = Array.from({ length: pages }, () =>

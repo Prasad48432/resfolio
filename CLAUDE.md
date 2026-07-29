@@ -75,7 +75,10 @@ All workspace packages use the `@resfolio/*` scope. Current packages:
   CSS rather than reaching for a motion library
 - `@resfolio/design` — the design system: Tailwind v4 `@theme` tokens (colour,
   type, and the `--ease-*` / `--duration-*` motion scale), base styles, shared
-  component classes (CSS-only package). Global rules belong in `@layer base` —
+  component classes (CSS-only package), including **`.shimmer`** — shadcn's
+  text-shimmer contract implemented here rather than installed, because
+  `@import "shadcn/tailwind.css"` would put a third-party utility sheet of
+  unknown layering into a cascade this repo tunes by hand. Global rules belong in `@layer base` —
   unlayered CSS outranks every cascade layer, including Tailwind's utilities.
   **Scrollbars are themed here**, once, at zero specificity (`:where()`): both
   `scrollbar-color` (Firefox + Chromium) and `::-webkit-scrollbar` (Safari),
@@ -147,21 +150,26 @@ Business-logic packages live under `domains/`:
   here is read on the way to a provider. Job matches are **not** here — they are
   `@resfolio/job`, below. See `domains/ai/CLAUDE.md`
 - `@resfolio/job` (`domains/job`) — job match sessions, which are also the
-  **Application Tracker's rows** (doc 13, Phase 7). A row is *one job the user is
-  working on*: the posting, how well their profile matched it, what they changed
-  for it, and the résumé and letter that came out. Matching is how a row gets
+  **Application Tracker's rows** (doc 13). A row is _one job the user is
+  working on_: the posting, how well their profile matched it, what they changed
+  for it, and the resume and letter that came out. Matching is how a row gets
   created; it is not what a row is — which is why this is not in `@resfolio/ai`,
   whose CLAUDE.md says that package is saved chat sessions and nothing else. No
   prompts, no provider, no model call: all of that stays in
   `apps/dashboard/lib/ai/`. Pure root (schemas, the tracker's `status` values,
-  `ENHANCE_CONFIRM_THRESHOLD`, `deriveJobTitle`, `scoreView`, and
+  `ENHANCE_CONFIRM_THRESHOLD`, `deriveJobTitle`, `scoreView`, the pure
+  `buildJobFlow` behind the tracker's Sankey view, and
   `normalizeJobUrl` — which **rejects** any scheme that is not http(s), because
   the value comes from a chat message a model read and becomes a link somebody
   clicks) and `./server`, the only code touching `job_match_sessions`
-  (migration `0015`). Two rules the repository keeps: **`saveJobMatch` merges
-  rather than replaces** (one row is written repeatedly as the user works through
-  a posting, so an absent key means "leave it alone"), and **`initial_score` is
-  written on insert only** — it is the baseline "74% → 86%" is measured against.
+  (migrations `0015`, `0016`). Three rules the repository keeps:
+  **`saveJobMatch` merges rather than replaces** (one row is written repeatedly
+  as the user works through a posting, so an absent key means "leave it alone");
+  **`initial_score` is written on insert only** — it is the baseline "74% → 86%"
+  is measured against; and **`status_history` is appended by `setJobStatus`
+  alone**, seeded on insert for the same baseline reason, because a snapshot of
+  `status` cannot distinguish "rejected after three interviews" from "rejected on
+  the day it was sent" and the flow view would have to invent its own middle.
   See `domains/job/CLAUDE.md`
 - `@resfolio/profile` (`domains/profile`) — the profile engine: canonical
   Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
@@ -252,7 +260,7 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
   without it is a different site). A **dark-only** developer site: full-bleed
   banner, avatar breaking its edge, dashed reading column, fixed INDEX rail,
   single-scroll home over the platform route table (Experience, a GitHub
-  activity graph, Projects, Skills, Writing). **No résumé route** — the résumé is
+  activity graph, Projects, Skills, Writing). **No resume route** — the resume is
   the dashboard's document surface, not a public site page. The reference
   hardcodes its data in components; here everything that was data is the
   **ProfileView**, and what has no home in a Profile (banner, tagline, quote,

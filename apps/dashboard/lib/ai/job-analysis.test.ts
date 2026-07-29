@@ -14,6 +14,7 @@ import {
   parseJobRequest,
   summarizeMatch,
   verifyRequirement,
+  type RawKeyword,
   type RawRequirement,
   type VerifiedRequirement,
 } from "./job-analysis";
@@ -172,16 +173,82 @@ describe("isKeywordPresent", () => {
   });
 });
 
+/** An atomic keyword, as the model emits one: no alternatives. */
+function kw(term: string): RawKeyword {
+  return { term, anyOf: [] };
+}
+
 describe("coverKeywords", () => {
   it("marks each keyword present or absent", () => {
-    expect(coverKeywords(["Kubernetes", "Rust"], "Ran Kubernetes.")).toEqual([
-      { keyword: "Kubernetes", present: true },
-      { keyword: "Rust", present: false },
+    expect(
+      coverKeywords([kw("Kubernetes"), kw("Rust")], "Ran Kubernetes."),
+    ).toEqual([
+      { keyword: "Kubernetes", present: true, alternatives: [], matched: null },
+      { keyword: "Rust", present: false, alternatives: [], matched: null },
     ]);
   });
 
   it("collapses repeats, which models produce in long lists", () => {
-    expect(coverKeywords(["React", "react", " React "], "")).toHaveLength(1);
+    expect(
+      coverKeywords([kw("React"), kw("react"), kw(" React ")], ""),
+    ).toHaveLength(1);
+  });
+
+  /**
+   * The reported bug: "Build features using Angular/React and Java/Node.js" was
+   * read as four demands, so a profile with React and Node.js — which satisfies
+   * that sentence completely — was told it lacked Angular and Java.
+   */
+  describe("either/or requirements", () => {
+    const HAS = "Built with React and Node.js.";
+
+    it("counts an alternation as covered when any one option is present", () => {
+      const [angularOrReact] = coverKeywords(
+        [{ term: "Angular/React", anyOf: ["Angular", "React"] }],
+        HAS,
+      );
+      expect(angularOrReact?.present).toBe(true);
+    });
+
+    it("records which option satisfied it, so the claim is checkable", () => {
+      const [entry] = coverKeywords(
+        [{ term: "Java/Node.js", anyOf: ["Java", "Node.js"] }],
+        HAS,
+      );
+      expect(entry?.matched).toBe("Node.js");
+      expect(entry?.alternatives).toEqual(["Java", "Node.js"]);
+    });
+
+    it("is still a gap when none of the options is present", () => {
+      const [entry] = coverKeywords(
+        [{ term: "Elixir/Erlang", anyOf: ["Elixir", "Erlang"] }],
+        HAS,
+      );
+      expect(entry?.present).toBe(false);
+      expect(entry?.matched).toBeNull();
+    });
+
+    /** `CI/CD` is one thing. The model decides that by leaving `anyOf` empty —
+     * splitting on the slash in code would produce a keyword "CD". */
+    it("leaves an atomic slash term whole", () => {
+      const [entry] = coverKeywords([kw("CI/CD")], "Set up CI/CD pipelines.");
+      expect(entry?.keyword).toBe("CI/CD");
+      expect(entry?.present).toBe(true);
+      expect(entry?.matched).toBeNull();
+    });
+
+    it("does not claim a match for an atomic term via a substring of it", () => {
+      // The word-boundary rule still applies to every candidate.
+      const [entry] = coverKeywords([kw("CI/CD")], "Worked on CD players.");
+      expect(entry?.present).toBe(false);
+    });
+
+    it("reports no matched option for an atomic term", () => {
+      const [entry] = coverKeywords([kw("React")], HAS);
+      expect(entry?.present).toBe(true);
+      // "React satisfies React" is noise; only a choice needs explaining.
+      expect(entry?.matched).toBeNull();
+    });
   });
 });
 
@@ -210,7 +277,6 @@ describe("parseJobRequest", () => {
     expect(parseJobRequest({ jd: "text" }).ok).toBe(false);
   });
 });
-
 
 /**
  * The chat tool's half of the analysis (Phase 7).
@@ -251,9 +317,9 @@ describe("findJobDescription", () => {
   it("prefers the most recent posting when two were pasted", () => {
     const second =
       `Staff Backend Engineer at Northwind. ${"Go, Postgres and Kubernetes. ".repeat(10)}`.trim();
-    expect(findJobDescription([say("user", POSTING), say("user", second)])).toBe(
-      second,
-    );
+    expect(
+      findJobDescription([say("user", POSTING), say("user", second)]),
+    ).toBe(second);
   });
 
   it("ignores the assistant's own long turns", () => {
@@ -269,7 +335,9 @@ describe("findJobDescription", () => {
     expect(findJobDescription([say("user", "hi")])).toBeNull();
     expect(findJobDescription([])).toBeNull();
     expect(
-      findJobDescription([say("user", "x".repeat(MIN_JOB_DESCRIPTION_CHARS - 1))]),
+      findJobDescription([
+        say("user", "x".repeat(MIN_JOB_DESCRIPTION_CHARS - 1)),
+      ]),
     ).toBeNull();
   });
 
@@ -288,7 +356,7 @@ describe("jobMatchInputSchema", () => {
       requirements: [
         { text: "React", evidence: ["exp-1"], level: "strong", note: "Acme." },
       ],
-      keywords: ["React"],
+      keywords: [kw("React")],
       jobDescription: "the whole posting, echoed back",
     });
     expect(parsed).not.toHaveProperty("jobDescription");
@@ -332,7 +400,7 @@ describe("buildJobMatchReview", () => {
         note: "Claimed.",
       },
     ],
-    keywords: ["React", "Kubernetes"],
+    keywords: [kw("React"), kw("Kubernetes")],
   };
 
   const context = {
@@ -356,8 +424,13 @@ describe("buildJobMatchReview", () => {
   it("checks keyword coverage against what the model was shown", () => {
     const review = buildJobMatchReview(input, context);
     expect(review.keywords).toEqual([
-      { keyword: "React", present: true },
-      { keyword: "Kubernetes", present: false },
+      { keyword: "React", present: true, alternatives: [], matched: null },
+      {
+        keyword: "Kubernetes",
+        present: false,
+        alternatives: [],
+        matched: null,
+      },
     ]);
   });
 
@@ -388,7 +461,6 @@ describe("buildJobMatchReview", () => {
     expect(review.jobDescription).toBe(POSTING);
   });
 });
-
 
 describe("optionalFact", () => {
   it("keeps a real answer", () => {

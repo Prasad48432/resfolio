@@ -8,10 +8,10 @@ const MOCK_OAUTH_PORT = 4780;
 const BASE_URL = `http://localhost:${APP_PORT}`;
 const MOCK_ISSUER = `http://localhost:${MOCK_OAUTH_PORT}`;
 
-/** Matches docker-compose.dev.yml (host port 5433); CI overrides it. */
+/** Matches docker-compose.dev.yml (host port 15432); CI overrides it. */
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  "postgres://resfolio:resfolio@localhost:5433/resfolio";
+  "postgres://resfolio:resfolio@localhost:15432/resfolio";
 
 const appEnv = {
   DATABASE_URL,

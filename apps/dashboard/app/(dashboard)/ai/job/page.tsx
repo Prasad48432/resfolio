@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
  *
  * **A redirect rather than a deletion, because this URL is in people's history
  * and in the command palette's muscle memory.** The route used to be the whole
- * job workflow: paste a posting into a textarea, read a match, tailor a résumé,
+ * job workflow: paste a posting into a textarea, read a match, tailor a resume,
  * write a letter — three stacked panels on a page you had to leave the
  * conversation to reach. All of it now happens in the conversation itself, so
  * there is a real destination to send this to rather than a "this has moved"

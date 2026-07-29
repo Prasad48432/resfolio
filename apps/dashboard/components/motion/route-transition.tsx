@@ -42,7 +42,13 @@ import type { ReactNode } from "react";
  *   reduced-motion user would have had a subtly different chat layout, and it
  *   would only ever have been reported as "it looks broken on my machine".
  */
-const FILL = "flex min-h-0 flex-col";
+/** `min-w-0` for the same reason as `min-h-0`, one axis over: this is a grid item
+ * in the shell's content region, and a grid item's default `min-width: auto`
+ * resolves to its min-content width — which is how one long token deep inside a
+ * page used to widen every route. The shell now pins the column too
+ * (`grid-cols-[minmax(0,1fr)]`); both are kept, because either one alone leaves a
+ * layout whose correctness depends on the other file not being edited. */
+const FILL = "flex min-h-0 min-w-0 flex-col";
 
 export function RouteTransition({
   routeKey,

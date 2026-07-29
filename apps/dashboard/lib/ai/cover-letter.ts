@@ -345,9 +345,22 @@ export function assembleCoverLetter(parts: {
     .join("\n\n");
 }
 
-/** A filename for the download. Not a slug helper — this is the only place that
- * needs one, and a resume's export route builds its own. */
-export function coverLetterFilename(company: string, role: string): string {
+/**
+ * A filename for the download. Not a slug helper — this is the only place that
+ * needs one, and a resume's export route builds its own.
+ *
+ * **The extension is a parameter and defaults to `pdf`**, because this function
+ * is what the PDF route puts in its `Content-Disposition`. It used to hardcode
+ * `.txt` from the days when a letter could only be copied out as plain text, so
+ * the route served real PDF bytes under a `.txt` name — and a browser saves what
+ * the header says. The download worked perfectly and produced a file nothing
+ * would open, which is the failure this reads as: "it only gives me a text file".
+ */
+export function coverLetterFilename(
+  company: string,
+  role: string,
+  extension: "pdf" | "txt" = "pdf",
+): string {
   const stem = [company, role]
     .map((part) => part.trim())
     .filter((part) => part !== "")
@@ -357,5 +370,5 @@ export function coverLetterFilename(company: string, role: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
-  return `${safe || "cover letter"}.txt`;
+  return `${safe || "cover letter"}.${extension}`;
 }

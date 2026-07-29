@@ -57,7 +57,7 @@ the template is designed.
   editor is the next portfolio increment (see DEVELOPMENT-PLAN Phase 5
   follow-ups).
 - **No styling config.** Accent color, theme/font overrides, and layout variants
-  are not exposed on portfolios. (A résumé document is the one exception — it
+  are not exposed on portfolios. (A resume document is the one exception — it
   still exposes an accent, doc 02.)
 
 **Template-specific fields never extend the Profile.** If a template wants
@@ -71,7 +71,7 @@ first-class field. Data lives in the Profile; knobs live in config.
   defines a token vocabulary (`--rf-bg`, `--rf-fg`, `--rf-accent`, font
   slots…); each template ships named theme presets (values for those tokens).
   The SDK still supports per-template `customizableTokens` for surfaces that
-  want it (a résumé's accent), but the **portfolio templates declare none** —
+  want it (a resume's accent), but the **portfolio templates declare none** —
   they're opinionated (decision, session 4), so a portfolio's tokens resolve
   from the chosen preset with no user overrides.
 - Light/dark is a theme dimension handled at the tokens layer; templates

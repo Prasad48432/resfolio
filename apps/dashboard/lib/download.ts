@@ -9,10 +9,10 @@
  *
  * Fetching buys a real in-flight state the caller can render, click suppression,
  * and an error the caller can turn into a sentence. The cost is buffering the
- * file in memory, which is fine at résumé and letter size and would not be for
+ * file in memory, which is fine at resume and letter size and would not be for
  * something large.
  *
- * Shared by the résumé export and the cover letter, because both learned the same
+ * Shared by the resume export and the cover letter, because both learned the same
  * lesson and a second copy would only learn half of it.
  */
 export interface DownloadResult {
@@ -25,10 +25,22 @@ export interface DownloadResult {
 export async function downloadFile(
   url: string,
   fallbackName: string,
+  /** A JSON body, when the file is drawn from something the browser is holding
+   * rather than from something the server already stored — the cover letter on
+   * screen, which must be downloadable whether or not its save round-tripped.
+   * Absent, this is a plain `GET`. */
+  body?: unknown,
 ): Promise<DownloadResult> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response =
+      body === undefined
+        ? await fetch(url)
+        : await fetch(url, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
   } catch {
     return { ok: false };
   }
@@ -45,7 +57,7 @@ export async function downloadFile(
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = objectUrl;
-  // Prefer the server's own filename: it knows the résumé's name or the
+  // Prefer the server's own filename: it knows the resume's name or the
   // company the letter is for, and the caller only knows a fallback.
   anchor.download = filenameFrom(response) ?? fallbackName;
   anchor.click();

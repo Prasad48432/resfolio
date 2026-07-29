@@ -123,7 +123,7 @@ const LIST_ITEM_PATTERN = /^\s*-\s+\S/m;
  *
  * A summary is a paragraph of prose, not an outline: bullets belong to the
  * long-form fields that describe a role or a project, where the reader is
- * scanning for achievements. Allowing them in a summary produced résumés and
+ * scanning for achievements. Allowing them in a summary produced resumes and
  * portfolio headers that opened with a bare list and no sentence.
  *
  * This is enforced at the **schema**, not just in the editor's help text,

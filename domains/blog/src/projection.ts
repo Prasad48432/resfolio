@@ -24,7 +24,7 @@ import type { BlogPostRecord } from "./schema/post";
  *
  * The requirement is that posts become part of the Writing section and that the
  * Profile stays the source of truth. The **ProfileView** is what every renderer
- * actually consumes (doc 01), so merging here means a résumé, a portfolio and
+ * actually consumes (doc 01), so merging here means a resume, a portfolio and
  * the public site all see one Writing list in which a native post and an
  * article imported from RSS are the same shape. No renderer needs a special
  * case, and none of them needs to know the blog domain exists.
@@ -39,7 +39,7 @@ import type { BlogPostRecord } from "./schema/post";
  * items) to describe something the existing vocabulary already covers.
  *
  * `publisher` is deliberately empty — the author *is* the publisher, and
- * writing "Resfolio" there would put our brand in the user's résumé.
+ * writing "Resfolio" there would put our brand in the user's resume.
  *
  * `url` stays absent, and `slug` carries the post instead. A post's public
  * address is a function of the owner's site base path, which does not exist at

@@ -1,9 +1,17 @@
 "use client";
 
 import { useObject } from "@ai-sdk/react";
+import type { CoverLetterContent } from "@resfolio/job";
 import type { ProfileItemRef } from "@resfolio/profile";
 import { Button, Card, Input, Label, Spinner } from "@resfolio/ui";
-import { Check, Copy, Download, ShieldCheck, Square } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  RefreshCw,
+  ShieldCheck,
+  Square,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -22,9 +30,11 @@ import {
 // resolve to a name the user recognises, and one that resolves to nothing is how
 // an unsupported claim is caught.
 import { indexProfileItems } from "@/lib/ai/job-analysis";
+import { downloadFile } from "@/lib/download";
 import { saveCoverLetterAction } from "@/app/(dashboard)/ai/job-actions";
 import { letterParagraphTestId, TEST_IDS } from "@/lib/testids";
 import { MatrixSpinner } from "../status/matrix-loader";
+import { WorkingText } from "../status/working-text";
 
 /**
  * The cover-letter surface (docs/architecture/13-ai-layer.md, Phase 6).
@@ -48,6 +58,20 @@ import { MatrixSpinner } from "../status/matrix-loader";
  * - **A flag is a question, not a verdict.** "Nothing in your profile or the
  *   posting mentions Rust" is true and useful; "this is a lie" would not be, since
  *   the user may well know Rust and never have written it down. The copy asks.
+ *
+ * **A finished letter replaces the form that produced it.** Once a letter exists —
+ * streamed just now, or {@link CoverLetter.saved} loaded from the job — the
+ * recipient field, the explanation and the "Write a cover letter" button all go
+ * away, and what is left is the letter and the two things you do with one (copy,
+ * download). A compose form sitting under a finished draft is a page still asking
+ * for something it already has, and the reroll button next to it is an invitation
+ * to spend a model call on a letter that was fine.
+ *
+ * The one control that survives is **Rewrite**, which brings the form back. It is
+ * not a hedge: the form is now unreachable by any other route, so without it a
+ * user who dislikes their first draft has no path forward at all — and "the
+ * generated result is complete" is a statement about the default, not a promise
+ * that the user is done.
  */
 export function CoverLetter({
   items,
@@ -56,6 +80,9 @@ export function CoverLetter({
   signature,
   busy,
   jobId,
+  saved,
+  fallbackCompany = "",
+  fallbackRole = "",
   onSaved,
 }: {
   items: ProfileItemRef[];
@@ -72,11 +99,37 @@ export function CoverLetter({
    * calls it that way today — the letter is still copy-and-paste only, which is
    * what it was for all of Phase 6. */
   jobId?: string;
+  /**
+   * The letter already stored against this job, if there is one.
+   *
+   * **This is what makes a reopened conversation show the letter rather than a
+   * button offering to write one**, and it is why the compose form can be hidden
+   * at all: without it, "has a letter" would mean "streamed one in this component's
+   * lifetime", and every page load would present the form again over a letter the
+   * user finished last week.
+   *
+   * Its `body` is plain strings — the stored shape drops per-paragraph evidence —
+   * so a restored letter renders its prose and **not** the citation chips or the
+   * flag list. Re-running the check against empty evidence would report every
+   * paragraph as ungrounded, which is the check lying about a letter that passed.
+   */
+  saved?: CoverLetterContent | null;
+  /** Names for the download's filename when the letter came from {@link saved},
+   * which stores no role or company of its own. Ignored while a fresh letter is
+   * on screen — the model's own reading of the posting is the better answer. */
+  fallbackCompany?: string;
+  fallbackRole?: string;
   /** The panel's cue that a letter now exists to draw. */
   onSaved?: () => void;
 }) {
-  const [recipient, setRecipient] = useState("");
+  const [recipient, setRecipient] = useState(saved?.recipient ?? "");
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  /** The user asked for another draft, so the form comes back. Cleared when the
+   * next generation finishes, so the form hides itself again rather than lingering
+   * over the letter it just produced. */
+  const [rewriting, setRewriting] = useState(false);
 
   /** The stream ended with no usable letter. Same reasoning as the job panel's:
    * `useObject` reports `error` for a failed *request*, not for a successful one
@@ -89,6 +142,11 @@ export function CoverLetter({
     schema: coverLetterSchema,
     onFinish: ({ object: final }) => {
       setEmptyResult(final === undefined);
+      // Only on success. A generation that produced nothing leaves the form up,
+      // because the next thing the user needs is the button they just pressed.
+      if (final !== undefined) {
+        setRewriting(false);
+      }
 
       /**
        * Persist, once, when there is a job to persist against.
@@ -184,14 +242,47 @@ export function CoverLetter({
     recipient,
   ]);
 
+  /** A letter from *this* generation — the only one whose evidence and flag list
+   * are real, and the only one that may still be arriving. */
   const hasLetter = opening !== "" || body.length > 0;
+  /** Falling back to the stored one, which happens on every page load after the
+   * first. */
+  const restored = !hasLetter && saved != null ? saved : null;
+  const hasAnyLetter = hasLetter || restored !== null;
+
+  const shown = restored
+    ? {
+        opening: restored.opening,
+        body: restored.body.map((text) => ({ text, evidence: [] })),
+        closing: restored.closing,
+        company: fallbackCompany,
+        role: fallbackRole,
+      }
+    : {
+        opening,
+        body,
+        closing,
+        company: company || fallbackCompany,
+        role: role || fallbackRole,
+      };
+
+  /**
+   * Whether the compose form is on screen.
+   *
+   * Three ways in, and they are not the same case: there is nothing yet (the
+   * ordinary first visit), a generation is running (the Stop button lives in this
+   * card), or the user pressed Rewrite. Everything else — a finished letter, a
+   * restored one — is a page with no form on it.
+   */
+  const composing = isLoading || rewriting || !hasAnyLetter;
+
   const canSubmit = jobDescription.trim().length > 0 && !busy && !isLoading;
 
   const plainText = assembleCoverLetter({
     greeting,
-    opening,
-    body: body.map((paragraph) => paragraph.text),
-    closing,
+    opening: shown.opening,
+    body: shown.body.map((paragraph) => paragraph.text),
+    closing: shown.closing,
     signoff,
   });
 
@@ -209,124 +300,186 @@ export function CoverLetter({
     }
   }
 
-  function download() {
+  /**
+   * The letter as a real PDF, drawn by `pdf-lib` from what is on screen.
+   *
+   * **It posts the letter rather than asking the server for the stored one**, and
+   * that is the whole reason this works. The save happens in `onFinish` through a
+   * Server Action, and the panel only sees it on its next read — so a download
+   * that fetched the stored copy would depend on a write and a refresh the user
+   * cannot observe, and any hitch in either leaves a finished letter on screen
+   * with no way to get it out. Sending the paragraphs makes the file depend on
+   * the letter and nothing else.
+   *
+   * The greeting and sign-off are still **not** sent: the server composes both
+   * from the profile and the recipient, exactly as the on-screen version does, so
+   * there is no shape in which a name the model invented could reach the page.
+   */
+  async function downloadPdf() {
+    if (!jobId) {
+      return;
+    }
+    setDownloading(true);
+    try {
+      const result = await downloadFile(
+        `/api/ai/job/${encodeURIComponent(jobId)}/cover-letter`,
+        coverLetterFilename(shown.company, shown.role),
+        {
+          opening: shown.opening,
+          body: shown.body.map((paragraph) => paragraph.text),
+          closing: shown.closing,
+          ...(recipient.trim() === "" ? {} : { recipient: recipient.trim() }),
+        },
+      );
+      if (!result.ok) {
+        toast.error("Couldn't build that PDF", {
+          description: result.error ?? "Please try again in a moment.",
+        });
+      }
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  /** The fallback where there is no job to draw against — Phase 6's behaviour,
+   * unchanged. */
+  function downloadText() {
     const blob = new Blob([plainText], {
       type: "text/plain;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = coverLetterFilename(company, role);
+    anchor.download = coverLetterFilename(shown.company, shown.role, "txt");
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1_000);
   }
 
   return (
     <div className="flex flex-col gap-3" data-testid={TEST_IDS.letterPanel}>
-      <Card className="flex flex-col gap-3 p-4">
-        <div>
-          <p className="label-section">Cover letter</p>
-          <p className="text-[13px] text-muted">
-            Drafted from your profile and this posting. Every name and number in
-            it has to come from one of the two —{" "}
-            <span className="text-foreground">
-              anything that doesn&apos;t is flagged
-            </span>
-            .
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-56 flex-col gap-1.5">
-            <Label htmlFor="letter-recipient">Addressed to (optional)</Label>
-            <Input
-              id="letter-recipient"
-              value={recipient}
-              onChange={(event) => setRecipient(event.target.value)}
-              maxLength={MAX_RECIPIENT_CHARS}
-              placeholder="Hiring Manager"
-              data-testid={TEST_IDS.letterRecipient}
-            />
+      {/* Hidden the moment there is a letter — see the component's header. */}
+      {composing ? (
+        <Card className="flex flex-col gap-3 p-4">
+          <div>
+            <p className="label-section">Cover letter</p>
+            <p className="text-[13px] text-muted">
+              Drafted from your profile and this posting. Every name and number
+              in it has to come from one of the two —{" "}
+              <span className="text-foreground">
+                anything that doesn&apos;t is flagged
+              </span>
+              .
+            </p>
           </div>
 
-          {isLoading ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => stop()}
-              data-testid={TEST_IDS.letterStop}
-            >
-              <Square className="size-3.5" aria-hidden />
-              Stop
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canSubmit}
-              onClick={() => {
-                setEmptyResult(false);
-                submit({ jobDescription: jobDescription.trim() });
-              }}
-              data-testid={TEST_IDS.letterSubmit}
-            >
-              {hasLetter ? "Write another draft" : "Write a cover letter"}
-            </Button>
-          )}
-        </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex min-w-56 flex-col gap-1.5">
+              <Label htmlFor="letter-recipient">Addressed to (optional)</Label>
+              <Input
+                id="letter-recipient"
+                value={recipient}
+                onChange={(event) => setRecipient(event.target.value)}
+                maxLength={MAX_RECIPIENT_CHARS}
+                placeholder="Hiring Manager"
+                data-testid={TEST_IDS.letterRecipient}
+              />
+            </div>
 
-        {/* Said plainly rather than implied: Phase 6 persists nothing, and a
-            product that looked like it saved drafts would lose one. */}
-        <p className="text-xs text-muted">
-          Nothing here is saved — copy it before you leave the page.
-        </p>
+            {isLoading ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => stop()}
+                data-testid={TEST_IDS.letterStop}
+              >
+                <Square className="size-3.5" aria-hidden />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!canSubmit}
+                onClick={() => {
+                  setEmptyResult(false);
+                  submit({ jobDescription: jobDescription.trim() });
+                }}
+                data-testid={TEST_IDS.letterSubmit}
+              >
+                {hasAnyLetter ? "Write another draft" : "Write a cover letter"}
+              </Button>
+            )}
+          </div>
 
-        {error ? (
-          <p
-            className="flex items-start gap-1.5 text-xs text-destructive"
-            data-testid={TEST_IDS.letterError}
-          >
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            That draft didn&apos;t go through. Try again — nothing was changed.
+          {/* Said plainly rather than implied, in both directions. Without a job
+            this is Phase 6's behaviour and nothing is kept — a product that
+            looked like it saved drafts would lose one. With a job, Phase 7 does
+            keep it, and a warning to copy before leaving would send people
+            hunting for something they cannot lose. */}
+          <p className="text-xs text-muted">
+            {jobId
+              ? "Saved with this job when it finishes, and downloadable as a PDF."
+              : "Nothing here is saved — copy it before you leave the page."}
           </p>
-        ) : null}
 
-        {emptyResult && !isLoading && !error && !hasLetter ? (
-          <p
-            className="flex items-start gap-1.5 text-xs text-muted"
-            data-testid={TEST_IDS.letterEmpty}
-          >
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            That draft finished without producing a letter — usually a very long
-            posting. Try again, or paste just the role and requirements.
-          </p>
-        ) : null}
-      </Card>
+          {error ? (
+            <p
+              className="flex items-start gap-1.5 text-xs text-destructive"
+              data-testid={TEST_IDS.letterError}
+            >
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              That draft didn&apos;t go through. Try again — nothing was
+              changed.
+            </p>
+          ) : null}
+
+          {emptyResult && !isLoading && !error && !hasLetter ? (
+            <p
+              className="flex items-start gap-1.5 text-xs text-muted"
+              data-testid={TEST_IDS.letterEmpty}
+            >
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              That draft finished without producing a letter — usually a very
+              long posting. Try again, or paste just the role and requirements.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
 
       {isLoading && !hasLetter ? (
         <Card className="flex items-center gap-2 p-3 text-[13px] text-muted">
           <MatrixSpinner />
-          Reading the posting against your profile…
+          <WorkingText kind="letter" />
         </Card>
       ) : null}
 
-      {hasLetter ? (
+      {hasAnyLetter ? (
         <Card
           className="flex flex-col gap-4 p-4"
           data-testid={TEST_IDS.letterResult}
         >
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          {/* **The actions are their own row, not a right-hand cluster.** This
+              card renders at three widths — a 320px sheet on a phone, an 18rem
+              rail on a laptop, the full column on a desktop — and three buttons
+              opposite a title only fit at the third. Squeezed into the first they
+              wrapped mid-group and the last one clipped, which is what "out of
+              the box" looked like. A stacked header plus one wrapping row of
+              equal-width-ish buttons is the same layout at every width, so there
+              is nothing left to break. */}
+          <div className="flex flex-col gap-3">
             <div className="min-w-0">
-              {role || company ? (
-                <p className="truncate text-[13px] font-medium">
-                  {[role, company].filter(Boolean).join(" · ")}
+              {shown.role || shown.company ? (
+                <p className="text-[13px] font-medium wrap-anywhere">
+                  {[shown.role, shown.company].filter(Boolean).join(" · ")}
                 </p>
               ) : null}
-              <p className="text-xs text-muted">Draft</p>
+              <p className="text-xs text-muted">
+                {restored ? "Saved with this job" : "Draft"}
+              </p>
             </div>
             {!isLoading ? (
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
@@ -341,16 +494,44 @@ export function CoverLetter({
                   )}
                   {copied ? "Copied" : "Copy"}
                 </Button>
+                {/* The real thing where there is a job to draw it against, and
+                    plain text only where there is not. One Download button
+                    either way: two a few pixels apart, meaning two different
+                    file formats, is how somebody sends the wrong one.
+                    Labelled "Download", not "PDF" — a bare format name reads as a
+                    format *switch* sitting next to Copy, and the format belongs in
+                    the file it produces. */}
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
-                  onClick={download}
+                  variant="secondary"
+                  disabled={downloading}
+                  onClick={jobId ? () => void downloadPdf() : downloadText}
                   data-testid={TEST_IDS.letterDownload}
                 >
-                  <Download className="size-3.5" aria-hidden />
-                  .txt
+                  {downloading ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <Download className="size-3.5" aria-hidden />
+                  )}
+                  {jobId ? "Download PDF" : "Download .txt"}
                 </Button>
+                {/* The way back to the form this letter replaced. Quiet and last,
+                    because it spends a model call and the default position is
+                    that the letter on screen is finished. */}
+                {!composing ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted"
+                    onClick={() => setRewriting(true)}
+                    data-testid={TEST_IDS.letterRewrite}
+                  >
+                    <RefreshCw className="size-3.5" aria-hidden />
+                    Rewrite
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -359,8 +540,8 @@ export function CoverLetter({
               is about to send — not a form field. */}
           <div className="flex max-w-prose flex-col gap-4 text-[13px] leading-relaxed whitespace-pre-wrap">
             <p>{greeting}</p>
-            {opening ? <p>{opening}</p> : null}
-            {body.map((paragraph, position) => (
+            {shown.opening ? <p>{shown.opening}</p> : null}
+            {shown.body.map((paragraph, position) => (
               <Paragraph
                 key={position}
                 text={paragraph.text}
@@ -369,10 +550,15 @@ export function CoverLetter({
                 testId={letterParagraphTestId(position)}
               />
             ))}
-            {closing ? <p>{closing}</p> : null}
+            {shown.closing ? <p>{shown.closing}</p> : null}
             <p>{signoff}</p>
           </div>
 
+          {/* Present only for a letter generated in this session. A restored one
+              carries no evidence ids (the stored shape drops them), so `review`
+              is null for it by construction — which is right: re-running the
+              check would report every paragraph as ungrounded, the check lying
+              about a letter that passed. */}
           {review ? <Checks review={review} /> : null}
         </Card>
       ) : null}

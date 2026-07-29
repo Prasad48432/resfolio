@@ -38,7 +38,7 @@ import { profile } from "./profiles";
  * - **`resume_document_id` is a reference with `on delete set null`**, not a
  *   copy. A resume is `Profile × config` and is edited after the fact (doc 02);
  *   snapshotting one here would produce a job row proudly pointing at a version
- *   of the résumé that no longer exists anywhere else. Deleting the résumé
+ *   of the resume that no longer exists anywhere else. Deleting the resume
  *   leaves the job — the application still happened.
  */
 export const jobMatchSession = pgTable(
@@ -117,6 +117,29 @@ export const jobMatchSession = pgTable(
      * constrains it.
      */
     status: text("status").notNull().default("saved"),
+
+    /**
+     * Every status this job has held, oldest first — `[{ status, at }]`.
+     *
+     * **The board needs `status`; the flow view needs this, and neither is
+     * derivable from the other.** A row sitting in `rejected` might have been
+     * turned down after three interviews or filtered out the day it was sent,
+     * and the column above cannot tell those apart — so a funnel drawn from it
+     * alone has to invent its own middle. Recording the change when it is made
+     * is the only honest way to draw one.
+     *
+     * Same shape as `profile_changes`: a capped jsonb array, appended to and
+     * never replaced, because this row is written many times over the life of
+     * one application and history is the part that must survive all of them.
+     *
+     * Rows written before this column existed have `[]`, and the domain
+     * synthesises a single event from `status` + `created_at` on the way out —
+     * so an old job draws as one hop rather than disappearing from the diagram.
+     * That is deliberately a read-time fallback and not a backfill: inventing
+     * timestamps for transitions nobody observed would put fiction in the
+     * table, where it would outlive the migration that wrote it.
+     */
+    statusHistory: jsonb("status_history").notNull().default([]),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

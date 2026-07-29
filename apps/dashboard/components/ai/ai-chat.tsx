@@ -26,12 +26,24 @@ import {
 
 import { EmptyState } from "@/components/layout/empty-state";
 import { MatrixSpinner } from "@/components/status/matrix-loader";
-import { MAX_CHARS_PER_MESSAGE } from "@/lib/ai/limits";
+import { WorkingText } from "@/components/status/working-text";
+import {
+  COMPOSER_COUNTER_THRESHOLD,
+  MAX_CHARS_PER_MESSAGE,
+} from "@/lib/ai/limits";
+import type { JobFacts } from "@/lib/ai/job-facts";
+import {
+  looksLikeNewPosting,
+  postingsInTranscript,
+  type PostingInChat,
+} from "@/lib/ai/second-posting";
+import type { WorkKind } from "@/lib/ai/status-words";
 import type { AiPhase, AiProgress, AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
 
 import { AiMessage } from "./ai-message";
 import { AiSuggestions } from "./ai-suggestions";
+import type { TailorTarget } from "./resume-tailor";
 import { useAutosize } from "./use-autosize";
 
 /**
@@ -96,20 +108,32 @@ import { useAutosize } from "./use-autosize";
  * composer. */
 const MAX_COMPOSER_HEIGHT = 200;
 
-/** What each real phase is called on screen. Written as present-progressive
- * statements of fact — each one names work the server has said it started. */
-const PHASE_LABELS: Record<AiPhase, string> = {
-  reading: "Reading your profile…",
-  thinking: "Working through it…",
-  truncated: "That answer was cut short.",
+/**
+ * The bank each *working* phase draws its status word from
+ * (`lib/ai/status-words.ts`). Still one word per phase the server actually
+ * reported — the rotation happens inside a bank, so nothing here claims a stage
+ * that has not begun.
+ *
+ * `truncated` is deliberately absent: it is not work in progress, it is a
+ * finished turn reporting how it ended, so it keeps a plain sentence below.
+ */
+const PHASE_KINDS: Record<Exclude<AiPhase, "truncated">, WorkKind> = {
+  reading: "reading",
+  thinking: "thinking",
 };
+
+const TRUNCATED_LABEL = "That answer was cut short.";
 
 export function AiChat({
   profileIsEmpty,
   sessionId,
   initialMessages = [],
+  initialInput,
+  resumes,
+  jobFacts,
   onTurnComplete,
   onJobSaved,
+  onStartNewChat,
 }: {
   profileIsEmpty: boolean;
   /** The transcript this chat writes to. Minted by the workspace when a new
@@ -120,15 +144,41 @@ export function AiChat({
    * owns the messages after that, which is why the workspace keys this
    * component on the session. */
   initialMessages?: AiUIMessage[];
+  /** Text this chat opens with, unsent — the posting carried over from a
+   * conversation it did not belong in. Everything else opens empty. */
+  initialInput?: string;
+  /** The user's resumes, passed through to a match card's optimise destinations. */
+  resumes?: TailorTarget[];
+  /** What has already been done with each job in this conversation — enhanced,
+   * tailored, applied to. Passed straight through to the match cards, which is
+   * where every "already done" state lives — see `JobMatchCard`. */
+  jobFacts?: ReadonlyMap<string, JobFacts>;
   /** Persist. Called once per settled turn, never per token. */
   onTurnComplete?: (messages: AiUIMessage[]) => void;
   /** A job match in this transcript finished writing its row. The workspace
    * uses it to refresh the artefact panel — the panel reads the database, so it
    * must not be asked to render a job before the row exists. */
   onJobSaved?: () => void;
+  /** Move the pending text into a brand-new conversation. The workspace mints
+   * the id; this component only knows what should be carried. */
+  onStartNewChat?: (seed: string) => void;
 }) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput ?? "");
   const [progress, setProgress] = useState<AiProgress | null>(null);
+
+  /**
+   * The posting this conversation is already about, when the composer holds a
+   * different one — see `lib/ai/second-posting.ts`.
+   *
+   * **A block, not a warning.** This started as a nudge with a "Send here
+   * anyway" beside it, which is the wrong shape: the reason a second job does
+   * not belong here is structural, not advisory. One conversation has one
+   * artefact panel, one resume slot and one score, so a second posting does not
+   * produce a worse experience — it produces a chat that is lying about which
+   * job it describes. The server enforces the same rule in the tool, so
+   * "anyway" would only have meant "spend a model call to be told no".
+   */
+  const [secondPosting, setSecondPosting] = useState<PostingInChat | null>(null);
 
   // Typed with the app's own message shape, so a `tool-proposeProfileChanges`
   // part arrives at `AiMessage` already narrowed to a `ProfileChangeReview` and a
@@ -152,7 +202,29 @@ export function AiChat({
     });
 
   const busy = status === "submitted" || status === "streaming";
-  const canSend = input.trim().length > 0 && !busy;
+
+  /**
+   * The message-length ceiling, which for this composer is the **job-description**
+   * ceiling (`limits.ts`): pasting a posting is the largest legitimate thing
+   * anyone types here, so the two are one number.
+   *
+   * **It is enforced by refusing to send, never by a `maxLength` on the
+   * textarea**, and that is the whole point of this block. `maxLength` truncates
+   * a paste silently — the browser drops the tail with no event, no message and no
+   * visual change beyond a caret that stopped moving — so an over-long posting
+   * became an analysis of its first two-thirds, confidently reported as an
+   * analysis of the job. That is exactly the failure `chat-request.ts` refuses on
+   * the server ("rejected, never truncated"); doing it in the browser instead of
+   * the route did not make it acceptable, it made it invisible.
+   *
+   * So the text stays whole, the counter appears before it matters, and the send
+   * button is the thing that says no.
+   */
+  const length = input.length;
+  const overLimit = length > MAX_CHARS_PER_MESSAGE;
+  const showCount = length >= COMPOSER_COUNTER_THRESHOLD;
+
+  const canSend = input.trim().length > 0 && !overLimit && !busy;
   const isFresh = messages.length === 0 && !busy && !error;
 
   const composerRef = useAutosize(input, MAX_COMPOSER_HEIGHT);
@@ -201,14 +273,41 @@ export function AiChat({
     wasBusyRef.current = status === "submitted" || status === "streaming";
   }, [status, messages, onTurnComplete]);
 
+  function send() {
+    setProgress(null);
+    setSecondPosting(null);
+    sendMessage({ text: input.trim() });
+    setInput("");
+  }
+
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (!canSend) {
       return;
     }
-    setProgress(null);
-    sendMessage({ text: input.trim() });
-    setInput("");
+
+    /**
+     * The one thing checked before a message leaves: is this a *second* job?
+     *
+     * Pure and local — no request, no model call — which is the point. A check
+     * that cost a round trip to save a round trip would be the problem wearing a
+     * different hat. See `lib/ai/second-posting.ts` for what does and does not
+     * count, and note that the transcript is read live rather than remembered:
+     * a posting analysed two turns ago is in `messages` already.
+     *
+     * Ordinary conversation is untouched — this only ever fires on something
+     * that reads as a whole posting or a bare job link.
+     */
+    const existing = looksLikeNewPosting(
+      input.trim(),
+      postingsInTranscript(messages),
+    );
+    if (existing) {
+      setSecondPosting(existing);
+      return;
+    }
+
+    send();
   }
 
   /** A suggestion sends immediately. Dropping the text into the composer for the
@@ -277,7 +376,10 @@ export function AiChat({
                     // the case worth explaining.
                     settled={!busy || index < messages.length - 1}
                     chatSessionId={sessionId}
+                    resumes={resumes}
+                    jobFacts={jobFacts}
                     onJobSaved={onJobSaved}
+                    onStartNewChat={onStartNewChat}
                   />
                 </MessageScrollerItem>
               ))}
@@ -295,11 +397,19 @@ export function AiChat({
                 <MessageScrollerItem>
                   <Marker data-testid={TEST_IDS.aiThinking}>
                     <MatrixSpinner rows={4} cols={4} />
+                    {/* The word rotates within the phase the server reported;
+                        the shimmer and the detail clause are `WorkingText`'s.
+                        Before any crumb arrives the only true thing is that the
+                        request is out, which is its own bank. */}
                     <MarkerContent>
-                      {progress ? PHASE_LABELS[progress.phase] : "Sending…"}
-                      {progress?.detail ? (
-                        <span className="text-muted"> {progress.detail}</span>
-                      ) : null}
+                      <WorkingText
+                        kind={
+                          progress && progress.phase !== "truncated"
+                            ? PHASE_KINDS[progress.phase]
+                            : "sending"
+                        }
+                        detail={progress?.detail}
+                      />
                     </MarkerContent>
                   </Marker>
                 </MessageScrollerItem>
@@ -309,7 +419,7 @@ export function AiChat({
                 <MessageScrollerItem>
                   <Marker data-testid={TEST_IDS.aiTruncated}>
                     <MarkerContent>
-                      {PHASE_LABELS.truncated} There was more to work through
+                      {TRUNCATED_LABEL} There was more to work through
                       than fits in one answer — ask for a few items at a time
                       and it will get through them.
                     </MarkerContent>
@@ -346,6 +456,55 @@ export function AiChat({
           row that must never be compressed. It grows upward as the textarea does
           and its bottom edge never moves. */}
       <div className="shrink-0 pt-3">
+        {/* Above the composer rather than in the transcript, because nothing has
+            been sent: this is about the message still in the box, and putting it
+            in the conversation would make it look like a turn that happened. */}
+        {secondPosting ? (
+          <div
+            className="mb-2 flex flex-col gap-2 rounded-xl border border-brand/40 bg-brand/5 p-3 text-[13px]"
+            data-testid={TEST_IDS.secondPosting}
+          >
+            <p>
+              This chat covers{" "}
+              <span className="font-medium">{secondPosting.title}</span>.
+            </p>
+            <p className="text-xs text-muted">
+              One chat, one job — its match, its resume and its letter all
+              describe that one. Your posting is kept; the new chat opens with it
+              ready to send.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  // The text goes with it. A new chat that made the user paste
+                  // the posting again would be a worse outcome than the one this
+                  // is preventing.
+                  onStartNewChat?.(input.trim());
+                  setSecondPosting(null);
+                }}
+                data-testid={TEST_IDS.secondPostingNewChat}
+              >
+                Start a new chat with this
+              </Button>
+              {/* Not "send anyway". The server refuses a second analysis in the
+                  same conversation, so that button could only ever have meant
+                  "spend a call to be told no" — this one just puts the composer
+                  back so the text can be edited into an ordinary question. */}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setSecondPosting(null)}
+                data-testid={TEST_IDS.secondPostingCancel}
+              >
+                Keep editing
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <form
           onSubmit={submit}
           // The border is on the wrapper, not the textarea, so the whole
@@ -359,7 +518,9 @@ export function AiChat({
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            maxLength={MAX_CHARS_PER_MESSAGE}
+            // No `maxLength` — see `overLimit` above. It would truncate a pasted
+            // posting without saying so.
+            aria-invalid={overLimit || undefined}
             placeholder="Ask Resfolio AI…"
             aria-label="Message Resfolio AI"
             // No chrome of its own — the wrapper is the control. The height
@@ -397,10 +558,41 @@ export function AiChat({
             </Button>
           )}
         </form>
-        <p className="px-2 pt-1.5 text-[11px] text-muted">
-          Resfolio AI works from your profile and can propose changes — nothing
-          is saved until you accept it.
-        </p>
+
+        <div className="flex items-start justify-between gap-3 px-2 pt-1.5">
+          <p className="text-[11px] text-muted">
+            {overLimit ? (
+              // Named as a job description, because that is what anything this
+              // long is. "Message too long" would be true and useless — the user
+              // did not write 12,000 characters, they pasted a careers page.
+              <span
+                className="text-destructive"
+                data-testid={TEST_IDS.aiInputTooLong}
+              >
+                That&apos;s longer than a job posting —{" "}
+                {(length - MAX_CHARS_PER_MESSAGE).toLocaleString()} characters
+                over. Paste the role, responsibilities and requirements; leave
+                out benefits and company history.
+              </span>
+            ) : (
+              <>
+                Resfolio AI works from your profile and can propose changes —
+                nothing is saved until you accept it.
+              </>
+            )}
+          </p>
+          {showCount ? (
+            <p
+              className={`shrink-0 text-[11px] tabular-nums ${
+                overLimit ? "text-destructive" : "text-muted"
+              }`}
+              data-testid={TEST_IDS.aiInputCount}
+            >
+              {length.toLocaleString()} /{" "}
+              {MAX_CHARS_PER_MESSAGE.toLocaleString()}
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

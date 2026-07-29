@@ -29,12 +29,13 @@ import {
   getChatModel,
   isAiConfigured,
   isAiEnabled,
+  structuredProviderOptions,
 } from "@/lib/ai/provider";
 import { checkAiRateLimit, type AiMode } from "@/lib/ai/rate-limit";
 import { tailoringSystemPrompt } from "@/lib/ai/system-prompt";
 
 /**
- * Résumé tailoring (docs/architecture/13-ai-layer.md, Phase 5).
+ * Resume tailoring (docs/architecture/13-ai-layer.md, Phase 5).
  *
  * **Moved here from `app/(dashboard)/ai/job/actions.ts` in Phase 7**, when
  * `/ai/job` was retired and the job workflow moved into the conversation. Nothing
@@ -157,6 +158,12 @@ export const tailorResumeAction = createAction({
         // accepts, against this user's own profile.
         prompt: `<job-description>\n${parsed.jobDescription}\n</job-description>`,
         maxOutputTokens: MAX_TAILOR_OUTPUT_TOKENS,
+        // Missing here until now, while every other structured call had it — so
+        // the one call with **no stream and no partial output** was also the one
+        // running at the model's full default reasoning budget. That is the worst
+        // possible pairing: a user watching a spinner for the entire generation,
+        // waiting on deliberation nobody will ever see. See `provider.ts`.
+        providerOptions: structuredProviderOptions(),
       });
       plan = result.object;
 

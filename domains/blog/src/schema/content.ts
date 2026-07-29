@@ -7,10 +7,10 @@ import { z } from "zod";
  * ## Why this is not the profile's rich text
  *
  * `@resfolio/profile`'s `richTextSchema` is a deliberately tiny Markdown subset
- * — bold, italic, links, hyphen lists — chosen so a résumé survives plain-text
+ * — bold, italic, links, hyphen lists — chosen so a resume survives plain-text
  * ATS extraction and JSON Resume export (doc 01). A post needs headings, code
  * blocks, task lists, images with captions and callouts. None of those are
- * expressible in that grammar, and widening it would widen it for résumés too,
+ * expressible in that grammar, and widening it would widen it for resumes too,
  * where the constraint is the point. Two content shapes, each matched to what
  * reads it.
  *

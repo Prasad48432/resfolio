@@ -5,7 +5,7 @@ import { cn } from "@resfolio/ui";
  *
  * This is deliberately **not** a real render — the live preview lives in the
  * editor (`/resumes/[id]`), where the actual template runs in-browser. The list
- * only needs a recognisable "this is a résumé, on this template" glance, so a
+ * only needs a recognisable "this is a resume, on this template" glance, so a
  * faux page (paper + skeleton lines) is cheaper than booting a renderer per row
  * and stays fast at any list length. Swap the body for a real thumbnail later
  * without touching the card.
@@ -31,7 +31,7 @@ export function ResumeThumbnail({
       aria-hidden
       className={cn(
         // A4 is 210×297mm; `aspect-[210/297]` holds true page proportions.
-        "aspect-[210/297] w-full overflow-hidden bg-white",
+        "aspect-210/297 w-full overflow-hidden bg-white",
         className,
       )}
     >
@@ -40,14 +40,14 @@ export function ResumeThumbnail({
         {/* Masthead */}
         <div
           className={cn(
-            "flex flex-col gap-[3px]",
+            "flex flex-col gap-0.75",
             centered ? "items-center" : "items-start",
           )}
         >
-          <div className="h-[6px] w-[52%] rounded-full bg-neutral-800" />
-          <div className="h-[3px] w-[34%] rounded-full bg-neutral-400" />
+          <div className="h-1.5 w-[52%] rounded-full bg-neutral-800" />
+          <div className="h-0.75 w-[34%] rounded-full bg-neutral-400" />
           {centered ? (
-            <div className="mt-[4px] h-px w-full bg-neutral-300" />
+            <div className="mt-1 h-px w-full bg-neutral-300" />
           ) : null}
         </div>
 
@@ -63,11 +63,17 @@ export function ResumeThumbnail({
 }
 
 /** A faux section: a short title bar then a stack of ragged text lines. */
-function FauxSection({ lines, centered }: { lines: number; centered: boolean }) {
+function FauxSection({
+  lines,
+  centered,
+}: {
+  lines: number;
+  centered: boolean;
+}) {
   // A deterministic ragged right edge so the lines read as text, not bars.
   const widths = ["100%", "94%", "88%", "97%", "82%"];
   return (
-    <div className="flex flex-col gap-[4px]">
+    <div className="flex flex-col gap-1">
       <div
         className={cn(
           "h-[3.5px] w-[26%] rounded-full bg-neutral-500",

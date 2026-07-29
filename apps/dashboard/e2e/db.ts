@@ -2,10 +2,10 @@
    test tooling runs outside the app; see playwright.config.ts */
 import { Client } from "pg";
 
-/** Same fallback as playwright.config.ts (docker-compose host port 5433). */
+/** Same fallback as playwright.config.ts (docker-compose host port 15432). */
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  "postgres://resfolio:resfolio@localhost:5433/resfolio";
+  "postgres://resfolio:resfolio@localhost:15432/resfolio";
 
 /** Run one query against the e2e database (opens/closes its own client). */
 export async function queryDb(

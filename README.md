@@ -16,7 +16,7 @@ pnpm install
 pnpm dev          # web on :3000, dashboard on :3001
 ```
 
-Local infrastructure (Postgres on host port **5433** + Redis, needed from
+Local infrastructure (Postgres on host port **15432** + Redis, needed from
 Phase 2 on) and the dashboard's env:
 
 ```bash

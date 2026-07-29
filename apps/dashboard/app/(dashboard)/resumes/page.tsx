@@ -71,7 +71,7 @@ export default async function ResumesPage() {
       ) : (
         // `Stagger` is a client island; the cards themselves stay server-
         // rendered and are passed through as children, so this grid costs no
-        // extra client JS beyond the wrapper. A résumé is a visual artefact, so
+        // extra client JS beyond the wrapper. A resume is a visual artefact, so
         // it earns an A4 preview rather than a text row (placeholder for now —
         // the live render is one click away in the editor).
         <Stagger

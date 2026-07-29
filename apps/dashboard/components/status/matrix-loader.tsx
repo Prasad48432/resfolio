@@ -34,6 +34,27 @@ interface MatrixSpinnerProps {
  * that already says what is happening, and `Matrix` sets `role="img"` with an
  * `aria-live` region — so left announced, a screen reader would read the status
  * twice and then keep re-reading it as frames advance.
+ *
+ * ## Why it looked flat, and what actually fixed it (2026-07-29)
+ *
+ * The obvious reading was "the colour isn't bright enough" — it was set to
+ * `brand-3`, the softest peach in the palette, which is genuinely too quiet
+ * against a dark surface. But raising the colour alone does not fix it, because
+ * the thing missing was never a *value*: a real light source has a white-hot
+ * centre and carries its hue only in the falloff, so a dot filled flat in one
+ * accent reads as a slightly larger dot no matter which accent you pick.
+ *
+ * Four changes together, and the first two are the ones that count:
+ *
+ * - **`brand-soft` with a white-hot head.** `--matrix-head` lights the core of
+ *   the leading dot; the gradient carries the brand colour outward from it.
+ * - **A two-radius bloom** merged *under* the untouched dot, so the halo throws
+ *   past the edge while the core stays sharp (`matrix.tsx`'s glow filter).
+ * - **A longer tail** — six cells, not four — because the eye reads direction
+ *   from the length of the fade, and a floor under the dim end so the last cells
+ *   are visible rather than technically present.
+ * - **A bigger head scale**, 1.35, so the leading dot reads as nearer than the
+ *   grid it is travelling through.
  */
 export function MatrixSpinner({
   rows = 4,
@@ -58,9 +79,22 @@ export function MatrixSpinner({
       loop
       size={size}
       gap={gap}
-      offOpacity={0.08}
-      palette={{ on: "currentColor", off: "var(--color-muted)" }}
-      className={cn("shrink-0 text-brand-3", className)}
+      // The unlit grid is meant to be sensed, not read — but at 0.08 it was
+      // barely there, which left the travelling dot floating in the dark instead
+      // of moving through a display.
+      offOpacity={0.12}
+      palette={{
+        on: "currentColor",
+        off: "var(--color-muted)",
+        // Not a hard-coded white: `--color-surface` is the page's own lightest
+        // value in both themes, so the core reads as hot against the brand
+        // without inverting in light mode the way `#fff` would.
+        head: "var(--color-surface)",
+      }}
+      // `brand-soft`, not `brand-3`. The soft peach was chosen when this was a
+      // quiet background element; beside a streaming answer it is the one thing
+      // on screen claiming work is happening, and it has to look like it.
+      className={cn("shrink-0 text-brand-soft", className)}
       aria-hidden
     />
   );
@@ -89,7 +123,10 @@ export function MatrixLoader({
   return (
     <div className="flex items-center gap-2.5">
       <MatrixSpinner rows={rows} cols={cols} size={5} gap={2} fps={15} />
-      <span className="text-sm text-muted">{label}</span>
+      {/* The label shimmers for the same reason the grid animates: this is the
+          only thing on screen claiming work is happening, and a static line
+          beside a moving grid reads as the label having got stuck. */}
+      <span className="shimmer text-sm text-muted">{label}</span>
     </div>
   );
 }

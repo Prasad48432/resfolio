@@ -6,38 +6,37 @@ import {
   type TailorEmphasisInput,
   type TailorReview,
 } from "@resfolio/profile";
-import {
-  Button,
-  Card,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Spinner,
-} from "@resfolio/ui";
-import { ArrowUpDown, Check, FileText, ShieldCheck } from "lucide-react";
+import { Button, Card, Spinner } from "@resfolio/ui";
+import { ArrowUpDown, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import {
   applyTailoringAction,
   clearTailoringAction,
-  tailorResumeAction,
 } from "@/app/(dashboard)/ai/tailor-actions";
 import { tailorApplyTestId, tailorChangeTestId, TEST_IDS } from "@/lib/testids";
 
 import { ChangeCard } from "./change-diff";
 
 /**
- * Job tailoring (docs/architecture/13-ai-layer.md, Phase 5).
+ * Job tailoring's **review half** (docs/architecture/13-ai-layer.md, Phase 5).
  *
- * **The destination is the whole point of this screen.** Everything the user
- * accepts here lands on one resume's view definition — a set of overrides — and
- * their profile keeps the words they wrote. That is what makes tailoring safe to
- * do ten times for ten postings, and it is stated on screen rather than left as
+ * **The trigger moved out; the review stayed.** Until the 2026-07-28 unification
+ * this file also owned a "Tailor for this job" button sitting in the artefact
+ * panel — a second entry point, beside a second textarea's worth of context, for
+ * a decision the user had apparently already made by pressing "Enhance profile
+ * for this job" in the chat. They were never the same action (one edits the
+ * permanent record conservatively, one overrides one document aggressively), but
+ * nothing on screen said so, so it read as being charged twice for one job. There
+ * is now one button and one question — *where should this land* — and it lives in
+ * `optimise-for-job.tsx`. This file renders what comes back.
+ *
+ * **The destination is still the whole point of this screen.** Everything the
+ * user accepts here lands on one resume's view definition — a set of overrides —
+ * and their profile keeps the words they wrote. That is what makes tailoring safe
+ * to do ten times for ten postings, and it is stated on screen rather than left as
  * an architectural fact, because a user who thinks this is editing their profile
  * will use it far more timidly than they should.
  *
@@ -67,183 +66,18 @@ export interface TailorTarget {
   tailoredFields: number;
 }
 
-export function ResumeTailor({
-  targets,
-  jobDescription,
-  busy,
-}: {
-  targets: TailorTarget[];
-  /** Lifted from the analyser above, which owns the textarea — tailoring and
-   * analysis are two questions about one posting, and asking for it twice would
-   * be the surest way to have them disagree. */
-  jobDescription: string;
-  /** An analysis is streaming. Tailoring is a second model call; letting both run
-   * at once spends two budgets to answer half a question each. */
-  busy: boolean;
-}) {
-  const router = useRouter();
-  const [selectedId, setSelectedId] = useState(targets[0]?.id ?? "");
-  const [review, setReview] = useState<TailorReview | null>(null);
-  const [reviewedName, setReviewedName] = useState("");
-  const [tailoring, setTailoring] = useState(false);
-  const [failed, setFailed] = useState<string | null>(null);
-
-  const target = targets.find((entry) => entry.id === selectedId);
-  const ready =
-    jobDescription.trim().length > 0 && !busy && target !== undefined;
-
-  if (targets.length === 0) {
-    return (
-      <Card
-        className="flex flex-col gap-3 p-4"
-        data-testid={TEST_IDS.tailorPanel}
-      >
-        <div>
-          <p className="label-section">Tailor a resume</p>
-          <p className="text-[13px] text-muted">
-            You don&apos;t have a resume yet. Tailoring rewrites how one
-            presents your profile — it never changes the profile itself.
-          </p>
-        </div>
-        <Button asChild size="sm" variant="secondary" className="w-fit">
-          <Link href="/resumes">Create a resume</Link>
-        </Button>
-      </Card>
-    );
-  }
-
-  async function tailor() {
-    if (!ready || !target) {
-      return;
-    }
-    setTailoring(true);
-    setFailed(null);
-    setReview(null);
-    try {
-      const result = await tailorResumeAction({
-        documentId: target.id,
-        jobDescription: jobDescription.trim(),
-      });
-      if (!result.ok) {
-        setFailed(result.error);
-        return;
-      }
-      setReview(result.data.review);
-      setReviewedName(result.data.resumeName);
-    } catch {
-      setFailed("That tailoring pass didn't go through. Try again.");
-    } finally {
-      setTailoring(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3" data-testid={TEST_IDS.tailorPanel}>
-      <Card className="flex flex-col gap-3 p-4">
-        <div>
-          <p className="label-section">Tailor a resume</p>
-          <p className="text-[13px] text-muted">
-            Rewrites and reorders one resume for this posting.{" "}
-            <span className="text-foreground">Your profile is not changed</span>{" "}
-            — the wording is stored as overrides on that resume alone.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          {targets.length > 1 ? (
-            <div className="flex min-w-48 flex-col gap-1.5">
-              <Select value={selectedId} onValueChange={setSelectedId}>
-                <SelectTrigger
-                  aria-label="Resume to tailor"
-                  data-testid={TEST_IDS.tailorTarget}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {targets.map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {entry.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <p className="flex items-center gap-1.5 text-[13px]">
-              <FileText className="size-3.5 text-muted" aria-hidden />
-              {targets[0]?.name}
-            </p>
-          )}
-
-          <Button
-            type="button"
-            size="sm"
-            disabled={!ready || tailoring}
-            onClick={() => void tailor()}
-            data-testid={TEST_IDS.tailorSubmit}
-          >
-            {tailoring ? <Spinner size="sm" /> : null}
-            {tailoring ? "Tailoring…" : "Tailor for this job"}
-          </Button>
-        </div>
-
-        {target && target.tailoredFields > 0 ? (
-          <ExistingTailoring
-            documentId={target.id}
-            count={target.tailoredFields}
-            onCleared={() => {
-              setReview(null);
-              router.refresh();
-            }}
-          />
-        ) : null}
-
-        {target?.isPublic ? (
-          // Documents have no draft/publish split, so this is not a caveat about
-          // a future step — it is what happens on the click.
-          <p
-            className="text-xs text-muted"
-            data-testid={TEST_IDS.tailorPublicNotice}
-          >
-            This resume is public. Anything you apply shows at its link straight
-            away.
-          </p>
-        ) : null}
-
-        {failed ? (
-          <p
-            className="flex items-start gap-1.5 text-xs text-destructive"
-            data-testid={TEST_IDS.tailorError}
-          >
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            {failed}
-          </p>
-        ) : null}
-      </Card>
-
-      {tailoring ? (
-        // A real pending state, not a progress bar: the model call is one
-        // blocking request and pretending otherwise would be the theatre doc 13
-        // rules out.
-        <Card className="flex items-center gap-2 p-3 text-[13px] text-muted">
-          <Spinner size="sm" />
-          Rewriting {target?.name} for this posting…
-        </Card>
-      ) : null}
-
-      {review && !tailoring && target ? (
-        <TailorReviewPanel
-          documentId={target.id}
-          resumeName={reviewedName}
-          review={review}
-          onApplied={() => router.refresh()}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ExistingTailoring({
+/**
+ * A resume that already carries overrides, with the way out.
+ *
+ * **Kept when `ResumeTailor` was removed, and moved to where the resume is
+ * rather than where the tailoring is triggered.** Tailoring is cumulative — a
+ * second pass leaves the first pass' overrides on every field it does not touch —
+ * so a resume tailored for two postings is tailored for neither, and the count
+ * plus Reset is the only thing that stops that being a trap. That is a fact about
+ * a *document*, true whether or not you are looking at a job, so it belongs on
+ * the resume card in the artefact panel.
+ */
+export function TailoredNotice({
   documentId,
   count,
   onCleared,
@@ -303,7 +137,7 @@ const SECTION_LABELS: Record<string, string> = {
   custom: "Custom sections",
 };
 
-function TailorReviewPanel({
+export function TailorReviewPanel({
   documentId,
   resumeName,
   review,

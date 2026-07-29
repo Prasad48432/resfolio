@@ -326,6 +326,159 @@
     color: var(--color-brand);
     font-weight: 600;
   }
+
+  /* ── Shimmer text ─────────────────────────────────────────────────────
+     A highlight that sweeps through text while something is genuinely
+     happening. Implements shadcn's `shimmer` contract
+     (ui.shadcn.com/docs/utils/shimmer) — same class name, same custom
+     properties, same `shimmer-none` escape hatch — **written here rather than
+     installed**, because the documented route is
+     `@import "shadcn/tailwind.css"`, which would drop a third-party utility
+     sheet into a cascade this repo has tuned by hand: `@resfolio/design` is
+     layered, the dark palette is deliberately *un*layered so it can outrank
+     `@theme`, and the whole arrangement is documented as fragile. Importing a
+     sheet of unknown layering to obtain one keyframe is not a trade worth
+     making. It lives in the design package rather than the dashboard because
+     nothing about it is dashboard-specific.
+
+     **The highlight is derived from `currentColor`**, which is the property
+     worth keeping: the effect is then correct on muted status copy, on brand
+     text, and in both themes, with nothing passed. Relative colour syntax
+     lifts the lightness and holds hue and chroma, so a peach shimmer stays
+     peach — a hard-coded white sweep would wash brand text grey as it passed.
+
+     Two things it must never do, both handled below: paint invisible text, and
+     move for a reader who asked for stillness. */
+  .shimmer {
+    --shimmer-duration: 2s;
+    /**
+     * How wide the bright band is, as a share of the sweep.
+     *
+     * **A percentage, not a length, and that is a deliberate departure from
+     * shadcn's `shimmer-spread-<number>`.** A fixed band cannot work on short
+     * text, and short text is most of what this class is for: "Sending…" is
+     * about 4rem wide, so a 7rem band was wider than the element it was
+     * sweeping through — the highlight covered every glyph at once and nothing
+     * appeared to move. Worse, `background-position` percentages resolve
+     * against (box width − image width), which goes *negative* once the image
+     * is wider than the box, so the animation ran backwards and mostly
+     * off-screen. Both failures are silent: the text renders, it just never
+     * shimmers.
+     *
+     * Expressed against the sweep instead, every width behaves the same. A
+     * length still works if a caller passes one — the `calc()` below accepts
+     * either — it simply stops being width-independent.
+     */
+    --shimmer-spread: 12%;
+    --shimmer-angle: 20deg;
+    /* Clamped, or a lift applied to text that is already near-white pushes
+       past the gamut and the band renders as a flat plate. */
+    --shimmer-color: oklch(
+      from currentColor clamp(0, calc(l + 0.34), 0.97) c h
+    );
+    --shimmer-image: linear-gradient(
+      var(--shimmer-angle),
+      transparent 0%,
+      transparent calc(50% - var(--shimmer-spread)),
+      var(--shimmer-color) 50%,
+      transparent calc(50% + var(--shimmer-spread)),
+      transparent 100%
+    );
+    --shimmer-text-fill: transparent;
+
+    /* Two layers: the sweep on top, the text's own colour underneath. The
+       base layer is what makes this safe — the glyphs are painted whether or
+       not the highlight is over them. */
+    background-image: var(--shimmer-image), linear-gradient(currentColor 0 0);
+    /* **The sweep layer is twice the element, whatever the element is.** That
+       is what makes the geometry scale-free: the band sits at the middle of a
+       2× image, so the keyframe below can carry it from fully off one edge to
+       fully off the other using percentages alone, on a two-word label and on
+       a paragraph alike. */
+    background-size:
+      200% 100%,
+      100% 100%;
+    background-repeat: no-repeat;
+    background-clip: text;
+    -webkit-background-clip: text;
+    /* An inline element that wraps is several boxes, and by default only the
+       first gets the background — which, with the glyphs painted transparent,
+       means every line after the first renders as blank space. `clone` gives
+       each fragment its own box. Every current use site is a flex item (and so
+       already a single box), which is exactly why this would have shipped
+       looking fine and broken the first time somebody used the class on a
+       sentence. */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    /* The glyphs are drawn by the background from here on. `color` is left
+       alone on purpose — it is what `currentColor` above reads. */
+    -webkit-text-fill-color: var(--shimmer-text-fill);
+    animation: tw-shimmer var(--shimmer-duration) linear infinite;
+  }
+
+  .shimmer-once {
+    animation-iteration-count: 1;
+  }
+
+  .shimmer-reverse {
+    animation-direction: reverse;
+  }
+
+  /* The off switch, and the shape every fallback below borrows: put the fill
+     back before removing the background, or the text is painted by nothing. */
+  .shimmer-none {
+    --shimmer-image: none;
+    --shimmer-text-fill: currentColor;
+    animation: none;
+  }
+
+  /* Movement goes, the text stays — and it stays *legible*, which is the part
+     a naive `animation: none` gets wrong: the glyphs are transparent and
+     painted by a background that is no longer moving over them. */
+  @media (prefers-reduced-motion: reduce) {
+    .shimmer {
+      --shimmer-text-fill: currentColor;
+      background-image: none;
+      animation: none;
+    }
+  }
+
+  /* Relative colour syntax is in every current browser, but a status message
+     that renders as blank space is the worst possible failure for a component
+     whose entire job is to say "something is happening". */
+  @supports not (color: oklch(from red l c h)) {
+    .shimmer {
+      --shimmer-text-fill: currentColor;
+      background-image: none;
+      animation: none;
+    }
+  }
+}
+
+/**
+ * Left to right, fully off each edge, at any width.
+ *
+ * The endpoints look inverted and are not. `background-position` percentages
+ * resolve against (positioning area − image width); the sweep layer is `200%`
+ * wide, so that quantity is **negative one box width**, and the mapping runs
+ * backwards: `150%` puts the band a half-box past the left edge, `-50%` puts it
+ * a half-box past the right. Going from the first to the second is therefore a
+ * left-to-right sweep that starts and ends out of sight.
+ *
+ * The second layer — the text's own colour — is pinned at `0 0` and never
+ * moves; it is what the glyphs are painted with between passes.
+ */
+@keyframes tw-shimmer {
+  from {
+    background-position:
+      150% 50%,
+      0 0;
+  }
+  to {
+    background-position:
+      -50% 50%,
+      0 0;
+  }
 }
 
 /* ── Marketing entrances (CSS, not JS) ────────────────────────────────

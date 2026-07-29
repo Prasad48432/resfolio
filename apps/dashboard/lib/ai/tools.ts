@@ -18,6 +18,7 @@ import {
   type JobMatchInput,
   type JobMatchReview,
 } from "./job-analysis";
+import { isSamePosting } from "./second-posting";
 
 /**
  * The model's one tool (docs/architecture/13-ai-layer.md, Phase 3).
@@ -93,18 +94,48 @@ function describeForModel(review: ProfileChangeReview): string {
  * rediscover: only type aliases get an implicit index signature, and without
  * one this is not assignable to the SDK's `ToolSet`.
  */
+/**
+ * What a proposal part actually carries: the domain's review, plus one field the
+ * domain has no business knowing about.
+ *
+ * `settledIndexes` names the entries of `valid` that are **already in the
+ * profile** — accepted earlier, or typed by hand since. It is written only by
+ * `reconcileTranscript` when a *saved* conversation is loaded, which is why it is
+ * optional: a proposal arriving live has nothing settled and says so by omission,
+ * so `execute` below returns a plain `ProfileChangeReview` and is assignable
+ * unchanged.
+ *
+ * **It is an app concern, not a domain one, and it stays here for that reason.**
+ * `ProfileChangeReview` describes what the guard decided about a set of changes;
+ * whether the user has since clicked Apply is a fact about a screen. Widening the
+ * domain type would put a UI state into the package that three surfaces validate
+ * against.
+ */
+export type ProposalOutput = ProfileChangeReview & {
+  settledIndexes?: number[];
+};
+
 export type AiTools = {
-  proposeProfileChanges: Tool<ProfileProposal, ProfileChangeReview>;
+  proposeProfileChanges: Tool<ProfileProposal, ProposalOutput>;
   analyzeJobMatch: Tool<JobMatchInput, JobMatchReview | JobMatchUnavailable>;
 };
 
-/** What the match tool returns when there is no posting in the conversation to
- * match against — see `findJobDescription`. A discriminated result rather than a
- * throw, because "you haven't pasted a posting yet" is a thing to say, not an
- * error to render as a crash. */
+/**
+ * What the match tool returns instead of an analysis. A discriminated result
+ * rather than a throw, because both of these are things to *say* — not errors to
+ * render as a crash.
+ *
+ * - `no-posting` — nobody has pasted a job description yet
+ *   (see `findJobDescription`).
+ * - `already-analysed` — **this conversation has already matched a job, and one
+ *   chat covers one job.** Carries the title of the job it is already about, so
+ *   the reply can name it rather than refusing in the abstract.
+ */
 export interface JobMatchUnavailable {
   unavailable: true;
-  reason: "no-posting";
+  reason: "no-posting" | "already-analysed";
+  /** Present only for `already-analysed`. */
+  existingTitle?: string;
 }
 
 export function isJobMatchUnavailable(
@@ -165,6 +196,12 @@ function describeMatchForModel(
   output: JobMatchReview | JobMatchUnavailable,
 ): string {
   if (isJobMatchUnavailable(output)) {
+    if (output.reason === "already-analysed") {
+      // Written as an instruction rather than a fact, because the model's next
+      // sentence is the only part of this the user reads — and "I can't" without
+      // a next step is the shape of an answer people argue with.
+      return `This conversation already covers ${output.existingTitle ?? "a job"}, and one chat covers one job. Tell the user that in one sentence and say they can start a new chat for the other posting — the button to do it is on screen. Do not analyse the second posting.`;
+    }
     return "There is no job posting in this conversation yet. Ask the user to paste the job description (and the posting's URL if they have it). Do not analyse anything.";
   }
 
@@ -214,6 +251,29 @@ export interface AiToolContext {
   /** Ids for matches produced this turn. Injected so the route decides them and
    * a test can make them deterministic. */
   newJobId: () => string;
+  /**
+   * The job this conversation has already analysed, if it has analysed one.
+   *
+   * **One chat, one job — and this is where that is enforced.** The composer
+   * refuses to send a second posting, but a refusal that only exists in the
+   * browser is one the model can be talked around: "analyse this other one too"
+   * is an ordinary sentence, and each extra analysis is a paid call producing a
+   * transcript that describes two jobs through one artefact panel, one resume
+   * slot and one score.
+   *
+   * Read off the transcript's own earlier tool results, so it costs nothing and
+   * cannot disagree with what the user is looking at.
+   *
+   * **A re-check of the same posting is not a second job**, and the distinction
+   * is made by comparing the posting rather than by counting calls — "recalculate
+   * the match" leaves the original paste as the most recent long message, so
+   * `jobDescription` resolves to the same text. That path reuses this row's
+   * **id**, which is also what makes `enhanced_score` mean anything: before this,
+   * every re-check minted a fresh row with its own `initial_score`, so the
+   * "74% → 86%" comparison the whole feature is built around could never be
+   * drawn.
+   */
+  analysedJob: { id: string; title: string; jobDescription: string } | null;
 }
 
 export function createAiTools(
@@ -228,6 +288,7 @@ export function createAiTools(
         "Match the user's profile against a job posting they have pasted into this conversation, and show them an interactive result with a score.",
         "Call this as soon as a message contains a job description — a list of responsibilities and requirements for a role — even if the user only pasted it without asking a question.",
         "Also call it again when the user asks to re-check or recalculate the match after changing their profile.",
+        "ONE conversation covers ONE job. If this conversation has already matched a posting, do not analyse a different one — say so and tell the user to start a new chat. Re-checking the same posting is fine.",
         "Do NOT paste the job description back into the arguments: it is already in the conversation and Resfolio reads it from there.",
         `Extract the role, the company and the location as the posting spells them, up to ${MAX_REQUIREMENTS} real requirements (ignore benefits and equal-opportunity boilerplate), and the terms the posting leans on.`,
         "For each requirement, give the profile item ids that support it BEFORE giving a level, then the level, then one line of justification. Never write a score or a percentage — Resfolio computes it.",
@@ -239,13 +300,35 @@ export function createAiTools(
       // the client fires once the turn settles, exactly as the transcript is.
       // An AI tool with write access is the shape this architecture exists to
       // not have.
-      execute: ({ ...input }) => {
+      // The return type is annotated rather than inferred: `as const` on the
+      // refusal branches narrows `reason` to one literal each, and the union of
+      // those is not the `JobMatchUnavailable` the tool declares — so the whole
+      // tool stops matching `AiTools`.
+      execute: ({ ...input }): JobMatchReview | JobMatchUnavailable => {
         if (context.jobDescription === null) {
-          return { unavailable: true, reason: "no-posting" } as const;
+          return { unavailable: true, reason: "no-posting" };
+        }
+
+        // One chat, one job. A *re-check* of the posting this conversation is
+        // already about is allowed and reuses the row; anything else is a second
+        // job and belongs in a second chat. See `analysedJob`.
+        const existing = context.analysedJob;
+        const isRecheck =
+          existing !== null &&
+          isSamePosting(existing.jobDescription, context.jobDescription);
+
+        if (existing !== null && !isRecheck) {
+          return {
+            unavailable: true,
+            reason: "already-analysed",
+            existingTitle: existing.title,
+          };
         }
 
         return buildJobMatchReview(input, {
-          jobId: context.newJobId(),
+          // The same id on a re-check, so the score moves on one row instead of
+          // spawning a second baseline.
+          jobId: isRecheck ? existing.id : context.newJobId(),
           jobDescription: context.jobDescription,
           index: indexProfileItems(describeProfileItems(profile)),
           haystack: context.profileJson,

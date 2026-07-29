@@ -334,8 +334,18 @@ describe("assembly", () => {
 
   it("builds a filesystem-safe download name", () => {
     expect(coverLetterFilename("Globex / Inc.", "Senior Engineer")).toBe(
-      "Globex Inc - Senior Engineer.txt",
+      "Globex Inc - Senior Engineer.pdf",
     );
-    expect(coverLetterFilename("", "")).toBe("cover letter.txt");
+    expect(coverLetterFilename("", "")).toBe("cover letter.pdf");
+  });
+
+  it("defaults to pdf, because that is what the download route serves", () => {
+    // The regression this guards is invisible from either side on its own: the
+    // route returned real PDF bytes under a `.txt` name, and a browser saves
+    // what the header says. The file downloaded fine and opened in nothing.
+    expect(coverLetterFilename("Acme", "Engineer")).toMatch(/\.pdf$/);
+    expect(coverLetterFilename("Acme", "Engineer", "txt")).toBe(
+      "Acme - Engineer.txt",
+    );
   });
 });

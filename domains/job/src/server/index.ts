@@ -15,4 +15,5 @@ export {
   saveCoverLetter,
   saveJobMatch,
   setJobStatus,
+  updateJobDetails,
 } from "./repository";

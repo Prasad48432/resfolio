@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { buildProfileContext } from "@/lib/ai/profile-context";
 import { isAiAvailable } from "@/lib/ai/provider";
 import type { AiUIMessage } from "@/lib/ai/tools";
+import { reconcileTranscript } from "@/lib/ai/transcript";
 
 /**
  * Resfolio AI (docs/architecture/13-ai-layer.md).
@@ -41,7 +42,7 @@ import type { AiUIMessage } from "@/lib/ai/tools";
  *
  * **This page is now the whole job workflow too** (Phase 7). `/ai/job` is gone:
  * paste a posting into the conversation, the model calls `analyzeJobMatch`, and
- * the artefact panel beside the chat carries the posting, the résumé and the
+ * the artefact panel beside the chat carries the posting, the resume and the
  * letter. What that route did with three stacked panels and its own textarea, the
  * conversation does with a tool result — and the posting no longer has to be
  * pasted into a second box on a second screen to get from "how do I look for this
@@ -54,7 +55,7 @@ import type { AiUIMessage } from "@/lib/ai/tools";
  *   resolve to a name the user recognises.
  * - **The context JSON as a keyword haystack**, so the letter's vocabulary check
  *   runs against *exactly* what the model was shown.
- * - **The résumés, as two fields each** — not the documents. A `ViewDefinition`
+ * - **The resumes, as two fields each** — not the documents. A `ViewDefinition`
  *   in a browser bundle to answer a question about a name is the trade this
  *   avoids.
  */
@@ -175,7 +176,18 @@ export default async function AiPage({
         sessionId={activeSessionId}
         // The domain stores the SDK's own message shape; it is validated on the
         // way out of the database and typed back to the app's here.
-        initialMessages={(saved?.messages ?? []) as AiUIMessage[]}
+        //
+        // **Re-judged against the profile before it is rendered**
+        // (`reconcileTranscript`). A saved transcript records what was
+        // *suggested*, never what was done with it, so replaying it verbatim put
+        // Apply buttons back on changes the user accepted weeks ago — and
+        // pressing one either did nothing or overwrote wording edited by hand
+        // since. The guard already had the right verdict for this (`unchanged`);
+        // this is a re-run of it, not a second one.
+        initialMessages={reconcileTranscript(
+          (saved?.messages ?? []) as AiUIMessage[],
+          draft.data,
+        )}
         initialSessions={sessions}
         initialJobs={jobs}
         items={describeProfileItems(draft.data)}

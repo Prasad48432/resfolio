@@ -133,8 +133,28 @@ const reasonSchema = z.string().trim().min(1).max(240);
  * `summary` is proposable there: name, location, contacts and links are
  * identity, and an assistant that edits those is a category of feature this
  * product does not have.
+ *
+ * **`z.union`, deliberately, and not `z.discriminatedUnion`.** The two are
+ * equivalent at the type level and accept exactly the same values here — the
+ * `target` literal still discriminates the branches for TypeScript — but they
+ * are *not* equivalent once this schema is handed to a provider. This is a
+ * model-facing schema (`profileProposalSchema` below, and `tailorPlanSchema`
+ * next door), and strict structured output converts it to JSON Schema: Zod emits
+ * **`oneOf` for a discriminated union and `anyOf` for a plain one**, and OpenAI's
+ * strict `response_format` permits `anyOf` and rejects `oneOf` outright —
+ * `"In context=('properties','changes','items'), 'oneOf' is not permitted"`, a
+ * 400 before a single token is generated. That is a whole-request failure, not a
+ * degraded one, so the feature reads as "the model didn't answer" while the
+ * model was never asked.
+ *
+ * It survived unnoticed for a while because the *chat* sends this same schema as
+ * a **tool** input, which is not validated under the strict subset — so the one
+ * path that never called `generateObject` kept working and the two that did
+ * failed identically. Switching a union here to `discriminatedUnion` for tidiness
+ * would break them again; `proposal.test.ts` asserts the emitted JSON Schema
+ * carries no `oneOf`, which is the only form of that rule a reader can check.
  */
-export const profileChangeSchema = z.discriminatedUnion("target", [
+export const profileChangeSchema = z.union([
   z.object({
     target: z.literal("basics"),
     field: z.literal("summary"),

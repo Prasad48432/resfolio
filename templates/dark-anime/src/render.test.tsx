@@ -73,7 +73,7 @@ describe("dark-anime — definition", () => {
     }
   });
 
-  it("declares its supported pages, and no résumé (dropped on purpose)", () => {
+  it("declares its supported pages, and no resume (dropped on purpose)", () => {
     expect([...darkAnime.capabilities.pages].sort()).toEqual(
       ["about", "blog", "blogPost", "home", "projectDetail", "projects"].sort(),
     );
@@ -105,7 +105,7 @@ describe("dark-anime — home", () => {
     expect(html).toContain(`href="/p/ada/projects/prj-fluxlog"`);
   });
 
-  it("renders no résumé link anywhere (the route is gone)", () => {
+  it("renders no resume link anywhere (the route is gone)", () => {
     expect(render("home", ada)).not.toContain(`href="/p/ada/resume"`);
   });
 

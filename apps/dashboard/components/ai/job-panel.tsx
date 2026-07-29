@@ -13,13 +13,7 @@ import {
   SelectValue,
   Spinner,
 } from "@resfolio/ui";
-import {
-  Briefcase,
-  Download,
-  ExternalLink,
-  FileText,
-  Mail,
-} from "lucide-react";
+import { Briefcase, Download, FileText, Mail } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -32,8 +26,9 @@ import {
 import { downloadFile } from "@/lib/download";
 import { TEST_IDS } from "@/lib/testids";
 
+import { ApplyPrompt } from "./apply-prompt";
 import { CoverLetter } from "./cover-letter";
-import { ResumeTailor, type TailorTarget } from "./resume-tailor";
+import { TailoredNotice, type TailorTarget } from "./resume-tailor";
 
 /**
  * The artefact panel — what the conversation produced
@@ -41,24 +36,25 @@ import { ResumeTailor, type TailorTarget } from "./resume-tailor";
  *
  * **The chat is where the work happens; this is where the work ends up.** A
  * transcript scrolls, and the three things a person actually leaves with — the
- * posting they are applying to, the résumé they will send, the letter that goes
+ * posting they are applying to, the resume they will send, the letter that goes
  * with it — must not scroll away behind twenty turns of conversation. So they sit
  * beside it, pinned, in the order they are produced.
  *
  * **It reads the database, not the transcript**, and that is the distinction that
  * makes it worth having. The card in the conversation renders one tool result;
  * this renders the *job*, which outlives the message that created it and
- * accumulates a résumé and a letter afterwards. Reopening the conversation next
+ * accumulates a resume and a letter afterwards. Reopening the conversation next
  * week shows the letter that was written, not a button offering to write one.
  *
- * The résumé is a **reference, never a copy** (see `@resfolio/job`): picking one
+ * The resume is a **reference, never a copy** (see `@resfolio/job`): picking one
  * here stores its id, and downloading goes through the existing export route with
  * whatever that document says today. A job that pointed at a snapshot would be a
- * job proudly offering a version of the résumé that exists nowhere else.
+ * job proudly offering a version of the resume that exists nowhere else.
  */
 export function JobPanel({
   chatSessionId,
   initialJobs,
+  onJobs,
   items,
   haystack,
   signature,
@@ -69,15 +65,27 @@ export function JobPanel({
   /** Server-rendered on arrival; topped up by the action when a match saves
    * itself mid-conversation. */
   initialJobs: JobMatchSummary[];
+  /**
+   * Hand the freshly-read list back to the workspace.
+   *
+   * **This panel is the only thing that re-reads the job list, and the transcript
+   * needs the same answers it gets.** A match card has to know whether its
+   * posting has been enhanced for, which resume it was pointed at, and whether it
+   * has been applied to — all facts on these rows, none of them in the
+   * transcript. Before this, the cards read a list derived once from server props
+   * and every refresh here was invisible to them. No extra request: this is the
+   * result of a read that was already happening.
+   */
+  onJobs: (jobs: JobMatchSummary[]) => void;
   /** The profile item index, for the letter's citation check. */
   items: ProfileItemRef[];
   /** The profile as the model saw it — the letter's vocabulary haystack. */
   haystack: string;
   signature: string;
-  /** The user's résumés as four fields each, not the documents — a
+  /** The user's resumes as four fields each, not the documents — a
    * `ViewDefinition` in a browser bundle to answer a question about a name is
    * the trade this avoids. `tailoredFields` is what lets the tailoring panel say
-   * a résumé already carries overrides. */
+   * a resume already carries overrides. */
   resumes: TailorTarget[];
   /** Bumped by the workspace when a job saves. Watched rather than passed a
    * callback, so this component never has to be re-created to stay current. */
@@ -90,17 +98,43 @@ export function JobPanel({
   const [job, setJob] = useState<JobMatchRecord | null>(null);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Bumped by every `refresh()`, and read by the record effect below.
+   *
+   * **Without it the panel refreshed the list and kept a stale record**, which is
+   * the bug that made both downloads unreachable. The list and the open record
+   * are two separate reads (listing forty jobs must not mean loading forty
+   * postings), and the events worth refreshing on — a letter finishing, a resume
+   * being picked — change *the record* while leaving the list identical: same
+   * ids, same order, same active id. So the effect keyed on `activeId` had no
+   * reason to re-run, `job.coverLetter` stayed null and `job.resumeDocumentId`
+   * stayed unset, and the two buttons conditioned on them ("Download cover
+   * letter", enabled "Download resume") never appeared until the whole page was
+   * reloaded — which reads as "the PDF feature doesn't work".
+   *
+   * A counter rather than clearing `job`, because the record is on screen while
+   * it reloads and a null would flash the panel back to its loading state.
+   */
+  const [reloadToken, setReloadToken] = useState(0);
+
   const refresh = useCallback(async () => {
+    // Unconditional, and before the list read: an action failing is no reason to
+    // keep showing a record we already know is out of date.
+    setReloadToken((current) => current + 1);
+
     const result = await listJobMatchesForChatAction({ chatSessionId });
     if (!result.ok) {
       return;
     }
     setJobs(result.data.jobs);
+    // Up as well as down: the match cards in the transcript answer their
+    // "already done?" questions from this same list — see `onJobs`.
+    onJobs(result.data.jobs);
     // Follow the newest job. A second posting pasted into the same conversation
     // is what the user is looking at now; leaving the panel on the first one
     // would make it describe a different job from the transcript beside it.
     setActiveId((current) => result.data.jobs[0]?.id ?? current);
-  }, [chatSessionId]);
+  }, [chatSessionId, onJobs]);
 
   useEffect(() => {
     if (refreshToken === 0) {
@@ -111,7 +145,9 @@ export function JobPanel({
 
   // The full record for whichever job is selected. Fetched separately because
   // the list deliberately does not carry job descriptions or letters — listing
-  // forty jobs must not mean loading forty postings.
+  // forty jobs must not mean loading forty postings. Re-run on `reloadToken` as
+  // well as `activeId`, because the interesting changes happen *inside* a record
+  // the user is already looking at — see the token's own note above.
   useEffect(() => {
     if (activeId === null) {
       setJob(null);
@@ -137,7 +173,7 @@ export function JobPanel({
     return () => {
       cancelled = true;
     };
-  }, [activeId, refreshToken]);
+  }, [activeId, refreshToken, reloadToken]);
 
   if (jobs.length === 0) {
     return (
@@ -145,7 +181,7 @@ export function JobPanel({
         <p className="label-section">This job</p>
         <Card className="p-3 text-[13px] text-muted">
           Paste a job posting into the chat — the description, and the link if
-          you have one. The match, a tailored résumé and a cover letter all end
+          you have one. The match, a tailored resume and a cover letter all end
           up here.
         </Card>
       </div>
@@ -184,7 +220,7 @@ export function JobPanel({
 
       {job ? (
         <>
-          <PostingCard job={job} />
+          <PostingCard job={job} onChanged={refresh} />
           <ResumeCard job={job} resumes={resumes} onChanged={refresh} />
           <LetterCard
             job={job}
@@ -200,7 +236,13 @@ export function JobPanel({
 }
 
 /** 1. The posting: where it is, and how well it fits. */
-function PostingCard({ job }: { job: JobMatchRecord }) {
+function PostingCard({
+  job,
+  onChanged,
+}: {
+  job: JobMatchRecord;
+  onChanged: () => void;
+}) {
   const { score, previous, delta } = scoreView(job);
 
   return (
@@ -230,7 +272,10 @@ function PostingCard({ job }: { job: JobMatchRecord }) {
           are real — "+12" against a baseline nobody measured is a claim rather
           than a measurement (`scoreView`). */}
       {delta !== null && previous !== null ? (
-        <p className="text-xs text-muted tabular-nums" data-testid={TEST_IDS.jobPanelDelta}>
+        <p
+          className="text-xs text-muted tabular-nums"
+          data-testid={TEST_IDS.jobPanelDelta}
+        >
           {previous}% → {score}%{" "}
           <span className={delta > 0 ? "text-live" : undefined}>
             ({delta > 0 ? "+" : ""}
@@ -242,16 +287,17 @@ function PostingCard({ job }: { job: JobMatchRecord }) {
 
       {job.jobUrl ? (
         // Safe to render as an anchor because `normalizeJobUrl` refused
-        // anything that is not http(s) before this was stored.
-        <a
-          href={job.jobUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex w-fit items-center gap-1.5 text-xs underline-offset-3 hover:underline"
-        >
-          <ExternalLink className="size-3.5" aria-hidden />
-          Open the posting
-        </a>
+        // anything that is not http(s) before this was stored. The prompt that
+        // follows it is the same component the match card uses — there are two
+        // places to open a posting from and there must not be two answers to
+        // "did you apply?".
+        <ApplyPrompt
+          jobId={job.id}
+          jobUrl={job.jobUrl}
+          label="Open the posting"
+          status={job.status}
+          onChanged={onChanged}
+        />
       ) : (
         <p className="text-xs text-muted">
           No link saved — paste the posting&apos;s URL in the chat and it will
@@ -262,7 +308,7 @@ function PostingCard({ job }: { job: JobMatchRecord }) {
   );
 }
 
-/** 2. The résumé: which one this application sends, and a way to get the file. */
+/** 2. The resume: which one this application sends, and a way to get the file. */
 function ResumeCard({
   job,
   resumes,
@@ -276,6 +322,7 @@ function ResumeCard({
   const [saving, setSaving] = useState(false);
 
   const selected = job.resumeDocumentId;
+  const selectedResume = resumes.find((entry) => entry.id === selected);
 
   async function pick(documentId: string) {
     setSaving(true);
@@ -311,7 +358,7 @@ function ResumeCard({
         });
         return;
       }
-      toast.success("Résumé downloaded", {
+      toast.success("Resume downloaded", {
         id: pending,
         description: "Check your downloads folder.",
       });
@@ -328,14 +375,14 @@ function ResumeCard({
       >
         <p className="flex items-center gap-2 text-[13px]">
           <FileText className="size-4 text-muted" aria-hidden />
-          Résumé
+          Resume
         </p>
         <p className="text-xs text-muted">
-          You don&apos;t have a résumé yet. One is a template plus your profile
+          You don&apos;t have a resume yet. One is a template plus your profile
           — it takes a click.
         </p>
         <Button asChild size="sm" variant="secondary" className="w-fit">
-          <Link href="/resumes">Create a résumé</Link>
+          <Link href="/resumes">Create a resume</Link>
         </Button>
       </Card>
     );
@@ -348,7 +395,7 @@ function ResumeCard({
     >
       <p className="flex items-center gap-2 text-[13px]">
         <FileText className="size-4 text-muted" aria-hidden />
-        Résumé
+        Resume
       </p>
 
       <Select
@@ -357,7 +404,7 @@ function ResumeCard({
         disabled={saving}
       >
         <SelectTrigger data-testid={TEST_IDS.jobPanelResumePick}>
-          <SelectValue placeholder="Choose the résumé you'll send" />
+          <SelectValue placeholder="Choose the resume you'll send" />
         </SelectTrigger>
         <SelectContent>
           {resumes.map((resume) => (
@@ -369,7 +416,7 @@ function ResumeCard({
       </Select>
 
       <p className="text-xs text-muted">
-        Rendered from your profile with that résumé&apos;s own template — so
+        Rendered from your profile with that resume&apos;s own template — so
         enhancements you accepted are already in it.
       </p>
 
@@ -382,29 +429,47 @@ function ResumeCard({
         onClick={() => void download()}
         data-testid={TEST_IDS.jobPanelResumeDownload}
       >
-        {downloading ? <Spinner size="sm" /> : <Download className="size-3.5" aria-hidden />}
-        {downloading ? "Generating…" : "Download résumé"}
+        {downloading ? (
+          <Spinner size="sm" />
+        ) : (
+          <Download className="size-3.5" aria-hidden />
+        )}
+        {downloading ? "Generating…" : "Download resume"}
       </Button>
 
-      {/* Tailoring (Phase 5), unchanged and relocated. It belongs beside the
-          résumé it edits rather than under the match: enhancing the *profile*
-          and tailoring a *résumé* are two different destinations for the same
-          posting, and the panel is where that distinction is visible — one
-          changes the source of truth, the other changes one document's view of
-          it. `targets` is narrowed to the selected résumé so the panel does not
-          ship a second picker for a choice already made above. */}
-      {selected ? (
-        <ResumeTailor
-          targets={resumes.filter((resume) => resume.id === selected)}
-          jobDescription={job.jobDescription}
-          busy={saving}
+      {/* **No "Tailor for this job" button here any more** (2026-07-28). The
+          panel used to carry a second entry point to a second model call, beside
+          the chat's "Enhance profile for this job" — two buttons for one job,
+          with nothing on screen saying they wrote to different places.
+          `OptimiseForJob` on the match card now asks the one question they were
+          the unasked answer to.
+
+          What stays is this: the *state* of the document. How many fields a
+          resume overrides, and the way back, is a fact about the resume and is
+          true whether or not you are looking at a job — so it belongs on the
+          resume card, which is where a person looks when wondering why their
+          resume does not say what their profile says. */}
+      {selectedResume && selectedResume.tailoredFields > 0 ? (
+        <TailoredNotice
+          documentId={selectedResume.id}
+          count={selectedResume.tailoredFields}
+          onCleared={onChanged}
         />
       ) : null}
     </Card>
   );
 }
 
-/** 3. The letter: written once, kept, and downloadable as a real PDF. */
+/**
+ * 3. The letter: written once, kept, and downloadable as a real PDF.
+ *
+ * **This card owns no Download button of its own, and used to.** `CoverLetter`
+ * now receives the stored letter, so it renders one whether the draft arrived a
+ * second ago or last week — and a second Download a few pixels below the first,
+ * drawing the same letter through a different verb (`GET` the stored copy vs
+ * `POST` the one on screen), is exactly the "two buttons, two formats" trap the
+ * component's own comment warns about.
+ */
 function LetterCard({
   job,
   items,
@@ -418,27 +483,6 @@ function LetterCard({
   signature: string;
   onSaved: () => void;
 }) {
-  const [downloading, setDownloading] = useState(false);
-
-  async function download() {
-    setDownloading(true);
-    try {
-      const result = await downloadFile(
-        `/api/ai/job/${encodeURIComponent(job.id)}/cover-letter`,
-        "cover-letter.pdf",
-      );
-      if (!result.ok) {
-        toast.error("Couldn't build that PDF", {
-          description: result.error ?? "Please try again in a moment.",
-        });
-        return;
-      }
-      toast.success("Cover letter downloaded");
-    } finally {
-      setDownloading(false);
-    }
-  }
-
   return (
     <Card
       className="flex flex-col gap-3 p-3"
@@ -456,30 +500,11 @@ function LetterCard({
         signature={signature}
         busy={false}
         jobId={job.id}
+        saved={job.coverLetter}
+        fallbackCompany={job.company ?? ""}
+        fallbackRole={job.role ?? ""}
         onSaved={onSaved}
       />
-
-      {/* Only once one is stored: the PDF is drawn from the saved letter, so
-          offering the button before there is anything to draw would be offering
-          a 404. */}
-      {job.coverLetter ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          className="w-fit"
-          disabled={downloading}
-          onClick={() => void download()}
-          data-testid={TEST_IDS.jobPanelLetterDownload}
-        >
-          {downloading ? (
-            <Spinner size="sm" />
-          ) : (
-            <Download className="size-3.5" aria-hidden />
-          )}
-          Download cover letter
-        </Button>
-      ) : null}
     </Card>
   );
 }

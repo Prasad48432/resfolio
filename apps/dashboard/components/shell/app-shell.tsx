@@ -61,6 +61,19 @@ export interface ShellUser {
  *    stretching the row — at which point this container scrolls, exactly as body
  *    scroll used to. A plain `flex-1` child would have given the child a definite
  *    height too, but only by also making every ordinary page unable to exceed it.
+ * 2b. **`grid-cols-[minmax(0,1fr)]` is required for the same reason, and its
+ *    absence was a real bug.** An implicit grid column is an `auto` track, whose
+ *    *minimum* is the item's min-content width — so the track could not shrink
+ *    below the widest unbreakable thing on the page, and everything in it grew to
+ *    match. That is why a long token in a pasted job description pushed the
+ *    **page header** off the right edge: `overflow-wrap: break-word` lets a long
+ *    word break when it would overflow, but it deliberately does **not** reduce
+ *    the min-content contribution, so the track sized to the unbroken word while
+ *    the paragraph rendered wrapped. The symptom is always the same and never
+ *    looks like a grid problem: unrelated text on the page stops wrapping at the
+ *    viewport. Pinning the column at `minmax(0, 1fr)` makes the track exactly the
+ *    container's width; anything that still cannot shrink now overflows inside its
+ *    own box instead of widening the app.
  * 3. **`RouteTransition` must always render a flex column** (see that file). It
  *    sits between here and the page, so if it passes children through bare, the
  *    chain is severed one level above where anyone thinks to look.
@@ -98,7 +111,7 @@ export function AppShell({
               nested `main` landmarks is invalid HTML that a screen reader
               announces twice. */}
           <div
-            className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] overflow-y-auto overscroll-contain scrollbar-thin px-4 py-6 sm:px-6"
+            className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] overflow-y-auto overscroll-contain scrollbar-thin px-4 py-6 sm:px-6"
             data-testid={TEST_IDS.appContent}
           >
             {/* `children` is the server-rendered route, passed straight through

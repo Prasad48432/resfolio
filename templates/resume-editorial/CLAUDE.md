@@ -1,7 +1,7 @@
 # @resfolio/template-resume-editorial — the serif resume template
 
 Resfolio's second resume template (docs/architecture/02-resume-rendering.md,
-05-template-sdk.md). A **serif, monochrome, centred-masthead** résumé:
+05-template-sdk.md). A **serif, monochrome, centred-masthead** resume:
 
 - A centred name over a single `|`-separated contact line (phone · email ·
   links — location stays in the entries, not the masthead).
@@ -31,6 +31,16 @@ that provides no Lora still renders a serif with Georgia-flavoured italics.
 > italic stands in on the real hosts; Georgia only appears where a browser has
 > it and Lora is absent.
 
+**Dates carry no `tabular-nums` and no `letter-spacing`, and both absences are
+deliberate.** Tabular figures give every digit the widest digit's advance, so in
+Lora "Jul 2025" renders as though tracking had been applied to it — and they buy
+nothing here, since the dates sit at the right edge of a flex row rather than in
+an aligned column. Tracking is the wrong fix in either direction: any non-zero
+`letter-spacing` makes Chromium emit each glyph as its own run, so the PDF's text
+layer reads "2 0 2 5" and an ATS parses the date as noise. The tightening that
+remains is `word-spacing` only (Lora's word space is wide), which leaves each
+date one extractable run.
+
 ## Config — identical shape to `resume-classic`, on purpose
 
 `config.ts` declares the exact same six keys (page size, margin, accent, icons,
@@ -57,6 +67,6 @@ the dashboard's "New resume" menu reflects which templates are already in use.
 ## Tests
 
 `src/render.test.tsx` renders the real document from `@resfolio/fixtures`
-(every-section + sparse) and from a hand-built copy of the reference résumé
+(every-section + sparse) and from a hand-built copy of the reference resume
 (masthead, bold inline numbers, project tech/links, inline skills, the Lora
 token). It renders **server output only** — the resume carries no client JS.
