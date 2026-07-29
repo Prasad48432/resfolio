@@ -3,11 +3,15 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
+// From the barrel: `better-auth/plugins/last-login-method` exists on disk but is
+// not in the package's `exports` map, so importing it directly fails to resolve.
+import { lastLoginMethod } from "better-auth/plugins";
 
 import { db, schema } from "@resfolio/database";
 
 import { MOCK_PROVIDER_IDS, mockOAuthProviders } from "./e2e-mock";
 import { env } from "./env";
+import { LAST_SIGN_IN_COOKIE } from "./last-sign-in";
 import { createRateLimitStorage } from "./rate-limit-storage";
 
 const log = createLogger("auth");
@@ -92,6 +96,25 @@ export const auth = betterAuth({
     ...(mockIssuer
       ? [genericOAuth({ config: mockOAuthProviders(mockIssuer) })]
       : []),
+    /**
+     * Remembers which provider signed you in last, for the login page's
+     * "Last used" badge.
+     *
+     * **It writes one cookie and nothing else.** `storeInDatabase` stays at its
+     * default of `false`, which is what keeps this out of `schema/auth.ts` — the
+     * plugin contributes a `lastLoginMethod` column only when that is on, and a
+     * generated schema file is not a place to add a field for a badge. Nor is
+     * the user row the right home: the fact is "what this *browser* used", which
+     * is exactly what makes it useful to someone who is signed out.
+     *
+     * The cookie is deliberately not `httpOnly` (the plugin forces that, so a
+     * client can read it) and holds a provider id — `google`, `github`, or a
+     * mock id in e2e. Not a secret, not a credential, and it names nobody.
+     *
+     * Written only on a response that also sets the session cookie, so a failed
+     * attempt cannot leave a badge claiming a sign-in that did not happen.
+     */
+    lastLoginMethod({ cookieName: LAST_SIGN_IN_COOKIE }),
     // Must stay last: lets server-side auth calls set cookies in Next.
     nextCookies(),
   ],

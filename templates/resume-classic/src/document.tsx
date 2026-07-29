@@ -7,7 +7,7 @@ import {
   type ResumeDocumentProps,
 } from "@resfolio/template-sdk";
 import { Globe, Mail, MapPin, Phone } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 
 import type { ResumeClassicConfig } from "./config";
 import { buildResumeStyles } from "./styles";
@@ -86,12 +86,58 @@ function ExperienceEntry({ item }: { item: ItemOf<"experience"> }): ReactNode {
   );
 }
 
+/**
+ * A project's links, on the title line rather than under the entry.
+ *
+ * **Labelled, not spelled out** (2026-07-29). They used to render as full URLs
+ * in a row of their own below the highlights — two lines of
+ * `github.com/name/project` per project, which at three projects is a fifth of
+ * the page spent on strings nobody reads and nobody types. The link is the
+ * useful thing; the URL is its address.
+ *
+ * The trade is real and worth stating: a PDF's *text* now says "Live · GitHub"
+ * and the address survives only as the link annotation. That is fine for a
+ * human and for a machine that follows links, and it does lose the URL for a
+ * parser that only extracts text — which is why this is the projects section and
+ * not the contact header, where the address is the content.
+ */
+function ProjectLinks({ item }: { item: ItemOf<"projects"> }): ReactNode {
+  const links = [
+    item.url ? { label: "Live", href: item.url } : null,
+    item.repoUrl ? { label: "GitHub", href: item.repoUrl } : null,
+  ].filter((link) => link !== null);
+
+  if (links.length === 0) {
+    return null;
+  }
+
+  return (
+    <span className="rf-entry-links">
+      {links.map((link, index) => (
+        <Fragment key={link.href}>
+          {/* A real element rather than an `a + a::before`, so the separator is
+              not inside the second link's clickable box. */}
+          {index > 0 ? <span className="rf-sep">·</span> : null}
+          <a href={link.href}>{link.label}</a>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
 function ProjectEntry({ item }: { item: ItemOf<"projects"> }): ReactNode {
+  const dates = formatDateRange(item.startDate, item.endDate);
   return (
     <div className="rf-entry">
       <div className="rf-entry-head">
         <h3 className="rf-entry-title">{item.name}</h3>
-        <Dates>{formatDateRange(item.startDate, item.endDate)}</Dates>
+        {/* The right-hand side of the title line carries both, in the order
+            every other section establishes: dates hard against the margin, so a
+            project with dates lines up with the roles above it. */}
+        <span className="rf-entry-aside">
+          <ProjectLinks item={item} />
+          <Dates>{dates}</Dates>
+        </span>
       </div>
       {item.description ? (
         <div className="rf-entry-body">{renderRichText(item.description)}</div>
@@ -100,14 +146,6 @@ function ProjectEntry({ item }: { item: ItemOf<"projects"> }): ReactNode {
         <p className="rf-tags">{item.technologies.join(" · ")}</p>
       ) : null}
       <Highlights items={item.highlights} />
-      {item.url || item.repoUrl ? (
-        <div className="rf-inline-links">
-          {item.url ? <a href={item.url}>{displayUrl(item.url)}</a> : null}
-          {item.repoUrl ? (
-            <a href={item.repoUrl}>{displayUrl(item.repoUrl)}</a>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

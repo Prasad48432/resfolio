@@ -41,6 +41,7 @@ export function ChatHistory({
   activeId,
   onDelete,
   onClear,
+  onNew,
   onNavigate,
 }: {
   sessions: ChatSessionSummary[];
@@ -49,6 +50,9 @@ export function ChatHistory({
   activeId: string | null;
   onDelete: (id: string) => Promise<void>;
   onClear: () => Promise<void>;
+  /** Start a fresh conversation in place. Takes over from the link's navigation
+   * on a plain click — see the button. */
+  onNew?: () => void;
   /** Called when a row is followed, so a mobile sheet can close itself. */
   onNavigate?: () => void;
 }) {
@@ -74,10 +78,13 @@ export function ChatHistory({
       className="flex h-full min-h-0 flex-col gap-3"
       data-testid={TEST_IDS.chatHistory}
     >
-      {/* A link, not a button that clears state: a new chat is a different URL
-          with a different id, and navigating is what guarantees the page mints
-          one. Leaving mid-answer aborts the request, which is what leaving
-          should do. */}
+      {/* **A link that a plain click takes over.** It stays an anchor so
+          cmd-click still opens a second chat in a new tab, but a plain click
+          starts the conversation in place: the workspace owns which chat is on
+          screen now (see its header), so navigating to `/ai` to obtain a new id
+          is a server round trip for something the client can do — and from a
+          chat that never managed to save, the URL is *already* `/ai`, so the
+          navigation was a no-op and the button did nothing at all. */}
       <Button
         asChild
         variant="secondary"
@@ -85,7 +92,24 @@ export function ChatHistory({
         className="w-full justify-start"
         data-testid={TEST_IDS.chatNew}
       >
-        <Link href="/ai" onClick={onNavigate}>
+        <Link
+          href="/ai"
+          onClick={(event) => {
+            if (
+              onNew &&
+              !event.defaultPrevented &&
+              !event.metaKey &&
+              !event.ctrlKey &&
+              !event.shiftKey &&
+              !event.altKey &&
+              event.button === 0
+            ) {
+              event.preventDefault();
+              onNew();
+            }
+            onNavigate?.();
+          }}
+        >
           <MessageSquarePlus className="size-4" aria-hidden />
           New chat
         </Link>

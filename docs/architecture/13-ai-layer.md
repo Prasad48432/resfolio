@@ -579,8 +579,21 @@ What follows from treating it as a record:
   — role, id, every part naming its type — which is all the reader depends on.
 - **Titles are derived, never generated.** A dialog asking for a name before the
   conversation exists is a tax on starting one, and spending a model call to name a
-  chat is paying for a summary of something the user is looking at. The first
-  question is what people scan a history list for.
+  chat is paying a provider to summarise something the user is looking at, for a
+  row in a list.
+  - **Deriving is not the same as taking the first 72 characters**, which is what
+    it meant until 2026-07-29 and which produced a rail of rows that all began
+    "hey can you take a look at…" — identical for as far as the eye reads, so
+    every one had to be read to its end to be told apart. A derived title has one
+    job: **the first few words must be the ones that differ.** So: the first
+    sentence rather than the first bufferful, openers stripped, trailing
+    punctuation dropped except a question mark, sentence case unless the writer
+    plainly chose otherwise.
+  - **A fact beats a sentence.** When the conversation analysed a posting, the
+    posting names it — "Full Stack Developer at Revival Labs". The domain takes
+    that as a `subject` parameter rather than looking for it: reading a
+    `tool-analyzeJobMatch` part is the app's business, and `@resfolio/ai` is the
+    package that deliberately knows nothing about the app's tools.
 
 **This is where `@resfolio/ai` finally earned its existence** (Future Scalability
 below said it had not). Not because the model logic moved — prompts, the provider
@@ -928,10 +941,19 @@ somewhere to live — is still to come, and is unaffected by anything below.
 - `app/(dashboard)/ai/page.tsx` — `/ai?c=<id>`, a **search parameter rather than a
   route segment**. `/ai/job` already occupies that position; a dynamic sibling makes
   "job" an id nobody may be assigned and leaves the route table depending on a
-  static-beats-dynamic precedence rule. The id for a new chat is **minted on the
-  server** so it is stable across hydration — `crypto.randomUUID()` inside a
-  component would produce one id on the server and another in the browser, which is
-  one conversation saved as two.
+  static-beats-dynamic precedence rule. **The page reports the conversation the URL
+  names, or `null`, and invents nothing** (corrected 2026-07-29). It used to mint
+  the new-chat id here — `saved?.id ?? randomUUID()` — with the workspace keyed on
+  it, which made the page non-idempotent: two renders of one URL produced two ids,
+  so any re-render of the route while a chat had no `?c=` yet remounted the whole
+  workspace and dropped the user into a blank new chat mid-answer. Re-renders are
+  ordinary events — `router.refresh()`, and any Server Action calling
+  `revalidatePath`, since Next re-renders the current tree in the action's
+  response. The id now lives in the client, which is also the only place that can
+  hold it: **the URL is claimed during the conversation**, so the server's answer
+  for one unbroken chat changes from "nothing" to an id without a navigation, and
+  anything keyed on that remounts at exactly that moment. See
+  `lib/ai/chat-identity.ts` for the four cases.
 - `app/(dashboard)/ai/actions.ts` — save, delete, clear. **Persistence did not earn
   a fourth route handler and could not have**: the rule is that a route exists only
   where a stream is the product requirement, and this is a write of a finished
@@ -947,8 +969,13 @@ somewhere to live — is still to come, and is unaffected by anything below.
   because `useChat` reads its initial messages once and two conversations are two
   components. After the first save the URL is updated with
   **`history.replaceState`, not `router.replace`** — the router would re-render the
-  server component, regenerating the new-chat id, changing the key, and remounting
-  the transcript to change an address bar.
+  route and remount the transcript to change an address bar. **The workspace adopts
+  a new conversation only when the URL itself changes**, compared against the URL
+  as it last saw it and never against the id on screen: the two differ for a
+  perfectly ordinary reason, which is that an unsaved chat has an id in the client
+  and nothing in the address bar. Whoever changes the URL updates that record —
+  `startNewChat` replaces the URL *and* clears it, or the next re-render reads its
+  own edit as a navigation.
 - **Delete asks nothing; Clear history asks.** Deleting the row under the pointer
   destroys one conversation the user can see, and a modal in front of that is a tax
   on tidying up. Clearing reaches everything scrolled out of view, which is what a

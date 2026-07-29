@@ -60,8 +60,24 @@ sitting beside the Profile and free to disagree with it.
   them: opening the chat page must not cost every conversation the user has ever
   had.
 - **Titles are derived, never generated and never asked for.** A naming dialog is
-  a tax on starting a conversation; a model call to name one is paying for a
-  summary of something the user is looking at.
+  a tax on starting a conversation; a model call to name one is paying a provider
+  to summarise something the user is looking at, for a row in a list.
+  - **What they are derived _from_ changed on 2026-07-29**, because "the first 72
+    characters of the first message" produced a rail of near-identical rows —
+    every one opening with the same "hey can you take a look at…" — that had to be
+    read to the end to be told apart. `deriveSessionTitle` now takes the first
+    **sentence**, strips openers repeatedly (`TITLE_OPENERS`; keep it to words
+    that carry nothing — "review", "rewrite" and "check" say what a chat is about
+    and must survive), drops trailing punctuation **except a question mark**, and
+    applies sentence case unless the second character is a capital ("iOS").
+    The rule it all serves: **the first few words must be the ones that differ.**
+  - **A caller-supplied `subject` beats all of it**, and that parameter is how
+    this package stays ignorant of the app's tools. A chat that analysed a posting
+    _is_ that posting ("Full Stack Developer at Revival Labs"), but knowing which
+    tool part carries that is the dashboard's business —
+    `saveChatSessionAction` reads it with the same `postingsInTranscript` the
+    composer uses and passes it in. Do not import a tool name into this package
+    to shortcut that.
 - **Ids are client-generated** (a UUID minted when the chat opens), so the first
   save is an upsert like every later one and no turn ever belongs to no session.
 

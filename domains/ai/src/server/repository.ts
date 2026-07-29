@@ -143,7 +143,14 @@ export async function getChatSession(
  */
 export async function saveChatSession(
   userId: string,
-  input: { id: string; messages: StoredChatMessage[] },
+  input: {
+    id: string;
+    messages: StoredChatMessage[];
+    /** A name the caller derived from something this package cannot read — the
+     * posting a conversation is about. Optional, and beaten by nothing: see
+     * `deriveSessionTitle`. */
+    subject?: string | null;
+  },
 ): Promise<ChatSessionSummary | null> {
   const profileId = await requireProfileId(userId);
 
@@ -155,7 +162,7 @@ export async function saveChatSession(
     return null;
   }
 
-  const title = deriveSessionTitle(messages);
+  const title = deriveSessionTitle(messages, { subject: input.subject });
   const now = new Date();
 
   const [row] = await db

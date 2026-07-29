@@ -243,7 +243,12 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
   physical-unit CSS, inline SVG icons. Typography is a **single `TYPE_SCALE`
   table** emitted as `--rf-size-*` custom properties (`config.fontSize`:
   `medium | small`) — no rule carries a literal `pt` size. Summary is a real
-  titled `<section>`, not header furniture
+  titled `<section>`, not header furniture. **A project's links live on its title
+  line, labelled** — `Live · GitHub` in the `rf-entry-aside`, beside the dates —
+  not spelled out under the entry, where three projects spent a fifth of the page
+  printing addresses nobody reads or types. The trade is stated in the code: the
+  PDF's *text* now says "Live", and the URL survives as the link annotation only.
+  It has a `render.test.tsx` harness like `resume-editorial`'s
 - `@resfolio/template-resume-editorial` (`templates/resume-editorial`) — the
   second resume template: a **serif, monochrome, centred-masthead** document set
   in **Lora** (host-provided via `--font-lora`, Georgia in the fallback stack for

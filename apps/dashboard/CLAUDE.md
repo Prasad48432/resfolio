@@ -1114,6 +1114,40 @@ features.
       to update an address bar.
     - **`AiChat` is keyed on the session id.** `useChat` reads `messages` once, on
       mount; two conversations are two components.
+    - **`AiWorkspace` owns which conversation is on screen; the page reports only
+      what the URL says** (fixed 2026-07-29 — this was a conversation-losing bug).
+      `ai/page.tsx` used to compute `saved?.id ?? randomUUID()` and key the
+      workspace on it, which made the page **non-idempotent**: two renders of one
+      URL produced two ids, so any re-render of the route while a chat had no
+      `?c=` yet changed the key, remounted everything and dropped the user into a
+      blank new chat *mid-answer*. Route re-renders are ordinary —
+      `router.refresh()` after applying tailoring, **every Server Action that
+      calls `revalidatePath`** (Next re-renders the current tree in the action's
+      response whatever path was revalidated, so the chat's own Apply button,
+      which revalidates `/profile`, did it), and Fast Refresh in development.
+      - **A key could not have been made to work**, and that is the part worth
+        keeping: the URL is claimed *during* a conversation — the first save
+        writes `?c=<id>` via `history.replaceState` — so the server's answer for
+        one unbroken chat changes from "nothing" to an id with nothing navigated
+        to. Anything keyed on that remounts at the transition.
+      - The rule is `lib/ai/chat-identity.ts` (pure, tested): compare the URL
+        against **the URL as last seen**, never against the id on screen. `url !==
+        current` is the *normal* state of an unsaved chat, not evidence of a
+        navigation. Four cases — `none` (re-render), `adopted` (our own
+        `replaceState` catching up), `open` (the rail), `new` (New chat).
+      - **Whoever changes the URL tells the adoption block about it.**
+        `startNewChat` calls `replaceState("/ai")` *and* clears the last-seen URL,
+        or the next re-render reads its own edit as a navigation and mints a
+        second id over the posting just carried across.
+      - The new-chat id is minted in a **`useState` initialiser** (once per mount)
+        instead of on the server (once per render). Nothing renders it into the
+        DOM — it reaches `useChat`'s id, two `key`s and a fetch argument — so the
+        server and client disagreeing across hydration changes no markup.
+      - **"New chat" in the rail is a link a plain click takes over**
+        (`onNew` → `startNewChat("")`). Cmd-click still opens a tab; a plain click
+        no longer round-trips to the server for an id the client can mint — and
+        from a chat that never saved, the URL was already `/ai`, so the navigation
+        was a no-op and the button did nothing at all.
     - **Delete asks nothing, Clear history asks.** One destroys a row the user is
       pointing at; the other reaches everything scrolled out of view.
   - **Stop is a cost control.** The route passes `request.signal` as

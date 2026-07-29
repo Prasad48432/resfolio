@@ -21,6 +21,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
+import {
+  UNNAMED_POSTING,
+  postingsInTranscript,
+} from "@/lib/ai/second-posting";
 
 /**
  * Applying accepted AI proposals (docs/architecture/13-ai-layer.md, Phase 3).
@@ -129,7 +133,22 @@ export const saveChatSessionAction = createAction({
     messages: storedChatMessagesSchema,
   }),
   handler: async ({ id, messages }, ctx) => {
-    const saved = await saveChatSession(ctx.userId, { id, messages });
+    /**
+     * What the conversation is *about*, when the transcript says so outright.
+     *
+     * A chat that analysed a posting is that posting — "Full Stack Developer at
+     * Revival Labs" is a better row than any sentence in it, and the sentence
+     * this rail used to show was the first 72 characters of a pasted job
+     * description. Read here rather than in the domain, and with the module the
+     * composer already uses, because knowing that `tool-analyzeJobMatch` exists
+     * is the app's business: `@resfolio/ai` stores transcripts and deliberately
+     * knows nothing about the tools in them.
+     */
+    const [posting] = postingsInTranscript(messages);
+    const subject =
+      posting && posting.title !== UNNAMED_POSTING ? posting.title : null;
+
+    const saved = await saveChatSession(ctx.userId, { id, messages, subject });
 
     // Null means there was nothing worth saving (no user turn) or the id belongs
     // to someone else — neither is an error the user can act on, and the second

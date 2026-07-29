@@ -223,14 +223,106 @@ describe("deriveSessionTitle", () => {
     ).toBe("Which parts of my profile look weakest?");
   });
 
+  it("prefers a subject the caller knows", () => {
+    // A conversation that analysed a posting *is* that posting. The app reads
+    // the job off its own tool result; this package only knows a supplied name
+    // outranks a derived one.
+    expect(
+      deriveSessionTitle(
+        [userMessage("here's the JD, what do you think? About the role…")],
+        { subject: "Full Stack Developer at Revival Labs" },
+      ),
+    ).toBe("Full Stack Developer at Revival Labs");
+  });
+
+  it("ignores a blank subject rather than making the caller check", () => {
+    for (const subject of [undefined, null, "   "]) {
+      expect(deriveSessionTitle([userMessage("Rewrite my summary")], { subject }))
+        .toBe("Rewrite my summary");
+    }
+  });
+
+  it("strips the throat-clearing people open with", () => {
+    // The rail's whole job is being scannable, and it cannot be if every row
+    // starts with the same four words.
+    expect(deriveSessionTitle([userMessage("hey can you review my summary")])).toBe(
+      "Review my summary",
+    );
+    expect(
+      deriveSessionTitle([userMessage("Please help me write a cover letter")]),
+    ).toBe("Write a cover letter");
+    expect(
+      deriveSessionTitle([userMessage("ok so, i want you to fix my bullets")]),
+    ).toBe("Fix my bullets");
+  });
+
+  it("keeps a verb that says what the chat is about", () => {
+    // The line between an opener and a subject: "can you" carries nothing,
+    // "review" is the entire point of the conversation.
+    expect(deriveSessionTitle([userMessage("Sort my skills by relevance")])).toBe(
+      "Sort my skills by relevance",
+    );
+  });
+
+  it("takes the first sentence, not the first bufferful", () => {
+    expect(
+      deriveSessionTitle([
+        userMessage(
+          "My experience section feels weak. Especially the second role, which I " +
+            "was only in for six months and never really wrote up properly.",
+        ),
+      ]),
+    ).toBe("My experience section feels weak");
+  });
+
+  it("does not let a greeting become the whole title", () => {
+    // "Hi." clears the sentence split's minimum, so the sentence that says
+    // something survives.
+    expect(
+      deriveSessionTitle([userMessage("Hi. Which projects should I cut?")]),
+    ).toBe("Which projects should I cut?");
+  });
+
+  it("keeps a question mark and drops everything else", () => {
+    expect(deriveSessionTitle([userMessage("What's missing?")])).toBe(
+      "What's missing?",
+    );
+    expect(deriveSessionTitle([userMessage("Tidy up my links.")])).toBe(
+      "Tidy up my links",
+    );
+  });
+
+  it("capitalises ordinary typing and leaves deliberate casing alone", () => {
+    expect(deriveSessionTitle([userMessage("add docker to my skills")])).toBe(
+      "Add docker to my skills",
+    );
+    expect(deriveSessionTitle([userMessage("iOS work on my resume")])).toBe(
+      "iOS work on my resume",
+    );
+  });
+
+  it("survives a message that is nothing but an opener", () => {
+    // No sentence, no subject, nothing to strip down to — the raw text is the
+    // most honest row available, and it is short by construction.
+    expect(deriveSessionTitle([userMessage("hey")])).toBe("Hey");
+  });
+
+  it("spends the rail's width on the link rather than on its scheme", () => {
+    expect(
+      deriveSessionTitle([userMessage("https://www.example.com/jobs/senior-dev")]),
+    ).toBe("Example.com/jobs/senior-dev");
+  });
+
   it("falls back when there is nothing to name it after", () => {
     expect(deriveSessionTitle([])).toBe(UNTITLED_SESSION);
     expect(deriveSessionTitle([userMessage("   ")])).toBe(UNTITLED_SESSION);
   });
 
   it("cuts long titles on a word boundary", () => {
+    // No opener and no sentence break, so what is measured here is the clip and
+    // nothing else.
     const source =
-      "Please review every single bullet point in my experience section and tell me which ones are weak";
+      "Review every single bullet point in my experience section and tell me which ones are weak";
     const title = deriveSessionTitle([userMessage(source)]);
 
     expect(title.length).toBeLessThanOrEqual(MAX_TITLE_CHARS + 1);

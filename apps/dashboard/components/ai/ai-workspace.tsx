@@ -20,6 +20,7 @@ import {
   clearChatSessionsAction,
   saveChatSessionAction,
 } from "@/app/(dashboard)/ai/actions";
+import { resolveChatIdentity } from "@/lib/ai/chat-identity";
 import { buildJobFacts } from "@/lib/ai/job-facts";
 import type { AiUIMessage } from "@/lib/ai/tools";
 import { TEST_IDS } from "@/lib/testids";
@@ -45,6 +46,31 @@ import type { TailorTarget } from "./resume-tailor";
  * initial messages once, on mount, so without the key the second conversation
  * would render the first one's. A remount here is correct rather than a cost —
  * two conversations are two components.
+ *
+ * **This component owns which conversation is on screen; the page reports only
+ * what the URL says** (fixed 2026-07-29). It used to be the other way round: the
+ * page minted an id for an unsaved chat and keyed this whole component on it, so
+ * *any* re-render of the route produced a new id, a new key, and a remount —
+ * `useChat`'s state gone, the user dropped into a blank new chat, mid-answer.
+ * Route re-renders are ordinary: `router.refresh()` after applying tailoring,
+ * every Server Action that calls `revalidatePath` (Next re-renders the current
+ * tree in the action's response, whatever path was revalidated — so
+ * `revalidatePath("/profile")` from the chat's own Apply button did it), and
+ * Fast Refresh in development.
+ *
+ * A key could not have been made to work, either, because the URL is claimed
+ * *during* a conversation: the first save writes `?c=<id>` with
+ * `history.replaceState`, so the server's answer for this chat changes from
+ * "nothing" to an id without anything having been navigated to. Keying on that
+ * remounts at the transition. So identity lives here, and the prop is adopted
+ * only when the **URL itself changes** — which is what a navigation is:
+ *
+ * - `null → null` — a re-render of a chat that has not saved yet. **Ignored.**
+ *   This is the bug above.
+ * - `null → <our own id>` — our `replaceState` catching up. Recorded, nothing
+ *   else changes.
+ * - `A → B` — the rail. Adopt B and the transcript the page loaded with it.
+ * - `A → null` — "New chat". Mint an id and clear the workspace.
  *
  * **Three columns at the widest, and neither side column ever squeezes the
  * conversation.** History on the left from `lg`, the job artefact panel on the
@@ -89,9 +115,9 @@ export function AiWorkspace({
   resumes,
 }: {
   profileIsEmpty: boolean;
-  /** Stable for the life of a conversation: either the id in the URL, or one
-   * minted by the page for a chat that has not saved itself yet. */
-  sessionId: string;
+  /** **The conversation the URL names, or `null` for a chat that has not saved
+   * itself yet.** Never an id the page invented — see the header. */
+  sessionId: string | null;
   initialMessages: AiUIMessage[];
   initialSessions: ChatSessionSummary[];
   /** The jobs this conversation has already produced, server-rendered so a
@@ -110,12 +136,14 @@ export function AiWorkspace({
   /**
    * The conversation being written to.
    *
-   * Seeded from the prop and only ever changed by {@link startNewChat}. Safe as
-   * state because the page keys this whole component on the same id, so a
-   * navigation to another conversation remounts rather than leaving a stale
-   * value behind.
+   * The URL's id when there is one, otherwise minted here. **Minting moved from
+   * the server to this initialiser** and that is the fix: a `useState`
+   * initialiser runs once per mount, where the page ran once per *render*.
+   * Nothing renders this value into the DOM — it reaches `useChat`'s id, two
+   * `key`s and a fetch argument — so the server's copy differing from the
+   * client's across hydration changes no markup.
    */
-  const [chatId, setChatId] = useState(sessionId);
+  const [chatId, setChatId] = useState(() => sessionId ?? crypto.randomUUID());
   /** Text handed to a freshly minted chat — the posting the user pasted into the
    * wrong conversation. Null in every other case. */
   const [seedInput, setSeedInput] = useState<string | null>(null);
@@ -129,6 +157,47 @@ export function AiWorkspace({
    * the two cannot disagree about whether a posting has been enhanced for.
    */
   const [jobs, setJobs] = useState(initialJobs);
+
+  /**
+   * The URL as this component last saw it.
+   *
+   * Adoption compares against **this**, not against `chatId`, because the
+   * question being asked is "did the user navigate?" — and the answer is a
+   * property of the URL changing, not of the two ids differing. They differ for
+   * a perfectly ordinary reason: a chat that has not saved yet has an id here
+   * and nothing in the URL.
+   */
+  const [urlSessionId, setUrlSessionId] = useState(sessionId);
+
+  // **Adjusted during render, not in an effect.** React re-runs this component
+  // immediately with the new state and paints once; an effect would paint the
+  // conversation the user just left for a frame first, then swap it. The four
+  // cases are `lib/ai/chat-identity.ts`, pure and tested — this bug cost a
+  // conversation, and a rule that expensive should not live inside a JSX file.
+  const change = resolveChatIdentity({
+    url: sessionId,
+    lastUrl: urlSessionId,
+    current: chatId,
+  });
+
+  if (change.kind !== "none") {
+    setUrlSessionId(sessionId);
+
+    if (change.kind === "new") {
+      setChatId(crypto.randomUUID());
+      setSeedInput(null);
+      setJobs([]);
+      setJobRefresh(0);
+    } else if (change.kind === "open") {
+      // Its transcript and its jobs arrived with this same render.
+      setChatId(change.sessionId);
+      setSeedInput(null);
+      setJobs(initialJobs);
+      setJobRefresh(0);
+    }
+    // `adopted` records the URL and nothing else: the conversation on screen is
+    // already the one the URL now names.
+  }
 
   const onJobSaved = useCallback(() => {
     setJobRefresh((current) => current + 1);
@@ -147,6 +216,11 @@ export function AiWorkspace({
     // The old conversation's `?c=` no longer describes what is on screen. The
     // new id claims its own URL on the first save, exactly as a fresh chat does.
     window.history.replaceState(null, "", "/ai");
+    // And this is what stops the next route re-render reading that as a
+    // navigation to "New chat" and minting a *second* id over the one just
+    // handed the pasted posting. Whoever changes the URL owns telling the
+    // adoption block about it.
+    setUrlSessionId(null);
   }, []);
 
   /**
@@ -223,9 +297,10 @@ export function AiWorkspace({
       setSessions((current) => current.filter((entry) => entry.id !== id));
 
       if (id === chatId) {
-        // The conversation on screen no longer exists. A hard navigation rather
-        // than a router push: this must land on a genuinely new chat with a new
-        // id, and the page's own `key` is what guarantees that.
+        // The conversation on screen no longer exists, so there is nothing to
+        // keep: a full load of `/ai` is the cheapest way to be certain every
+        // piece of client state that described it is gone. (It is not the `key`
+        // any more — there isn't one; see the header.)
         window.location.assign("/ai");
         return;
       }
@@ -253,6 +328,7 @@ export function AiWorkspace({
       activeId={sessions.some((entry) => entry.id === chatId) ? chatId : null}
       onDelete={remove}
       onClear={clear}
+      onNew={() => startNewChat("")}
       onNavigate={() => setSheetOpen(false)}
     />
   );
@@ -338,7 +414,10 @@ export function AiWorkspace({
           // A chat started from here is genuinely new, so it starts empty — the
           // server's transcript belongs to the conversation the user left.
           initialMessages={chatId === sessionId ? initialMessages : []}
-          initialInput={chatId === sessionId ? undefined : (seedInput ?? "")}
+          // Only ever set by `startNewChat`, which is the one path that has
+          // something to carry. Written as a comparison against `sessionId`
+          // before, which quietly meant "" for every fresh chat.
+          initialInput={seedInput ?? undefined}
           resumes={resumes}
           jobFacts={jobFacts}
           onTurnComplete={persist}

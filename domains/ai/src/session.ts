@@ -159,17 +159,122 @@ export function sanitizeMessages(
 }
 
 /**
- * The title, derived from the first thing the user said.
+ * Openers people type before they say what they want.
+ *
+ * Stripped from the front of a title, and stripped **repeatedly**, because "hey
+ * can you please…" is three of them in a row. Each entry is a whole word or
+ * phrase at the very start — never a substring, or "so" would eat the first two
+ * letters of "sort my skills".
+ *
+ * Keep this list to things that carry no information. "Review", "rewrite",
+ * "check" are verbs that say what the conversation is about and must survive.
+ */
+const TITLE_OPENERS = [
+  "hi",
+  "hey",
+  "hello",
+  "ok",
+  "okay",
+  "so",
+  "well",
+  "just",
+  "please",
+  "pls",
+  "can you",
+  "could you",
+  "would you",
+  "will you",
+  "i want you to",
+  "i need you to",
+  "i would like you to",
+  "i'd like you to",
+  "help me",
+  "let's",
+  "lets",
+];
+
+const OPENER_PATTERN = new RegExp(
+  `^(?:${TITLE_OPENERS.map((opener) =>
+    opener.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  // Whatever separates the opener from the sentence is part of the opener —
+  // including a full stop, or "Hi. Which projects should I cut?" strips to
+  // ". Which projects should I cut?".
+  ).join("|")})\\b[\\s,.:;!-]*`,
+  "i",
+);
+
+/** Clip to the rail's width on a word boundary when there is one worth
+ * honouring. A break at character 4 of 72 is a worse title than a clean cut, so
+ * the boundary only counts in the last third. */
+function clipTitle(text: string): string {
+  if (text.length <= MAX_TITLE_CHARS) {
+    return text;
+  }
+
+  const clipped = text.slice(0, MAX_TITLE_CHARS);
+  const lastSpace = clipped.lastIndexOf(" ");
+  const cut =
+    lastSpace > MAX_TITLE_CHARS * 0.6 ? clipped.slice(0, lastSpace) : clipped;
+
+  return `${cut.trimEnd()}…`;
+}
+
+/**
+ * The first sentence, when there is a short one to take.
+ *
+ * A minimum length is what stops "Hi." becoming the title of a conversation
+ * whose second sentence says what it is about. There is no maximum: a long
+ * first sentence is still the right subject, and {@link clipTitle} owns the
+ * width.
+ */
+function firstSentence(text: string): string {
+  const match = /^(.{12,}?[.?!])(?:\s|$)/.exec(text);
+  return match?.[1] ?? text;
+}
+
+/**
+ * The title, derived from what the conversation is about.
  *
  * **Derived, never asked for and never generated.** A dialog asking for a name
  * before a conversation exists is a tax on starting one, and spending a model
- * call to name a chat is paying for a summary of something the user is looking
- * at. The first question is what someone actually scans the list for.
+ * call to name a chat is paying a provider to summarise something the user is
+ * looking at — for a row in a list.
  *
- * Cut on a word boundary when there is one to cut on, so the rail shows a phrase
- * rather than a severed word — the ellipsis already says it continues.
+ * That leaves the question of what to derive it *from*, and "the first 72
+ * characters of the first message" was the wrong answer (2026-07-29). It
+ * produced rows like "hey can you take a look at this and tell me whether my
+ * profil…" — every one of which begins with the same throat-clearing, so the
+ * rail was a column of near-identical strings that had to be read to the end to
+ * be told apart. The rules here are all in service of one thing: **the first
+ * few words must be the ones that differ.**
+ *
+ * - **A `subject` wins outright.** The caller supplies it when the conversation
+ *   has a fact that names it better than any sentence could — in practice the
+ *   posting that was analysed, "Full Stack Developer at Revival Labs". The
+ *   domain does not know how that was found (it must not: the tool that carries
+ *   it belongs to the app, and this package deliberately knows nothing about
+ *   the app's tools), only that a caller-supplied name outranks a derived one.
+ * - **One sentence, not one buffer.** A title that ends mid-thought reads as
+ *   truncated even when nothing was cut.
+ * - **Openers are stripped**, repeatedly. See {@link TITLE_OPENERS}.
+ * - **Trailing punctuation goes, except a question mark**, which is doing real
+ *   work: it is how a row reads as a question at a glance.
+ * - **Sentence case**, but only where the writer plainly did not choose the
+ *   case — the second character being a capital is what protects "iOS".
  */
-export function deriveSessionTitle(messages: StoredChatMessage[]): string {
+export function deriveSessionTitle(
+  messages: StoredChatMessage[],
+  options?: {
+    /** A name the caller knows and this package cannot derive. Blank is treated
+     * as absent, so a caller may pass whatever it has without checking. */
+    subject?: string | null;
+  },
+): string {
+  const subject = options?.subject?.trim();
+  if (subject) {
+    return clipTitle(subject);
+  }
+
   const first = messages.find((message) => message.role === "user");
   const text = first ? messageText(first) : "";
 
@@ -177,18 +282,39 @@ export function deriveSessionTitle(messages: StoredChatMessage[]): string {
     return UNTITLED_SESSION;
   }
 
-  if (text.length <= MAX_TITLE_CHARS) {
-    return text;
+  // The scheme is never the interesting part of a pasted link, and it is eight
+  // characters of a 72-character line.
+  let candidate = firstSentence(text).replace(/^https?:\/\/(?:www\.)?/i, "");
+
+  // Repeatedly: "hey, can you…" is two.
+  let stripped = candidate.replace(OPENER_PATTERN, "");
+  while (stripped !== candidate && stripped.trim() !== "") {
+    candidate = stripped;
+    stripped = candidate.replace(OPENER_PATTERN, "");
   }
 
-  const clipped = text.slice(0, MAX_TITLE_CHARS);
-  const lastSpace = clipped.lastIndexOf(" ");
-  // Only honour a word boundary in the last third; a break at character 4 of 72
-  // is a worse title than a clean truncation.
-  const cut =
-    lastSpace > MAX_TITLE_CHARS * 0.6 ? clipped.slice(0, lastSpace) : clipped;
+  candidate = candidate.trim().replace(/[.,;:!\-–—]+$/, "");
 
-  return `${cut.trimEnd()}…`;
+  if (candidate === "") {
+    // Nothing but an opener — "hi", "ok thanks". The raw text is then the most
+    // honest thing available, and it is short by construction.
+    candidate = text;
+  }
+
+  // A capital second letter is somebody having chosen the case — "iOS", "eBay".
+  // Anything else is ordinary typing, and a title that starts lowercase reads as
+  // a fragment.
+  const second = candidate[1];
+  const casedByHand =
+    second !== undefined &&
+    second === second.toUpperCase() &&
+    second !== second.toLowerCase();
+
+  return clipTitle(
+    casedByHand
+      ? candidate
+      : candidate.charAt(0).toUpperCase() + candidate.slice(1),
+  );
 }
 
 /** Whether a transcript is worth persisting at all. An empty chat the user

@@ -38,6 +38,11 @@ import { MIN_JOB_DESCRIPTION_CHARS } from "./job-analysis";
  * being read — at which point the real one is invisible too.
  */
 
+/** What a posting is called when the model named neither the role nor the
+ * company. Fine inside a sentence ("this chat already covers this job"), and not
+ * a name — so anything using {@link PostingInChat.title} as one must skip it. */
+export const UNNAMED_POSTING = "this job";
+
 export interface PostingInChat {
   jobId: string;
   /** "Senior Engineer at Acme", for the sentence that names it. */
@@ -108,7 +113,7 @@ export function postingsInTranscript(
 
       postings.push({
         jobId: output.jobId,
-        title: company ? `${role} at ${company}` : role || "this job",
+        title: company ? `${role} at ${company}` : role || UNNAMED_POSTING,
         jobUrl: typeof output.jobUrl === "string" ? output.jobUrl : null,
         jobDescription: output.jobDescription,
       });

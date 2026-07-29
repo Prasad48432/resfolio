@@ -6,7 +6,6 @@ import { countTailoredFields, describeProfileItems } from "@resfolio/profile";
 import { getOrCreateProfile } from "@resfolio/profile/server";
 import { Sparkles } from "lucide-react";
 import type { Metadata } from "next";
-import { randomUUID } from "node:crypto";
 
 import { AiWorkspace } from "@/components/ai/ai-workspace";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -123,17 +122,27 @@ export default async function AiPage({
     }));
 
   /**
-   * The id this page's chat writes to.
+   * The conversation this URL names — **or `null`, and the null is the whole
+   * point** (2026-07-29).
    *
-   * Minted here rather than in the browser so that it is stable across the
-   * client render — `crypto.randomUUID()` inside a component would produce a
-   * different id on the server and on hydration, which is a saved conversation
-   * split across two rows. A requested id that resolved to nothing (deleted,
-   * or never the caller's) falls through to a fresh chat rather than to a 404:
-   * both are reached by following a stale link, and neither is worth an error
-   * page when the working thing is one line below.
+   * This used to be `saved?.id ?? randomUUID()`, with the workspace keyed on it.
+   * That made the page **non-idempotent**: two renders of the same URL produced
+   * two different ids, so any re-render of this route while a chat had no `?c=`
+   * yet changed the `key` and remounted the workspace — destroying `useChat`'s
+   * state and dropping the user into a blank new chat, mid-answer. And a route
+   * re-render is not rare: `router.refresh()` after applying tailoring, and
+   * every Server Action that calls `revalidatePath` (Next re-renders the current
+   * tree in the action's response, whichever path was revalidated), plus Fast
+   * Refresh in development. It cost nothing to be wrong about while the feature
+   * had no writes in it, and became a conversation-losing bug the moment it did.
+   *
+   * So the server now reports **what the URL says and nothing more**, and
+   * `AiWorkspace` owns the identity of the chat on screen — including minting an
+   * id for one that has not saved itself yet. A requested id that resolved to
+   * nothing (deleted, or never the caller's) reports `null` too: that is a stale
+   * link, and a fresh chat one line below is a better answer than a 404.
    */
-  const activeSessionId = saved?.id ?? randomUUID();
+  const savedSessionId = saved?.id ?? null;
 
   // The jobs this conversation produced. Loaded here rather than fetched by the
   // panel on mount so that reopening a saved chat shows its artefacts in the
@@ -168,12 +177,15 @@ export default async function AiPage({
         description="Works from your profile — it can rewrite what's there, and never invents what isn't. Paste a job posting and it reads it against you, requirement by requirement."
       />
       <AiWorkspace
-        // Remounts the whole workspace when the conversation changes, which is
-        // what resets the composer and the scroll position along with it. The
-        // id is stable for a given URL, so this is not a remount per render.
-        key={activeSessionId}
+        // **No `key`.** It was `key={activeSessionId}`, and a key is exactly the
+        // wrong tool for this: a conversation's identity survives its own URL
+        // being claimed mid-flight (the first save writes `?c=<id>` with
+        // `history.replaceState`), so keying on the server's view of the URL
+        // remounts the transcript at that transition as well as on every
+        // re-render of an unsaved chat. The workspace adopts a genuinely new
+        // conversation itself — see its header.
         profileIsEmpty={context.isStarter}
-        sessionId={activeSessionId}
+        sessionId={savedSessionId}
         // The domain stores the SDK's own message shape; it is validated on the
         // way out of the database and typed back to the app's here.
         //

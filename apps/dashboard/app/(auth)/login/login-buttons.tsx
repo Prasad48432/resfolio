@@ -5,7 +5,7 @@ import { authClient } from "@resfolio/auth/client";
 import { Button, Spinner } from "@resfolio/ui";
 import { useState } from "react";
 
-import { signInButtonTestId } from "@/lib/testids";
+import { signInButtonTestId, TEST_IDS } from "@/lib/testids";
 
 const AFTER_SIGN_IN = "/profile";
 
@@ -47,7 +47,30 @@ function GitHubMark() {
   );
 }
 
-export function LoginButtons({ providers }: { providers: SignInProvider[] }) {
+/**
+ * The sign-in buttons, and the "Last used" badge on whichever one this browser
+ * used last.
+ *
+ * Two decisions worth keeping:
+ *
+ * - **The badge marks a button; it never reorders them.** Moving the last-used
+ *   provider to the top would put a different control under the pointer
+ *   depending on history, so the one visit where the badge is wrong — a shared
+ *   machine, a second account — is the visit where muscle memory signs you into
+ *   the wrong one. The row stays in a fixed order and the hint is a label.
+ * - **It is a hint, not a claim.** The cookie survives sign-out (that is the
+ *   point: the person it helps is signed out) and says nothing about who used
+ *   it. Nothing is authorised by it and no button is disabled because of it.
+ */
+export function LoginButtons({
+  providers,
+  lastUsedId,
+}: {
+  providers: SignInProvider[];
+  /** The provider id this browser signed in with last, read server-side so the
+   * badge is in the first paint. Null on a browser that never has. */
+  lastUsedId?: string | null;
+}) {
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   async function signInWith(provider: SignInProvider) {
@@ -75,12 +98,17 @@ export function LoginButtons({ providers }: { providers: SignInProvider[] }) {
       {providers.map((provider) => {
         const brand = brandOf(provider);
         const pending = pendingId === provider.id;
+        const lastUsed = lastUsedId === provider.id;
         return (
           <Button
             key={provider.id}
             variant="secondary"
             size="lg"
-            className="w-full"
+            // `relative` so the badge can sit in the padding without pushing the
+            // label off centre — the two buttons must stay optically identical,
+            // and one of them having a pill in the flex row would shift its text
+            // by half the pill's width.
+            className="relative w-full"
             disabled={pendingId !== null}
             onClick={() => void signInWith(provider)}
             data-testid={signInButtonTestId(provider.id)}
@@ -93,6 +121,17 @@ export function LoginButtons({ providers }: { providers: SignInProvider[] }) {
               <GitHubMark />
             )}
             Continue with {BRAND_LABELS[brand]}
+            {lastUsed ? (
+              // Inside the button, so it is announced with the label ("Continue
+              // with Google, last used") rather than floating unattached beside
+              // it. `pointer-events-none` because it is not a second target.
+              <span
+                className="pointer-events-none absolute right-3 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-brand"
+                data-testid={TEST_IDS.loginLastUsed}
+              >
+                Last used
+              </span>
+            ) : null}
           </Button>
         );
       })}

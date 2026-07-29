@@ -188,8 +188,13 @@ export function buildResumeStyles(config: ResumeClassicConfig): string {
 .rf-skill-group:first-of-type { margin-top: 0; }
 .rf-skill-name { font-weight: 600; color: var(--rf-ink); }
 
-.rf-inline-links { display: flex; flex-wrap: wrap; gap: 2pt 10pt; margin-top: 2pt; font-size: var(--rf-size-inline-links); }
-.rf-inline-links a { color: var(--rf-accent); text-decoration: none; }
+/* The right-hand side of an entry's title line. flex: none so it keeps its
+   width and the title takes the wrapping, and nowrap on the links so "Live"
+   and "GitHub" never break across two lines beside a long project name. */
+.rf-entry-aside { display: flex; flex: none; align-items: baseline; gap: 9pt; }
+.rf-entry-links { font-size: var(--rf-size-inline-links); white-space: nowrap; }
+.rf-entry-links a { color: var(--rf-accent); text-decoration: none; }
+.rf-entry-links .rf-sep { margin: 0 4pt; color: var(--rf-muted); }
 
 .rf-langs { display: flex; flex-wrap: wrap; gap: 3pt 16pt; }
 .rf-lang-name { font-weight: 600; }
@@ -198,7 +203,7 @@ export function buildResumeStyles(config: ResumeClassicConfig): string {
 /* Scoped to .rf-page (via zero-specificity :where) so the self-contained sheet
    never leaks bare a/strong rules when the template renders in-browser inside
    the dashboard preview — while staying low enough specificity that the
-   .rf-contact / .rf-inline-links link rules above still win (doc 08/09). */
+   .rf-contact / .rf-entry-links link rules above still win (doc 08/09). */
 .rf-page :where(a) { color: var(--rf-accent); }
 .rf-page :where(strong) { font-weight: 600; }
 

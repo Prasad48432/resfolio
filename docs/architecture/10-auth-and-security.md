@@ -60,6 +60,21 @@ link/unlink; unlinking the last provider is blocked.
 - `apps/web` links to the dashboard for login/signup; it never reads
   sessions (a "go to dashboard" navbar state is not worth widening the
   cookie).
+- **One non-session cookie: the "Last used" badge on `/login`.** Better Auth's
+  `lastLoginMethod` plugin writes a provider id (`google`, `github`) to
+  `better-auth.last_used_login_method` on any response that also sets a session
+  cookie — so a failed attempt cannot leave a badge claiming a sign-in that did
+  not happen. It is `httpOnly: false` by design, holds no credential and names
+  nobody, and **nothing is ever authorised by it**. `storeInDatabase` stays off:
+  the fact is "what this browser used", which is what makes it useful to someone
+  who is signed out, and a badge does not earn a column in a generated schema.
+  The login page reads it server-side (`getLastSignInProviderId`) so the badge is
+  in the first paint, and compares it against ids it already produced — a value
+  from a provider that no longer exists therefore highlights nothing. It marks a
+  button and never reorders them: moving the last-used provider to the top puts a
+  different control under the pointer depending on history, and the one visit
+  where the hint is wrong is the visit muscle memory signs you into the wrong
+  account.
 - **Portfolio domains are a separate cookie universe.** Public rendering in
   `apps/sites` uses no cookies at all — required anyway for full-page ISR
   caching ([04-deployment](04-deployment.md)), and it makes user-content XSS

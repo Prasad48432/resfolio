@@ -1,4 +1,8 @@
-import { getOptionalSession, getSignInProviders } from "@resfolio/auth";
+import {
+  getLastSignInProviderId,
+  getOptionalSession,
+  getSignInProviders,
+} from "@resfolio/auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -28,6 +32,20 @@ export default async function LoginPage({
   const { error } = await searchParams;
   const providers = getSignInProviders();
 
+  /**
+   * Which button gets the "Last used" badge.
+   *
+   * **Read here rather than in the client island**, though the cookie is
+   * readable in both places: this page is already dynamic (the session check
+   * above reads headers), so a server read puts the badge in the first paint.
+   * From the browser it could only appear after hydration — a decoration on the
+   * primary action of the page flinching into view on every visit.
+   *
+   * It is only ever compared against ids this page already produced, so a
+   * value left by a provider that no longer exists highlights nothing.
+   */
+  const lastUsedProviderId = await getLastSignInProviderId();
+
   return (
     <div
       className="flex w-full max-w-md flex-col items-center gap-8"
@@ -43,7 +61,7 @@ export default async function LoginPage({
       </div>
 
       <div className="card-surface flex w-full flex-col gap-3 p-6 shadow-none">
-        <LoginButtons providers={providers} />
+        <LoginButtons providers={providers} lastUsedId={lastUsedProviderId} />
         {error ? (
           <p
             className="text-center text-xs text-brand"

@@ -7,6 +7,7 @@
 export const TEST_IDS = {
   loginPage: "login-page",
   loginError: "login-error",
+  loginLastUsed: "login-last-used",
   appShell: "app-shell",
   /** The app's scroll container. Assertable because "does the page scroll or does
    * this element scroll" is the invariant the whole chat layout rests on, and it
