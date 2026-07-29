@@ -9,22 +9,23 @@ document must be updated in the same change.
 - `architecture/` — one document per architectural area, numbered by dependency
   order (earlier documents constrain later ones).
 
-| #   | Document                                                            | Decides                                                                                 |
-| --- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 01  | [Profile Engine](architecture/01-profile-engine.md)                 | The canonical Profile schema, versioning, and how every output derives from it          |
-| 02  | [Resume Rendering](architecture/02-resume-rendering.md)             | One renderer for preview / PDF / print, pagination, ATS, caching                        |
-| 03  | [Portfolio Rendering](architecture/03-portfolio-rendering.md)       | Templates as packages, configuration, themes                                            |
-| 04  | [Deployment](architecture/04-deployment.md)                         | One multi-tenant renderer app, caching, custom domains                                  |
-| 05  | [Template SDK](architecture/05-template-sdk.md)                     | The contract every template implements, versioning, backwards compatibility             |
-| 06  | [API Architecture](architecture/06-api-architecture.md)             | Server Actions first, domains as the reusable core, when to extract REST                |
-| 07  | [Storage](architecture/07-storage.md)                               | PostgreSQL / Redis / R2 responsibilities, caching, generated assets                     |
-| 08  | [Dashboard UX](architecture/08-dashboard-ux.md)                     | Information architecture, editor + live preview, design system extraction               |
-| 09  | [Rendering Pipeline](architecture/09-rendering-pipeline.md)         | The unified Resolve → Project → Render → Deliver pipeline all outputs share             |
-| 10  | [Auth & Security](architecture/10-auth-and-security.md)             | Better Auth (Google + GitHub), cross-app trust model, signed render tokens, UGC safety  |
-| 11  | [Engineering Foundation](architecture/11-engineering-foundation.md) | Task vocabulary, env validation, testing pyramid, CI/CD, observability                  |
-| 12  | [Data Imports & Sources](architecture/12-integrations-and-sync.md)  | Connector contract, auth modes, routing + staging + review pipeline, import semantics   |
-| 13  | [AI Layer](architecture/13-ai-layer.md)                             | Propose → validate → review → apply; no-fabrication as a schema property; provider seam |
-| 14  | [AI Usage & Billing](architecture/14-ai-usage-and-billing.md)       | Plan entitlements, the quota ledger, one spend gate, Dodo subscriptions — **Proposed**  |
+| #   | Document                                                            | Decides                                                                                      |
+| --- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 01  | [Profile Engine](architecture/01-profile-engine.md)                 | The canonical Profile schema, versioning, and how every output derives from it               |
+| 02  | [Resume Rendering](architecture/02-resume-rendering.md)             | One renderer for preview / PDF / print, pagination, ATS, caching                             |
+| 03  | [Portfolio Rendering](architecture/03-portfolio-rendering.md)       | Templates as packages, configuration, themes                                                 |
+| 04  | [Deployment](architecture/04-deployment.md)                         | One multi-tenant renderer app, caching, custom domains                                       |
+| 05  | [Template SDK](architecture/05-template-sdk.md)                     | The contract every template implements, versioning, backwards compatibility                  |
+| 06  | [API Architecture](architecture/06-api-architecture.md)             | Server Actions first, domains as the reusable core, when to extract REST                     |
+| 07  | [Storage](architecture/07-storage.md)                               | PostgreSQL / Redis / R2 responsibilities, caching, generated assets                          |
+| 08  | [Dashboard UX](architecture/08-dashboard-ux.md)                     | Information architecture, editor + live preview, design system extraction                    |
+| 09  | [Rendering Pipeline](architecture/09-rendering-pipeline.md)         | The unified Resolve → Project → Render → Deliver pipeline all outputs share                  |
+| 10  | [Auth & Security](architecture/10-auth-and-security.md)             | Better Auth (Google + GitHub), cross-app trust model, signed render tokens, UGC safety       |
+| 11  | [Engineering Foundation](architecture/11-engineering-foundation.md) | Task vocabulary, env validation, testing pyramid, CI/CD, observability                       |
+| 12  | [Data Imports & Sources](architecture/12-integrations-and-sync.md)  | Connector contract, auth modes, routing + staging + review pipeline, import semantics        |
+| 13  | [AI Layer](architecture/13-ai-layer.md)                             | Propose → validate → review → apply; no-fabrication as a schema property; provider seam      |
+| 14  | [AI Usage & Billing](architecture/14-ai-usage-and-billing.md)       | Plan entitlements, the quota ledger, one spend gate, Dodo payments, packaging — **Proposed** |
+| 15  | [Production Readiness](architecture/15-production-readiness.md)     | Pre-launch review: connection pooling, compute model, spend ceilings — **Proposed**          |
 
 ## Development plan
 
@@ -40,9 +41,12 @@ improvise them from scratch — write the architecture document first:
 - **Non-AI plan gating** — custom domains, version retention, white-label.
   Referenced by docs 04 and 07. The _billing machinery_ they would hang off is
   now designed in [14](architecture/14-ai-usage-and-billing.md) (plans,
-  subscriptions, Dodo Payments); what is still undesigned is which non-AI
-  capabilities each plan carries, and how a resource limit — as opposed to a
-  consumption quota — is enforced.
+  subscriptions, Dodo Payments), and **premium templates left this list on
+  2026-07-29** — they are decided in 14 §4.5 as a permanent one-time unlock,
+  checked at selection and publish and never at render. What is still
+  undesigned is which _other_ non-AI capabilities each plan carries (custom
+  domains, version retention, white-label), and how a resource limit — as
+  opposed to a consumption quota — is enforced.
 - **Resume import / onboarding** — PDF import, AI-assisted profile seeding.
   Likely the activation make-or-break; design before building onboarding.
   (The LinkedIn export-file import is designed — doc 12's `file` mode.)

@@ -215,7 +215,11 @@ revisit only if session reads show up in p99s).
 ## Open Questions
 
 - Postgres host (Neon vs. Supabase vs. RDS) — operational choice, decide at
-  auth implementation; schema is portable either way.
+  auth implementation; schema is portable either way. **Now blocking**: the
+  serverless connection strategy depends on which pooler the host offers, and
+  the pool as currently configured cannot survive production concurrency —
+  see [15](15-production-readiness.md) §2.1, which supersedes the "revisit when
+  the host is picked" note in `packages/database/CLAUDE.md`.
 - Version retention numbers per plan tier (free: last 5? paid: unlimited?) —
   product/pricing decision.
 - Whether draft autosave history (undo across sessions) needs its own
