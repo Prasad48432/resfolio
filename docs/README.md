@@ -26,6 +26,7 @@ document must be updated in the same change.
 | 13  | [AI Layer](architecture/13-ai-layer.md)                             | Propose → validate → review → apply; no-fabrication as a schema property; provider seam      |
 | 14  | [AI Usage & Billing](architecture/14-ai-usage-and-billing.md)       | Plan entitlements, the quota ledger, one spend gate, Dodo payments, packaging — **Proposed** |
 | 15  | [Production Readiness](architecture/15-production-readiness.md)     | Pre-launch review: connection pooling, compute model, spend ceilings — **Proposed**          |
+| 16  | [Onboarding & Resume Import](architecture/16-onboarding.md)         | First-run flow, the `onboarding_completed` gate, résumé → Profile extraction                 |
 
 ## Development plan
 
@@ -47,9 +48,6 @@ improvise them from scratch — write the architecture document first:
   undesigned is which _other_ non-AI capabilities each plan carries (custom
   domains, version retention, white-label), and how a resource limit — as
   opposed to a consumption quota — is enforced.
-- **Resume import / onboarding** — PDF import, AI-assisted profile seeding.
-  Likely the activation make-or-break; design before building onboarding.
-  (The LinkedIn export-file import is designed — doc 12's `file` mode.)
 - **Blogs / CMS / custom pages** — extension points reserved in docs 03, 04,
   05, 09.
 - **Account deletion & data export** — full cascade (Postgres rows, R2
@@ -62,6 +60,13 @@ improvise them from scratch — write the architecture document first:
   receipts and dunning mail (doc 14 — Dodo Payments, not Stripe). Do not
   build an email layer until a feature needs one (magic links will be the
   trigger).
+
+**Resume import / onboarding** left this list on 2026-07-30 and is decided in
+[16](architecture/16-onboarding.md): a separate `(onboarding)` route group behind
+a `profiles.onboarding_completed` gate, with the résumé sent to the model as a
+PDF file part by a read-only route and applied by a reviewed Server Action. The
+LinkedIn half is still doc 12's `file` mode and still unbuilt — the onboarding
+card names it as coming soon.
 
 **AI writing & resume optimization** left this list on 2026-07-27: it is
 designed in [13](architecture/13-ai-layer.md) (Phases 1–6 built, plus Phase 7's

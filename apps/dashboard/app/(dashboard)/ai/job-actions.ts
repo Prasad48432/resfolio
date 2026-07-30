@@ -37,6 +37,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
+import {
+  authorizeAiFeature,
+  settleAiSpend,
+  tokensFrom,
+  type AiReservation,
+} from "@/lib/ai/billing";
 import { parseJobRequest } from "@/lib/ai/job-analysis";
 import { MAX_TAILOR_OUTPUT_TOKENS } from "@/lib/ai/limits";
 import { buildProfileContext } from "@/lib/ai/profile-context";
@@ -76,7 +82,7 @@ const log = createLogger("dashboard:ai-job");
  * they use a status code. Session resolution already happened (`createAction`
  * does it before the handler runs), which is the first rung.
  */
-async function requireEnhanceBudget(userId: string): Promise<void> {
+async function requireEnhanceBudget(userId: string): Promise<AiReservation> {
   if (!isAiEnabled()) {
     throw new ActionError("Resfolio AI is currently switched off.");
   }
@@ -92,6 +98,21 @@ async function requireEnhanceBudget(userId: string): Promise<void> {
       "You've done a lot of this recently. Try again in a few minutes.",
     );
   }
+  // Quota is the last rung, for the same reason it is in the routes: it is the
+  // only one that costs a database round trip (doc 14 §6).
+  //
+  // **The rate limiter and the quota are counted separately and both apply.** They
+  // answer different questions — "too fast" and "too much" — and the limiter is
+  // per-mode while the quota is per-feature. `profileEnhance` here, not
+  // `resumeTailor`: they share a *rate* budget because they cost the same, and
+  // they have separate *allowances* because they are separate product promises.
+  const gate = await authorizeAiFeature(userId, "profileEnhance");
+  if (!gate.ok) {
+    // `ActionError` is the expected-failure channel — it is not reported to
+    // Sentry, which is right: a spent allowance is the system working.
+    throw new ActionError(gate.message);
+  }
+  return gate.reservation;
 }
 
 /**
@@ -173,7 +194,7 @@ export const enhanceProfileForJobAction = createAction({
     { jobId, jobDescription },
     ctx,
   ): Promise<{ review: ProfileChangeReview; jobId: string }> => {
-    await requireEnhanceBudget(ctx.userId);
+    const reservation = await requireEnhanceBudget(ctx.userId);
 
     const parsed = parseJobRequest({ jobDescription });
     if (!parsed.ok) {
@@ -184,6 +205,11 @@ export const enhanceProfileForJobAction = createAction({
     const context = buildProfileContext(draft.data);
 
     if (context.isStarter) {
+      // The credit is returned: nothing reached a model, and charging for a
+      // refusal we could have made before reserving would be charging for the
+      // order of the checks. (Reserving first is still right — the starter check
+      // needs a profile read, which is more expensive than the counter write.)
+      await settleAiSpend(reservation, { outcome: "error" });
       throw new ActionError(
         "Your profile is still the starter template — there's nothing to enhance yet.",
       );
@@ -224,6 +250,11 @@ export const enhanceProfileForJobAction = createAction({
         },
         "ai profile enhancement",
       );
+
+      await settleAiSpend(reservation, {
+        outcome: "ok",
+        ...tokensFrom(result.usage),
+      });
     } catch (error) {
       // A provider failure, a timeout, or output that did not satisfy the
       // schema. None is the user's fault and none is actionable by them, so
@@ -233,6 +264,10 @@ export const enhanceProfileForJobAction = createAction({
         { err: error, userId: ctx.userId, model: aiModelId(), jobId },
         "ai enhancement failed",
       );
+      // Refunded, and this is the case it matters for: `generateObject` has no
+      // partial output, so a schema failure or a timeout is a call billed in full
+      // for nothing the user can use.
+      await settleAiSpend(reservation, { outcome: "error" });
       throw new ActionError(
         "That didn't go through. Try again — nothing was changed.",
       );

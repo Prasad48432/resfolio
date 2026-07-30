@@ -167,7 +167,7 @@ features.
     whatever value you pick. Four things together, and the first two are the ones
     that matter: `--matrix-head` (a separate core colour, `--color-surface` rather
     than a hard-coded white so it does not invert in light mode) inside a gradient
-    that fades to the accent; a **two-radius bloom** merged *under* `SourceGraphic`
+    that fades to the accent; a **two-radius bloom** merged _under_ `SourceGraphic`
     so the halo throws past the edge while the core stays sharp — merged the other
     way round it buries the dot in its own light and looks out of focus; a
     **six-cell tail** with a floor under the dim end, because the eye reads
@@ -194,7 +194,7 @@ features.
     where the status was; and carry **`box-decoration-break: clone`**, or an
     inline element that wraps renders every line after the first as nothing.
     **The geometry is scale-free, and it has to be.** The sweep layer is
-    `200%` of the element and `--shimmer-spread` is a *percentage* of that —
+    `200%` of the element and `--shimmer-spread` is a _percentage_ of that —
     a departure from shadcn's length-based `shimmer-spread-<number>`, forced by
     the fact that most text wearing this class is two words. A fixed 7rem band
     was wider than a 4rem "Sending…", so every glyph lit at once and nothing
@@ -205,7 +205,7 @@ features.
     keyframe's `150% → -50%` endpoints look inverted and are correct.
   - **And it rotates: `WorkingText` (`components/status/working-text.tsx`) over
     the banks in `lib/ai/status-words.ts`** (2026-07-29). The shimmer fixed a
-    line that looked *stuck*; it could not fix a line that had nothing further to
+    line that looked _stuck_; it could not fix a line that had nothing further to
     say for the thirty seconds a reasoning model takes. Every wait now cycles
     short present participles — "Thinking…", "Weighing it up…", "Joining the
     dots…" — one every 2.4s.
@@ -312,7 +312,20 @@ features.
     the active item flickers back on hover.
 - **Route groups**: `(auth)` = minimal-chrome public screens (`/login`);
   `(dashboard)` = everything behind `requireSession` (its layout verifies
-  the session server-side and renders `AppShell`).
+  the session server-side and renders `AppShell`); **`(onboarding)` = the
+  first-run flow** (`/onboarding`, doc 16) — behind `requireSession` too, but
+  deliberately **outside the shell**, because the shell is a workspace and a
+  first-run screen inside it offers a brand-new user navigation to eight empty
+  destinations.
+- **The onboarding gate is two complementary conditions on one boolean**
+  (`profiles.onboarding_completed`, doc 16), and they must stay complementary:
+  the `(dashboard)` layout redirects to `/onboarding` while it is false, the
+  `(onboarding)` layout redirects to `/profile` while it is true. Neither points
+  at the other, which is what keeps this out of the redirect loop `/login` had to
+  be designed around. `/login` resolves the same question at the OAuth callback's
+  landing point, to save a new user a visible bounce through a shell they are
+  about to leave. **`proxy.ts` is untouched** — it is edge-resident and
+  database-free by design, and this decision needs a row.
 - **Route guarding is three layers deep** (doc 10): `proxy.ts` does an
   _optimistic_ cookie-presence redirect (never trusted), the `(dashboard)`
   layout verifies via `requireSession`, and every Server Action resolves
@@ -333,16 +346,82 @@ features.
   validated by their own packages. `.env.example` documents local setup.
 - **Test ids**: every interactive element gets a `data-testid` from the
   `lib/testids.ts` registry (static keys or the exported helper functions).
+- **Settings has its own sub-navigation** (`components/settings/settings-nav.tsx`),
+  and **every settings page renders it** — never hand-rolled, for the same reason
+  as `PageHeader`. It exists because Settings became the first section with more
+  than one page (`/settings/account`, `/settings/ai-usage`) while the sidebar
+  deliberately carries **one** row for the whole section: "Settings → Account" and
+  "Settings → AI usage" as two top-level rows would put configuration on the same
+  footing as the Profile (doc 08).
+  - **`/settings/ai-usage`** (doc 14 §13) is one server call — `getUsageSummary`,
+    two round trips, **never one per feature** (Singapore Postgres, Mumbai compute).
+    It renders every feature including those at zero, because the list is also how
+    someone learns tailoring exists. **It says on the page that nothing is enforced
+    yet** while `BILLING_ENFORCED=false`: bars that look like ceilings over a
+    product that refuses nothing teach a rule we are not applying. **No Upgrade
+    button** — checkout does not exist, and a button that opens nothing is worse
+    than a sentence.
 - **Nav**: `lib/navigation.ts` is the single IA source consumed by the
   sidebar and the command palette — extend it there, never in components.
   **A `key` must equal the first URL segment** — the sidebar's active state and
   `sectionLabelFor`'s top-bar title both match on `/${key}`, so a mismatch breaks
   both silently. The sidebar renders `NAV_ITEMS`; the **palette renders `PALETTE_ITEMS`**
   (= `NAV_ITEMS` + `PALETTE_EXTRA_ITEMS`), for destinations that are worth
-  finding by name but do not earn a permanent row. **`PALETTE_EXTRA_ITEMS` is
-  empty today**: `/ai/job` was its only entry and Phase 7 retired it. Kept rather
-  than deleted, because the composition is the shape and the next
-  tool-with-a-URL belongs there rather than in a component.
+  finding by name but do not earn a permanent row. `/ai/job` was its first entry
+  and Phase 7 retired it; **`/settings/ai-usage` is the current one** — a
+  destination people go looking for by name ("how much have I used") that does not
+  earn a row beside the Profile. Note its `key` is `settings`, not `ai-usage`: the
+  rule above is the first URL _segment_, so it correctly lights the Settings row
+  rather than inventing a ninth section.
+- **Onboarding** (doc 16, 2026-07-30): `/onboarding` is a Server Component gate
+  over one client island (`components/onboarding/`) — the `/ai` shape. Two
+  options (upload a résumé; LinkedIn, coming soon) and a Skip. Mutations go
+  through `app/(onboarding)/onboarding/actions.ts`.
+  - **One thing at a time: every control reads a derived `busy`.** Skip is not a
+    cancel — it marks the flag and navigates — so pressing it mid-scan would race a
+    fetch that is still running, and the user could not say which of the two
+    decided what their profile contains. `busy` is computed from the stage plus the
+    transition, never tracked as a fourth flag, so a new stage cannot leave a
+    control live by omission. Skip stays **rendered** while disabled (a control
+    that vanishes reads as the choice being taken away). **`disabled` and `pending`
+    are separate props on `SkipButton`** and must stay separate: `pending` is the
+    spinner and means _this_ button's action is running, so collapsing them puts a
+    spinner on Skip while a résumé is being read.
+  - **Extraction is a route, the write is an action, and both halves are the
+    design.** `POST /api/onboarding/resume` reads the PDF and returns a Profile
+    **without storing anything**; `applyResumeImportAction` stores it. The route
+    earns its existence on the _upload_ exception (`/api/uploads/route.ts`: an
+    action serialises its arguments and the body limit is 1MB), not the streaming
+    one — and the write staying an action is doc 13's propose → review → apply
+    spine, held to even though the draft being replaced is only the seed.
+  - **Two loading phases because there are two round trips**, and not one more.
+    `scanning` and `building` are real (`lib/ai/status-words.ts`); "structuring",
+    "mapping", "3 of 5" would be invented, because `generateObject` emits nothing
+    until it finishes. This is the longest wait in the product and therefore the
+    one where a fake progress bar would be most convincing — doc 13's rule applies
+    hardest here. `ResumeScan`'s page deliberately does **not** fill in behind the
+    scan line: revealing rows as it passes looked better and read as "we have
+    understood these three lines" against a call that had returned nothing.
+  - **The PDF goes to the model as a file part.** No PDF parser dependency: the
+    provider reads page layout (which two-column résumés need) and degrades to
+    reading a scanned page as an image, where a text extractor returns nothing.
+    The bytes are **never stored** — no R2 object, no `assets` row.
+  - **The upload card does not render when `isAiAvailable()` is false**, and the
+    route refuses independently — same shape as `PDF_EXPORT_ENABLED`. A card that
+    opens a file picker and then answers 501 is worse than one never offered.
+  - **The LinkedIn "coming soon" card is a deliberate exception** to `/sources`'
+    rule against teaser cards. This is the one screen where the user is choosing
+    _how_ to start, so "the other way is coming" answers "is this all there is?".
+    It is inert and `aria-disabled`.
+  - **The dropzone's real control is the `<input type="file">`**, hidden but
+    focusable with the card as its label — that is what makes it keyboard- and
+    screen-reader-operable without an `onClick` on a div. Drag state is a **depth
+    counter, not a boolean** (`dragenter`/`dragleave` fire per descendant, so a
+    boolean strobes), `dragover` must `preventDefault()` or the browser navigates
+    to the file, and the input's value is cleared after every change so
+    re-choosing the _same_ file after a failure still fires.
+  - **It validates nothing client-side.** `parseResumeUpload` on the server is the
+    one place the rules live; `accept` filters the picker and is a convenience.
 - **Profile editor** (doc 08, form-first; preview pane arrives Phase 4):
   the route reads/seeds the draft server-side via
   `@resfolio/profile/server` (`getOrCreateProfile`) and hands it to the
@@ -662,24 +741,21 @@ features.
     under **Applied**, and the board is right either way with nothing to drag
     afterwards. No records the status the row already holds, which the domain
     treats as a no-op, so the flow view is never handed a transition that did not
-    happen.
-    - **The click opens the question; the answer opens the posting**
-      (reversed 2026-07-29 — it used to `preventDefault` nothing and let the
-      navigation through). The dialog was waiting in the tab the user had just
-      left, so it was asked of a screen nobody was looking at and answered, if at
-      all, by somebody who had to reconstruct the question first. Asking on the
-      way out costs one click; asking after costs a context switch, which is the
-      one people don't pay.
-    - **A modifier or middle click is not intercepted.** That is the user asking
-      the *browser* for a tab; breaking a browser affordance to run a product flow
-      is not a trade this earns. The question survives — the job is still `saved`,
-      so the next plain click asks it.
-    - **The tab is opened by a detached `<a target="_blank" rel="noopener
-      noreferrer">`, clicked inside the answer's handler before the `await`** —
-      the shape `lib/download.ts` uses. Two traps in one line: a tab opened after
-      a promise resolves has lost its user gesture and is blocked, and
-      `window.open(url, "_blank", "noopener")` **returns `null` on success**, so
-      the obvious "did it open?" check reports a blocked popup every time.
+    happen. - **The click opens the question; the answer opens the posting**
+    (reversed 2026-07-29 — it used to `preventDefault` nothing and let the
+    navigation through). The dialog was waiting in the tab the user had just
+    left, so it was asked of a screen nobody was looking at and answered, if at
+    all, by somebody who had to reconstruct the question first. Asking on the
+    way out costs one click; asking after costs a context switch, which is the
+    one people don't pay. - **A modifier or middle click is not intercepted.** That is the user asking
+    the _browser_ for a tab; breaking a browser affordance to run a product flow
+    is not a trade this earns. The question survives — the job is still `saved`,
+    so the next plain click asks it. - **The tab is opened by a detached `<a target="_blank" rel="noopener
+noreferrer">`, clicked inside the answer's handler before the `await`** —
+    the shape `lib/download.ts` uses. Two traps in one line: a tab opened after
+    a promise resolves has lost its user gesture and is blocked, and
+    `window.open(url, "_blank", "noopener")` **returns `null` on success**, so
+    the obvious "did it open?" check reports a blocked popup every time.
 - **Blog** (doc 07/01, Phase 8): `/blog` lists posts via `@resfolio/blog/server`;
   `/blog/[id]` is the post editor (`components/blog/`). Mutations go through
   `app/(dashboard)/blog/actions.ts`.
@@ -734,9 +810,9 @@ features.
     the URL is in people's history and there is a real destination to send it to.
     The job workflow is now a **tool call inside the conversation** plus an
     artefact panel beside it — see the "Job match happens in the chat" block
-    below. `PALETTE_EXTRA_ITEMS` is consequently empty: there is nothing to
-    navigate to, and an entry pointing at `/ai` under a second name would be one
-    destination wearing two labels.
+    below. It left `PALETTE_EXTRA_ITEMS` and nothing replaced it there for three
+    phases: there is nothing to navigate to, and an entry pointing at `/ai` under a
+    second name would be one destination wearing two labels.
   - **`export const maxDuration = 60` on `ai/page.tsx` is load-bearing**, and it
     moved there from `/ai/job`. `maxDuration` is route-segment config, so a
     Server Action inherits it from the page it is invoked from;
@@ -785,10 +861,45 @@ features.
     `/api/resumes/[id]/pdf` does: the product need is `Content-Disposition`,
     which an action cannot return.
   - **Guard order is the design**: `requireSession` → kill switch (503) →
-    configured (501) → rate limit (429) → parse/size (400/413) → model. Each is
+    configured (501) → rate limit (429) → parse/size (400/413) → **quota (402)** →
+    model. Each is
     cheaper than the next, so a flood costs a cookie lookup, not an OpenAI
     request. `AI_ENABLED=false` hides the nav item **and** hard-refuses, the same
     shape as `PDF_EXPORT_ENABLED` — a hidden button is never the only guard.
+  - **`lib/ai/billing.ts` is the only file in this app that calls
+    `@resfolio/billing/server`** (doc 14 §6, §11 step 4). One refusal shape, one
+    sentence, one place that knows a metering failure is not a user-facing error;
+    six call sites reaching into the domain would each answer "what if the counter
+    write fails" differently. Four rules:
+    - **Quota is the last rung** because it is the only one that costs a database
+      round trip — and it is always reserved **before** the stream opens, so a
+      refusal is still a status code rather than an error inside a body.
+    - **It fails _open_ while metering and _closed_ while enforcing**, decided by
+      `BILLING_ENFORCED` inside the helper rather than per call site. That is what
+      lets metering ship before migration `0017` is applied: nobody is being
+      refused, so a missing table is an accounting gap. Once enforcement is on, a
+      quota you cannot read is not one you can enforce. **`AiReservation` is
+      nullable for exactly this reason** — `null` means "not metered", and every
+      caller must pass it to `settleAiSpend`, which no-ops.
+    - **Every failure path settles**, including `onAbort`: `recordAiSpend` refunds
+      a non-`ok` outcome, and Stop is a real cost control (doc 13 passes
+      `request.signal`), so charging for it would turn the honest button into a
+      penalty. `generateObject` is the case that matters most — no partial output,
+      so a schema failure is a call billed in full for nothing usable. Settling is
+      idempotent on the reservation id, which is what makes calling it from both
+      `onFinish` and `onError` safe.
+    - **`tokensFrom` exists because `reasoningTokens` is counted _inside_
+      `outputTokens`.** Recorded as siblings without knowing that, the ledger is
+      quietly ~30% high on exactly the calls that cost the most.
+  - **A tool-calling turn spends twice** (`TOOL_CALLING_SPENDS_BOTH`) — `chat`
+    plus the tool's own feature — and `analyzeJobMatch` asks through
+    **`AiToolContext.authorizeJobMatch`, a closure the route supplies**. The tool
+    stays database-free (this module's rule is that a tool validates and returns),
+    while the check still happens before the analysis exists. Do not move it into
+    `onFinish`: a post-hoc increment can push `used` past `allowed`. A refusal is a
+    `quota-exhausted` tool **result**, not a throw, and its `detail` is the gate's
+    own sentence passed through verbatim — a model rewording a limit and a reset
+    date is a model getting them wrong.
   - **`lib/ai/limits.ts` holds every ceiling**, and they are cost controls, not
     validation niceties. `chat-request.ts` enforces them (pure + tested):
     oversized single messages are **rejected, never truncated** — truncation
@@ -818,8 +929,11 @@ features.
     promised one; Better Auth's is its own and doesn't generalise). Keyed per
     **user and mode**, and **a mode is a real budget, not a key prefix**:
     `chat` gets 20/10min, `job` and `tailor` get 6 each (one analysis sends a
-    posting _and_ the whole profile), and `letter` gets 4 — the tightest, because a
-    letter is the one output people reroll rather than accept. One `Ratelimit` per
+    posting _and_ the whole profile), `letter` gets 4 — because a letter is the one
+    output people reroll rather than accept — and **`intake` gets 3**, the
+    tightest, because it is the most expensive single call in the product (a whole
+    PDF in, a whole profile out) _and_ the only one a brand-new account with no
+    content can reach. One `Ratelimit` per
     mode, memoised — the instance carries its own budget, so the mode cannot be an
     argument to `limit()`. Inert without Upstash, like the auth limiter.
   - **`lib/ai/profile-context.ts` builds the model's view of the Profile**
@@ -949,7 +1063,7 @@ features.
     has one artefact panel, one resume slot and one score, so a second posting
     produces a conversation that is lying about which job it describes — and it is
     paid for twice over, since every turn re-reads the transcript. It also breaks
-    re-checking: `findJobDescription` walks back to the *most recent* long
+    re-checking: `findJobDescription` walks back to the _most recent_ long
     message, so after a second posting lands, "recalculate" silently re-checks the
     wrong one.
     - **The composer refuses to send** (`lib/ai/second-posting.ts`, pure +
@@ -1095,61 +1209,50 @@ features.
     segment**: `/ai/job` occupied that position when the decision was made, and
     the reasoning outlived it — a dynamic segment here makes every future static
     child an id nobody may be assigned. The transcript is loaded
-    server-side and user-scoped, so a stranger's id resolves to nothing.
-    - **A stored transcript is a record, never context.** Nothing reads the table
-      on the way to a provider — the model's context is still built per request.
-      That is the rule the domain exists to keep; see `domains/ai/CLAUDE.md`.
-    - **Saving is a Server Action, once per settled turn.** No fourth route
-      handler: the rule is that a route exists only where a stream is the product
-      requirement, and this is a write of a finished thing. `AiChat` fires on the
-      busy → settled **status edge**, not on a message count — `regenerate()`
-      replaces the last answer without adding a message, and a count would never
-      save the rewrite. `AiWorkspace` serialises saves through a promise chain.
-    - **The rail's list is client state, seeded from the server.** The alternative
-      is `router.refresh()` after every save, which re-renders the route
-      mid-conversation and remounts the transcript being read. For the same
-      reason, the URL is claimed after the first save with
-      **`history.replaceState`, not `router.replace`** — the router would
-      regenerate the new-chat id, change `AiChat`'s `key`, and remount everything
-      to update an address bar.
-    - **`AiChat` is keyed on the session id.** `useChat` reads `messages` once, on
-      mount; two conversations are two components.
-    - **`AiWorkspace` owns which conversation is on screen; the page reports only
-      what the URL says** (fixed 2026-07-29 — this was a conversation-losing bug).
-      `ai/page.tsx` used to compute `saved?.id ?? randomUUID()` and key the
-      workspace on it, which made the page **non-idempotent**: two renders of one
-      URL produced two ids, so any re-render of the route while a chat had no
-      `?c=` yet changed the key, remounted everything and dropped the user into a
-      blank new chat *mid-answer*. Route re-renders are ordinary —
-      `router.refresh()` after applying tailoring, **every Server Action that
-      calls `revalidatePath`** (Next re-renders the current tree in the action's
-      response whatever path was revalidated, so the chat's own Apply button,
-      which revalidates `/profile`, did it), and Fast Refresh in development.
-      - **A key could not have been made to work**, and that is the part worth
-        keeping: the URL is claimed *during* a conversation — the first save
-        writes `?c=<id>` via `history.replaceState` — so the server's answer for
-        one unbroken chat changes from "nothing" to an id with nothing navigated
-        to. Anything keyed on that remounts at the transition.
-      - The rule is `lib/ai/chat-identity.ts` (pure, tested): compare the URL
-        against **the URL as last seen**, never against the id on screen. `url !==
-        current` is the *normal* state of an unsaved chat, not evidence of a
-        navigation. Four cases — `none` (re-render), `adopted` (our own
-        `replaceState` catching up), `open` (the rail), `new` (New chat).
-      - **Whoever changes the URL tells the adoption block about it.**
-        `startNewChat` calls `replaceState("/ai")` *and* clears the last-seen URL,
-        or the next re-render reads its own edit as a navigation and mints a
-        second id over the posting just carried across.
-      - The new-chat id is minted in a **`useState` initialiser** (once per mount)
-        instead of on the server (once per render). Nothing renders it into the
-        DOM — it reaches `useChat`'s id, two `key`s and a fetch argument — so the
-        server and client disagreeing across hydration changes no markup.
-      - **"New chat" in the rail is a link a plain click takes over**
-        (`onNew` → `startNewChat("")`). Cmd-click still opens a tab; a plain click
-        no longer round-trips to the server for an id the client can mint — and
-        from a chat that never saved, the URL was already `/ai`, so the navigation
-        was a no-op and the button did nothing at all.
-    - **Delete asks nothing, Clear history asks.** One destroys a row the user is
-      pointing at; the other reaches everything scrolled out of view.
+    server-side and user-scoped, so a stranger's id resolves to nothing. - **A stored transcript is a record, never context.** Nothing reads the table
+    on the way to a provider — the model's context is still built per request.
+    That is the rule the domain exists to keep; see `domains/ai/CLAUDE.md`. - **Saving is a Server Action, once per settled turn.** No fourth route
+    handler: the rule is that a route exists only where a stream is the product
+    requirement, and this is a write of a finished thing. `AiChat` fires on the
+    busy → settled **status edge**, not on a message count — `regenerate()`
+    replaces the last answer without adding a message, and a count would never
+    save the rewrite. `AiWorkspace` serialises saves through a promise chain. - **The rail's list is client state, seeded from the server.** The alternative
+    is `router.refresh()` after every save, which re-renders the route
+    mid-conversation and remounts the transcript being read. For the same
+    reason, the URL is claimed after the first save with
+    **`history.replaceState`, not `router.replace`** — the router would
+    regenerate the new-chat id, change `AiChat`'s `key`, and remount everything
+    to update an address bar. - **`AiChat` is keyed on the session id.** `useChat` reads `messages` once, on
+    mount; two conversations are two components. - **`AiWorkspace` owns which conversation is on screen; the page reports only
+    what the URL says** (fixed 2026-07-29 — this was a conversation-losing bug).
+    `ai/page.tsx` used to compute `saved?.id ?? randomUUID()` and key the
+    workspace on it, which made the page **non-idempotent**: two renders of one
+    URL produced two ids, so any re-render of the route while a chat had no
+    `?c=` yet changed the key, remounted everything and dropped the user into a
+    blank new chat _mid-answer_. Route re-renders are ordinary —
+    `router.refresh()` after applying tailoring, **every Server Action that
+    calls `revalidatePath`** (Next re-renders the current tree in the action's
+    response whatever path was revalidated, so the chat's own Apply button,
+    which revalidates `/profile`, did it), and Fast Refresh in development. - **A key could not have been made to work**, and that is the part worth
+    keeping: the URL is claimed _during_ a conversation — the first save
+    writes `?c=<id>` via `history.replaceState` — so the server's answer for
+    one unbroken chat changes from "nothing" to an id with nothing navigated
+    to. Anything keyed on that remounts at the transition. - The rule is `lib/ai/chat-identity.ts` (pure, tested): compare the URL
+    against **the URL as last seen**, never against the id on screen. `url !==
+current` is the _normal_ state of an unsaved chat, not evidence of a
+    navigation. Four cases — `none` (re-render), `adopted` (our own
+    `replaceState` catching up), `open` (the rail), `new` (New chat). - **Whoever changes the URL tells the adoption block about it.**
+    `startNewChat` calls `replaceState("/ai")` _and_ clears the last-seen URL,
+    or the next re-render reads its own edit as a navigation and mints a
+    second id over the posting just carried across. - The new-chat id is minted in a **`useState` initialiser** (once per mount)
+    instead of on the server (once per render). Nothing renders it into the
+    DOM — it reaches `useChat`'s id, two `key`s and a fetch argument — so the
+    server and client disagreeing across hydration changes no markup. - **"New chat" in the rail is a link a plain click takes over**
+    (`onNew` → `startNewChat("")`). Cmd-click still opens a tab; a plain click
+    no longer round-trips to the server for an id the client can mint — and
+    from a chat that never saved, the URL was already `/ai`, so the navigation
+    was a no-op and the button did nothing at all. - **Delete asks nothing, Clear history asks.** One destroys a row the user is
+    pointing at; the other reaches everything scrolled out of view.
   - **Stop is a cost control.** The route passes `request.signal` as
     `abortSignal`, so cancelling actually stops generation and therefore billing.
   - **Usage is logged, not tabled** (`onFinish` → `createLogger("ai")` with

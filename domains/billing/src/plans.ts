@@ -78,6 +78,23 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 export const subscriptionStatusSchema = z.enum(SUBSCRIPTION_STATUSES);
 
 /**
+ * Display names, for the same reason {@link AI_FEATURE_LABELS} exists: the usage
+ * screen, the upgrade prompt and the eventual pricing page must not each invent
+ * their own word for the plan somebody is paying for.
+ *
+ * **"Free" is a plan, not the absence of one**, and it is named rather than left
+ * blank — a usage screen whose plan line is empty reads as a page that failed to
+ * load. The paid names describe what was bought (a pass, a subscription) rather
+ * than inventing a tier vocabulary the checkout does not use.
+ */
+export const PLAN_LABELS: Record<PlanId, string> = {
+  free: "Free",
+  weekly: "Week pass",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+
+/**
  * Position in {@link PLAN_IDS}, for "is this an upgrade?" comparisons.
  *
  * Used to refuse selling a week pass to someone already on monthly or yearly

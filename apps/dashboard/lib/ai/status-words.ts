@@ -39,6 +39,8 @@ export const WORK_KINDS = [
   "enhancing",
   "tailoring",
   "letter",
+  "scanning",
+  "building",
 ] as const;
 
 export type WorkKind = (typeof WORK_KINDS)[number];
@@ -100,6 +102,25 @@ export const STATUS_WORDS: Record<WorkKind, readonly [string, ...string[]]> = {
     "Choosing the words",
     "Reading it back",
   ],
+
+  // Onboarding's two banks (doc 16), and they are **two banks because there are
+  // two round trips**: the extraction route, then the apply action. That is the
+  // whole of what keeps this inside "no fake progress" — every other multi-step
+  // loading sequence in this product would be inventing its stages, and these
+  // two are the ones the network actually has.
+  //
+  // The resume is with the model. Every word here is that one call described
+  // differently — none of them names structuring, mapping or saving, which is
+  // the next bank's work and the temptation this rule exists to refuse.
+  scanning: [
+    "Reading your resume",
+    "Turning the pages",
+    "Taking it in",
+    "Noting the details",
+  ],
+
+  // The user has approved the import and it is being written.
+  building: ["Building your profile", "Filing it away", "Almost there"],
 };
 
 /** How long each word holds, in ms. Long enough to be read without effort,

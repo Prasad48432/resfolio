@@ -21,6 +21,16 @@ export const AI_FEATURES = [
   "resumeTailor",
   /** One cover-letter draft. */
   "coverLetter",
+  /**
+   * One resume read into a Profile at onboarding (doc 16).
+   *
+   * **The only feature here that is not a recurring workflow**, and the only one
+   * a brand-new free account reaches before it has any content. Its allowance is
+   * therefore small on every plan and does not scale with the tier: a user has
+   * one resume, and the two legitimate reasons to run this twice are a wrong file
+   * and a bad extraction.
+   */
+  "resumeIntake",
 ] as const;
 
 export type AiFeature = (typeof AI_FEATURES)[number];
@@ -38,6 +48,40 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   profileEnhance: "Profile enhancements",
   resumeTailor: "Resume tailoring",
   coverLetter: "Cover letters",
+  resumeIntake: "Resume import",
+};
+
+/**
+ * What one call of each feature is *worth*, in credits, relative to a chat turn.
+ *
+ * **Written from day one and read by nothing yet** (§4.4). The quota today is a
+ * per-feature counter — five job analyses is five job analyses — and this column
+ * exists so that a future move to a single weighted credit pool has history to
+ * work with. Backfilling it is not really possible: it would mean re-deriving,
+ * months later, what each recorded event would have cost under a table that did
+ * not exist when it happened.
+ *
+ * The numbers are **shape of cost, not measured cost**, and they are deliberately
+ * coarse. What decides them is how much goes in and how much comes out:
+ *
+ * - `chat` is the unit — one turn, one profile, a few sentences.
+ * - `jobMatch`, `profileEnhance` and `resumeTailor` all send a whole posting *and*
+ *   the whole profile and ask for structured output over both.
+ * - `coverLetter` sends the same input and writes four paragraphs of prose.
+ * - `resumeIntake` is the most expensive call in the product: a whole PDF in
+ *   (rasterised, if it is a scan) and a whole profile out.
+ *
+ * A total `Record`, like {@link PLAN_LIMITS}, so a new feature cannot be added
+ * without deciding its weight — which is the only moment anyone will think about
+ * it.
+ */
+export const FEATURE_COST_UNITS: Record<AiFeature, number> = {
+  chat: 1,
+  jobMatch: 3,
+  profileEnhance: 3,
+  resumeTailor: 3,
+  coverLetter: 2,
+  resumeIntake: 5,
 };
 
 /**

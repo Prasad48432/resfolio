@@ -175,10 +175,16 @@ Business-logic packages live under `domains/`:
   Zod schema v1, lazy `migrateProfile`, the `buildProfileView` projection,
   pure edit helpers (framework-free, root export), the **public handle** rules
   (`handleSchema` + reserved blocklist — the username shared by the portfolio and
-  resume outputs, re-exported by `@resfolio/portfolio`), and database-backed
-  draft/publish + handle operations (`@resfolio/profile/server`: the only code
-  that touches the `profiles`/`profile_versions` tables — `claimHandle`,
-  `getProfileByHandle`, `setPublicResume`, …)
+  resume outputs, re-exported by `@resfolio/portfolio`), the **résumé intake**
+  contract (`intake.ts` — doc 16: the model-facing `resumeExtractionSchema` and
+  the pure `buildProfileFromResume`, which is the one place in the repo a model
+  may _add_ profile content, and lives here rather than in
+  `@resfolio/integrations` because a résumé **is** the user's identity, which a
+  connector structurally may not propose), and database-backed
+  draft/publish + handle + onboarding operations (`@resfolio/profile/server`: the
+  only code that touches the `profiles`/`profile_versions` tables —
+  `claimHandle`, `getProfileByHandle`, `setPublicResume`,
+  `isOnboardingComplete`, `finishOnboarding`, …)
 - `@resfolio/portfolio` (`domains/portfolio`) — the portfolio domain: a **Site**
   is `Profile × (template + config)`. Pure root (the platform route table
   `resolvePortfolioRoute`, `SiteRecord` type, and the slug rules **re-exported
@@ -247,7 +253,7 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
   line, labelled** — `Live · GitHub` in the `rf-entry-aside`, beside the dates —
   not spelled out under the entry, where three projects spent a fifth of the page
   printing addresses nobody reads or types. The trade is stated in the code: the
-  PDF's *text* now says "Live", and the URL survives as the link annotation only.
+  PDF's _text_ now says "Live", and the URL survives as the link annotation only.
   It has a `render.test.tsx` harness like `resume-editorial`'s
 - `@resfolio/template-resume-editorial` (`templates/resume-editorial`) — the
   second resume template: a **serif, monochrome, centred-masthead** document set
@@ -285,6 +291,10 @@ Templates live under `templates/` (presentation only, SDK-conforming, doc 05):
 
 `docs/` is the source of truth for architecture. Start at `docs/README.md`.
 
+- `docs/architecture/16` is the **onboarding** decision (Accepted,
+  implemented 2026-07-30): a separate `(onboarding)` route group gated on
+  `profiles.onboarding_completed`, and résumé → Profile extraction. Read it
+  before touching first-run behaviour.
 - `docs/architecture/01`–`12` are Accepted decisions: profile engine, resume
   and portfolio rendering, deployment, template SDK, API, storage, dashboard
   UX, the unified rendering pipeline, auth & security, engineering

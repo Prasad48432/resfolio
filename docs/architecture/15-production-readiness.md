@@ -295,11 +295,18 @@ The design consequence is specific and it lands squarely on doc 14:
   one statement.** That was written for correctness (no read-then-write race);
   in this topology it is also the latency design, which is a good sign it is
   the right shape.
-- **`resolveEntitlement` must not require its own query.** The subscription row
-  and the counter upsert should be one round trip — a CTE that resolves the
-  plan and applies the increment against that plan's allowance in a single
-  statement. Two queries here is the difference between +50ms and +100ms on
-  every AI call.
+- **The AI path costs two round trips, and one is not achievable at an
+  acceptable price.** This bullet originally called for a single CTE resolving
+  the plan and applying the increment together. Implementing it (§11 step 3)
+  showed that to be the wrong trade: the counter's `period_start` needs the
+  anchoring and month-clamping rules in `@resfolio/billing`'s `period.ts`, so
+  one statement means **re-implementing the most safety-critical pure function
+  in the package in SQL** — where it would have to agree forever with the
+  TypeScript copy the usage screen reads. Two versions of that rule disagreeing
+  is a screen promising a reset date the gate does not honour, which is worse
+  than 50ms. The saving is still real: the naive shape is three trips (read
+  plan, read counter, write counter) and the implemented one is two, because
+  doc 14 §6.3's atomic upsert collapses the last two.
 - **Doc 14 §13's usage screen must be one query for five features**, not five.
 - **Better Auth's cookie cache is now load-bearing**, not an optimisation.
   Session verification runs on every dashboard request; without the cache each

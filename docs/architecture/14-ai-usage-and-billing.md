@@ -1,7 +1,10 @@
 # 14 — AI Usage, Quotas & Billing
 
-**Status:** Proposed — no code written. Supersedes the "Billing & plan gating"
-entry on `docs/README.md`'s deferred list.
+**Status:** Accepted; **§11 steps 0–4 implemented 2026-07-30** (pure root,
+tables + migration `0017`, `./server`, the gate wired behind every model call,
+and the usage screen — all with `BILLING_ENFORCED=false`, so nothing is refused
+yet). Steps 5–8 (enforcement, Dodo, hardening) are still Proposed. Supersedes
+the "Billing & plan gating" entry on `docs/README.md`'s deferred list.
 **Depends on:** [06](06-api-architecture.md), [07](07-storage.md),
 [10](10-auth-and-security.md), [13](13-ai-layer.md);
 [15](15-production-readiness.md) §2.1 is a prerequisite for implementation.
@@ -428,7 +431,18 @@ monthly.
 
 ## 5. Data model
 
-Four tables, all owner-scoped so account deletion stays a cascade.
+**Six tables**, all owner-scoped so account deletion stays a cascade. Four are
+described below; the other two exist because §4.4 and §8.3 each need one, and
+they are built in the same migration so that step 3 needs no second one:
+
+- **`ai_usage_grants`** (§4.4) — credits outside the plan allowance, and the
+  mechanism by which a failed generation is refunded. `reservation_id` is
+  unique, which is what stops the refund path being a way to mint credits.
+- **`billing_webhook_events`** (§8.3) — processed deliveries, keyed on the
+  provider's `webhook-id`. **The payload is deliberately not stored**: it
+  carries customer name, email and payment details, and this table exists to
+  answer one boolean. Keeping the body would turn an idempotency ledger into a
+  second, unmanaged copy of customer data with its own retention question.
 
 **They hang off `user`, not `profile`, and that is a deliberate departure from
 the rest of the schema.** Every content table in the repository is
@@ -455,10 +469,20 @@ is a null somebody eventually forgets to handle.
 | `interval`                    | text null                      | `week \| month \| year`; null on free. `week` = a pass |
 | `period_start` / `period_end` | timestamptz null               | **from the provider**, never computed                  |
 | `cancel_at_period_end`        | boolean not null default false |                                                        |
+| `status_changed_at`           | timestamptz not null           | **not `updated_at`** — see below                       |
+| `currency`                    | text null                      | what they were charged in; entitlement ignores it      |
 | `provider`                    | text null                      | `'dodo'`                                               |
 | `provider_subscription_id`    | text null unique               | null for a week pass — nothing renews it               |
 | `provider_customer_id`        | text null                      |                                                        |
 | `updated_at`                  | timestamptz                    |                                                        |
+
+**`status_changed_at` is a column of its own, and `updated_at` cannot stand in
+for it.** Grace (§8.5) is measured from the moment a subscription went
+`on_hold`. `updated_at` moves for _any_ write — a currency correction, a
+customer-id capture, a re-sync — so using it would silently restart the grace
+window and extend paid access for free, indefinitely, with nothing to observe.
+This requirement came out of writing `resolveEntitlement` before the table,
+which is the argument for doing it in that order.
 
 **`status` uses Dodo's own vocabulary, not a translated one:**
 
@@ -571,6 +595,7 @@ The truth. Append-only, never updated.
 | `input_tokens` / `output_tokens` / `reasoning_tokens` | integer        | from the provider                        |
 | `cost_micros`                                         | bigint         | integer arithmetic; never a float        |
 | `cost_units`                                          | integer        | the feature's credit weight (§5.3.1)     |
+| `reservation_id`                                      | uuid unique    | what `recordAiSpend` is idempotent on    |
 | `outcome`                                             | text           | `ok \| error \| aborted`                 |
 | `created_at`                                          | timestamptz    |                                          |
 
@@ -1258,15 +1283,63 @@ Each step is shippable and reversible.
 1. **`@resfolio/billing` pure root.** Types, catalogue, `resolveEntitlement`,
    `periodStartFor` (including §5.2's clamping and anchoring rules), schemas.
    All tests, no I/O, nothing wired.
-2. **Tables + migration `0017`.** (`0016` is taken by `@resfolio/job`.)
-   Backfill free rows. Nothing reads them yet.
+2. **Tables + migration `0017`.** (`0016` is taken by `@resfolio/job`.) All six
+   at once, so step 3 needs no second migration. Backfill free rows — and
+   **seed no counters**: usage spent before the deploy was free when it was
+   spent. Nothing reads any of it yet.
 3. **Meter only.** `recordAiSpend` behind every model call; `authorizeAiSpend`
    returns "allowed" unconditionally. Now there is real data about what a user
    actually costs — which is what should set the prices in §4.3 and §12, rather
    than the other way round.
+
+   **Done 2026-07-30, and three things about it were decided in the doing:**
+   - **`apps/dashboard/lib/ai/billing.ts` is the app's seam**, not six call
+     sites each calling the domain. It owns one refusal shape, one sentence, and
+     one answer to "what if the counter write fails" — six call sites would each
+     have invented their own and they would not all have picked the same one.
+   - **The gate fails _open_ while metering and _closed_ while enforcing**, and
+     that is what makes this step deployable before `0017` is applied. Nobody is
+     being refused yet, so a missing table is an accounting gap rather than a
+     reason to break a working feature; once enforcement is on, a quota you
+     cannot read is not one you can enforce, and the same code path refuses. One
+     flag flips both, so the switch that turns enforcement on is also the switch
+     that closes the hole.
+   - **The `jobMatch` half of a tool-calling turn asks through a callback the
+     route supplies.** `TOOL_CALLING_SPENDS_BOTH` requires the tool to spend, but
+     `lib/ai/tools.ts`' rule is that a tool validates and returns — no I/O — and
+     a counter is a write. So `AiToolContext.authorizeJobMatch` is a closure
+     owned by the route, and the tool learns only yes or no. A refusal is a
+     `quota-exhausted` tool _result_ rather than a throw, so the assistant can
+     say what ran out in the same breath as the request that hit it. Metering it
+     post-hoc in `onFinish` was the alternative and it is a hole: a post-hoc
+     increment can push `used` past `allowed`.
+
+   **A sixth feature arrived with it**: `resumeIntake` (doc 16). The catalogue's
+   typing is what surfaced it — `PLAN_LIMITS` is a total `Record`, so the new
+   member did not compile until every plan had a number. It is the one row that
+   deliberately barely scales with the tier (3/3/5/5), because a resume import is
+   a once-per-account operation rather than a recurring workflow.
+
 4. **Surface it.** The `/settings/ai-usage` screen (§13) and a counter beside
    each AI action. Still no refusals — this step is what stops a limit being
    discovered by being refused.
+
+   **The screen is done 2026-07-30**; the inline counters beside each AI action
+   are not. Two things the screen decided:
+   - **It says so on the page while `BILLING_ENFORCED=false`.** Bars that look
+     like ceilings over a product that refuses nothing teach a rule we are not
+     applying, and then surprise the user twice — once when they believe it, and
+     again when it becomes true.
+   - **There is no Upgrade button**, because checkout is step 6 and does not
+     exist. A button that opens nothing is worse than a sentence saying where
+     things stand.
+
+   Settings also gained its **first sub-navigation** (`SettingsNav`), because it
+   is now the first section with two pages and the sidebar deliberately carries
+   one row for the whole section. `/settings/ai-usage` is also
+   `PALETTE_EXTRA_ITEMS`' first real entry — a destination people look for by
+   name that does not earn a permanent row.
+
 5. **Enforce.** Turn on the `WHERE used < allowance`. Add the 402 path, the
    upgrade prompt, the soft-limit behaviour (§6.6) and the consolidated ladder
    (§6.5).

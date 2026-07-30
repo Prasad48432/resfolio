@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { db, schema } from "@resfolio/database";
 
@@ -44,6 +44,8 @@ export interface ProfileDraft {
    * never published) — the editor disables Publish when there is nothing new
    * to snapshot (doc 01). */
   hasUnpublishedChanges: boolean;
+  /** Whether first-run onboarding is done (doc 16). */
+  onboardingCompleted: boolean;
   updatedAt: Date;
 }
 
@@ -93,6 +95,7 @@ function toDraft(
     publishedVersionId: row.publishedVersionId,
     publishedVersion: published?.version ?? null,
     hasUnpublishedChanges: computeUnpublishedChanges(data, published),
+    onboardingCompleted: row.onboardingCompleted,
     updatedAt: row.updatedAt,
   };
 }
@@ -158,6 +161,73 @@ export async function getOrCreateProfile(
     throw new ProfileDataError("Failed to create profile.");
   }
   return toDraft(row, row.publishedVersion ?? null);
+}
+
+/**
+ * Whether the user has finished first-run onboarding
+ * (docs/architecture/16-onboarding.md).
+ *
+ * **No profile row means not onboarded**, and that is the truest possible
+ * answer rather than a convenient default: the row is created on first access,
+ * so its absence is exactly "this account has never done anything".
+ *
+ * **This read must never write.** It runs in the `(dashboard)` layout on every
+ * navigation, and a gate that seeds a profile as a side effect of asking a
+ * question is a gate that can fail — and that would create the row for a user
+ * who is about to be sent somewhere else anyway. One column, one indexed
+ * lookup on the unique `user_id`.
+ */
+export async function isOnboardingComplete(userId: string): Promise<boolean> {
+  const row = await db.query.profile.findFirst({
+    where: eq(schema.profile.userId, userId),
+    columns: { onboardingCompleted: true },
+  });
+  return row?.onboardingCompleted ?? false;
+}
+
+/**
+ * Finish onboarding — the single write behind both of its exits (doc 16).
+ *
+ * Two callers, one statement:
+ * - **Skip.** No `data`: the profile is created seeded (the ordinary first-access
+ *   shape) if it does not exist, and an existing draft is left completely alone.
+ *   Marking onboarding done must never be able to touch content.
+ * - **Resume import.** `data` is the Profile built by `buildProfileFromResume`
+ *   and reviewed by the user, and it *replaces* the draft. Safe because this only
+ *   ever runs while onboarding is unfinished, so the draft it overwrites is the
+ *   seed — the placeholder examples, not anyone's work.
+ *
+ * An upsert rather than read-then-write: the row may not exist yet, two tabs may
+ * arrive at once, and the flag and the draft must land together or not at all.
+ * `draftRev` is bumped on the import path so an editor tab someone left open on
+ * the seed cannot autosave over the import it did not know about (doc 01's
+ * optimistic concurrency, working in the direction it was built for).
+ */
+export async function finishOnboarding(
+  userId: string,
+  options: { data?: Profile; identity?: SeedIdentity } = {},
+): Promise<void> {
+  const imported = options.data ? profileSchema.parse(options.data) : null;
+
+  await db
+    .insert(schema.profile)
+    .values({
+      userId,
+      draft: imported ?? createSeedProfile(options.identity),
+      draftRev: 0,
+      onboardingCompleted: true,
+    })
+    .onConflictDoUpdate({
+      target: schema.profile.userId,
+      set: imported
+        ? {
+            draft: imported,
+            draftRev: sql`${schema.profile.draftRev} + 1`,
+            onboardingCompleted: true,
+            updatedAt: new Date(),
+          }
+        : { onboardingCompleted: true },
+    });
 }
 
 export async function getProfile(userId: string): Promise<ProfileDraft> {

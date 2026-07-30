@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import { Page } from "@/components/layout/page";
 import { PageHeader } from "@/components/layout/page-header";
+import { SettingsNav } from "@/components/settings/settings-nav";
 import { TEST_IDS } from "@/lib/testids";
 
 import { LinkedAccounts } from "./linked-accounts";
@@ -23,6 +24,8 @@ export default async function AccountSettingsPage() {
         title="Account"
         description="Your identity and sign-in methods."
       />
+
+      <SettingsNav />
 
       <Card
         asChild

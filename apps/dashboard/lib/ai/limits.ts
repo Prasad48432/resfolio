@@ -178,6 +178,51 @@ export const TAILOR_RATE_LIMIT_REQUESTS = 6;
 export const LETTER_RATE_LIMIT_REQUESTS = 4;
 
 /**
+ * The resume-intake budget (onboarding, doc 16), and the tightest of the five.
+ *
+ * **Three, because a user only ever has one resume to upload.** The legitimate
+ * reasons to run this twice are a wrong file and a bad extraction; a third
+ * attempt is already generous, and beyond that the answer is the profile editor
+ * rather than another pass over the same PDF. It is also the most expensive
+ * single call in the product — a whole document as input, the whole profile as
+ * structured output — and it runs on an account that has not yet done anything,
+ * which is precisely the shape of an abusable endpoint.
+ *
+ * Note the window is shared (`RATE_LIMIT_WINDOW`, ten minutes), so a user who
+ * genuinely burns three uploads waits ten minutes rather than being locked out —
+ * and can skip onboarding and edit by hand in the meantime, which nothing gates.
+ */
+export const INTAKE_RATE_LIMIT_REQUESTS = 3;
+
+/**
+ * The uploaded resume's size ceiling.
+ *
+ * **8MB, and it is a token bound wearing a byte limit.** A one-to-two page
+ * resume exported by Word or LaTeX is 50–400KB; the files that reach megabytes
+ * are the ones carrying an embedded photo or a scanned page, which is exactly
+ * the case that also costs the most to read (the provider rasterises the pages).
+ * Anything above this is not a longer resume, it is a different kind of document
+ * — a portfolio PDF, a thesis — and reading it would produce a confident,
+ * expensive extraction of the wrong thing.
+ */
+export const MAX_RESUME_BYTES = 8 * 1024 * 1024;
+
+/**
+ * The output ceiling for one intake.
+ *
+ * Sized like the other structured calls and for the same reason: reasoning is
+ * billed from this budget before a single character of the object exists, so a
+ * ceiling sized for the JSON alone is a ceiling the JSON never reaches — and
+ * truncated structured output fails validation entirely, which on screen is a
+ * scan animation followed by nothing (see {@link MAX_OBJECT_OUTPUT_TOKENS}).
+ *
+ * Larger than those, though, because this is the one call whose output is a
+ * *whole profile*: eight sections, twenty items each, full bullet lists. A dense
+ * two-page resume transcribes to a few thousand tokens of JSON on its own.
+ */
+export const MAX_INTAKE_OUTPUT_TOKENS = 16_000;
+
+/**
  * The output ceiling for a tailoring pass, which is the one workflow that
  * legitimately needs more than {@link MAX_OUTPUT_TOKENS}.
  *

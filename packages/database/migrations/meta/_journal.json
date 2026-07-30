@@ -120,6 +120,20 @@
       "when": 1785256692803,
       "tag": "0016_crazy_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785343813355,
+      "tag": "0017_square_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785414063669,
+      "tag": "0018_daffy_exiles",
+      "breakpoints": true
     }
   ]
 }

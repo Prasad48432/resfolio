@@ -281,6 +281,21 @@ export const TEST_IDS = {
   jobEditStatus: "job-edit-status",
   jobEditSave: "job-edit-save",
   jobEditDelete: "job-edit-delete",
+  /** First-run onboarding (doc 16). The page element also carries a
+   * `data-stage` attribute naming the state machine's current stage, which is
+   * how a test asserts the flow advanced rather than guessing from what is on
+   * screen. */
+  onboardingPage: "onboarding-page",
+  onboardingResumeInput: "onboarding-resume-input",
+  onboardingResumeBrowse: "onboarding-resume-browse",
+  onboardingLinkedIn: "onboarding-linkedin",
+  onboardingSummary: "onboarding-summary",
+  onboardingAccept: "onboarding-accept",
+  onboardingReject: "onboarding-reject",
+  onboardingSkip: "onboarding-skip",
+  /** Settings' sub-navigation, and the AI usage screen (doc 14 §13). */
+  settingsNav: "settings-nav",
+  aiUsageCard: "ai-usage-card",
 } as const;
 
 /** A saved chat, by id — the one AI surface whose rows outlive the request that

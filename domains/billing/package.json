@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
@@ -12,6 +13,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@resfolio/database": "workspace:*",
+    "@resfolio/env": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "zod": "^4.1.0"
   },
   "devDependencies": {

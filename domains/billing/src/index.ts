@@ -11,8 +11,9 @@
  *
  * **No prompts, no provider, no model call, no payment SDK.** Same rule
  * `@resfolio/ai` and `@resfolio/job` follow. This package knows a feature was
- * spent; it has no idea what a model is. The Dodo SDK will live behind
- * `./server`, which does not exist yet.
+ * spent; it has no idea what a model is. `./server` owns the six billing tables
+ * and the spend gate; the Dodo SDK will live behind it too, in the one file that
+ * does not exist yet.
  *
  * See `CLAUDE.md` in this package for what belongs here and what does not.
  */

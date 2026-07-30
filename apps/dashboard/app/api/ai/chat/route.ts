@@ -11,6 +11,12 @@ import {
 } from "ai";
 import { NextResponse } from "next/server";
 
+import {
+  authorizeAiFeature,
+  settleAiSpend,
+  tokensFrom,
+  type AiReservation,
+} from "@/lib/ai/billing";
 import { parseChatRequest } from "@/lib/ai/chat-request";
 import { findJobDescription } from "@/lib/ai/job-analysis";
 import { postingsInTranscript } from "@/lib/ai/second-posting";
@@ -42,10 +48,18 @@ import { createAiTools, type AiUIMessage } from "@/lib/ai/tools";
  * after it, and the expensive thing — the model call — happens only once
  * nothing earlier has refused:
  *
- *   session → kill switch → configured → rate limit → parse → model
+ *   session → kill switch → configured → rate limit → parse → quota → model
  *
  * That is also, deliberately, cheapest-refusal-first: an unauthenticated flood
- * costs a cookie lookup, not an OpenAI request.
+ * costs a cookie lookup, not an OpenAI request. **Quota is the last rung** (doc
+ * 14 §6) because it is the only one that costs a database round trip.
+ *
+ * **A tool-calling turn spends twice** — once on `chat`, once on the tool's own
+ * feature (`TOOL_CALLING_SPENDS_BOTH`). `analyzeJobMatch` is reachable from an
+ * ordinary message, so metering the chat and not the tool would meter the wrong
+ * half and make this route the cheapest path to the most expensive feature in the
+ * product. The tool asks through a callback this route supplies — it never
+ * touches the database itself.
  */
 export const dynamic = "force-dynamic";
 /** Vercel's ceiling on this plan. A streamed response holds the connection for
@@ -96,6 +110,25 @@ export async function POST(request: Request): Promise<Response> {
       { status: parsed.problem.kind === "too-large" ? 413 : 400 },
     );
   }
+
+  // Reserved **before** the stream opens, so a refusal is still a status code the
+  // client can render as a sentence. Once the response headers are gone the only
+  // way to report anything is inside the stream, which is a worse experience for
+  // the one error the user can actually act on.
+  const gate = await authorizeAiFeature(userId, "chat");
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: gate.status });
+  }
+
+  /**
+   * The tool's reservation, if the turn calls one.
+   *
+   * Captured out here because the tool decides *whether* to spend and `onFinish`
+   * decides *what it cost* — two different moments in one request. `null` until
+   * `analyzeJobMatch` actually fires, so an ordinary conversation records nothing
+   * for it.
+   */
+  let matchReservation: AiReservation = null;
 
   /**
    * The stream is opened **before** the profile read, so the work between here
@@ -194,6 +227,19 @@ export async function POST(request: Request): Promise<Response> {
               jobDescription: analysed.jobDescription,
             }
           : null,
+        // The tool's own quota, asked for at the moment it decides to analyse
+        // rather than after the fact — a post-hoc increment could push `used`
+        // past `allowed`, which is a hole under enforcement. The tool stays
+        // database-free: this closure is the route's, and the tool only learns
+        // yes or no.
+        authorizeJobMatch: async () => {
+          const verdict = await authorizeAiFeature(userId, "jobMatch");
+          if (!verdict.ok) {
+            return { allowed: false, message: verdict.message };
+          }
+          matchReservation = verdict.reservation;
+          return { allowed: true };
+        },
       });
 
       const result = streamText({
@@ -271,6 +317,21 @@ export async function POST(request: Request): Promise<Response> {
             },
             "ai completion",
           );
+
+          // The ledger (doc 14 §6). Both reservations settle here — the turn's
+          // own, and the tool's if it fired. `finishReason: "length"` is still an
+          // `ok` outcome and is deliberately not refunded: the tokens were spent
+          // and the ceiling is ours, so a refund would be paying the user back
+          // for our configuration. `truncated` above is how they are told.
+          void settleAiSpend(gate.reservation, {
+            outcome: "ok",
+            ...tokensFrom(usage),
+          });
+          // The match's own token cost is not separable — it happened inside this
+          // one `streamText` call, which is billed once. Recording the event with
+          // no tokens is the honest shape: the credit was spent, and the money is
+          // accounted for on the `chat` row.
+          void settleAiSpend(matchReservation, { outcome: "ok" });
         },
         onError: ({ error }) => {
           // Errors raised *during* the stream can't become a status code — the
@@ -281,6 +342,26 @@ export async function POST(request: Request): Promise<Response> {
             { err: error, userId, model: aiModelId() },
             "ai stream failed",
           );
+          // And the only place the credit can be returned. `recordAiSpend` is
+          // idempotent on the reservation id, so a turn that errors *after*
+          // `onFinish` has run writes one row rather than two — which is what
+          // makes calling this from both handlers safe.
+          void settleAiSpend(gate.reservation, { outcome: "error" });
+          void settleAiSpend(matchReservation, { outcome: "error" });
+        },
+        /**
+         * Stop, and a closed tab.
+         *
+         * **The credit comes back** (doc 14 §6): `abortSignal` makes Stop a real
+         * cost control, so a user who presses it has genuinely saved money, and
+         * charging them for it turns the honest button into a penalty — which
+         * teaches people to let runaway generations finish. `onFinish` does not
+         * run on an abort, so without this the reservation would be charged and
+         * never recorded.
+         */
+        onAbort: () => {
+          void settleAiSpend(gate.reservation, { outcome: "aborted" });
+          void settleAiSpend(matchReservation, { outcome: "aborted" });
         },
       });
 

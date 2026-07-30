@@ -10,9 +10,19 @@ import { z } from "zod";
 
 /** Provenance: where an item came from (doc 01 / doc 12). `manual` is the
  * editor; connector values land with their Phase 6 integrations. Additive
- * only — widening this enum never invalidates stored profiles. */
+ * only — widening this enum never invalidates stored profiles.
+ *
+ * **`resume` is not a connector**, and it is the one value here that names a
+ * *document* rather than a service: it marks content read off a PDF the user
+ * uploaded during onboarding (`intake.ts`). It matters that it is not `manual` —
+ * nobody typed it, so an item that reads oddly is a transcription to check
+ * rather than a sentence the user stands behind. Note it also joins
+ * `@resfolio/integrations`' `KNOWN_SOURCES`, harmlessly: that set exists to
+ * check a *connector id* against this list, and there is no connector called
+ * "resume". */
 export const ITEM_SOURCES = [
   "manual",
+  "resume",
   "github",
   "linkedin",
   "rss",

@@ -28,6 +28,14 @@ export type Allowance = number | null;
  * → optimise → watch it move" cycles, which is the product's actual aha and
  * what converts. Step 3 of §11 replaces these with measured numbers before the
  * enforcement switch is thrown.
+ *
+ * **`resumeIntake` deliberately barely scales with the tier** (3 / 3 / 5 / 5),
+ * and it is the one row where that is right. Every other feature is a recurring
+ * workflow whose value grows with use; a resume import is a once-per-account
+ * operation, so a paid tier's larger number would be buying a capability nobody
+ * consumes. It is not zero on any plan because the two honest reasons to run it
+ * again — the wrong file, a bad extraction — both happen on the first day, and
+ * refusing the retry would strand a new user inside onboarding (doc 16).
  */
 export const PLAN_LIMITS: Record<PlanId, Record<AiFeature, Allowance>> = {
   // per calendar month
@@ -37,6 +45,7 @@ export const PLAN_LIMITS: Record<PlanId, Record<AiFeature, Allowance>> = {
     profileEnhance: 10,
     resumeTailor: 2,
     coverLetter: 5,
+    resumeIntake: 3,
   },
   // per 7-day pass
   weekly: {
@@ -45,6 +54,7 @@ export const PLAN_LIMITS: Record<PlanId, Record<AiFeature, Allowance>> = {
     profileEnhance: 25,
     resumeTailor: 20,
     coverLetter: 15,
+    resumeIntake: 3,
   },
   // per month
   monthly: {
@@ -53,6 +63,7 @@ export const PLAN_LIMITS: Record<PlanId, Record<AiFeature, Allowance>> = {
     profileEnhance: 60,
     resumeTailor: 50,
     coverLetter: 40,
+    resumeIntake: 5,
   },
   // per month
   yearly: {
@@ -61,6 +72,7 @@ export const PLAN_LIMITS: Record<PlanId, Record<AiFeature, Allowance>> = {
     profileEnhance: 120,
     resumeTailor: 100,
     coverLetter: 80,
+    resumeIntake: 5,
   },
 };
 

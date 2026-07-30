@@ -117,6 +117,20 @@ export {
 } from "./proposal";
 
 export {
+  INTAKE_SECTION_KEYS,
+  MAX_INTAKE_ITEMS,
+  buildProfileFromResume,
+  calendarDate,
+  httpUrl,
+  isEmptyImport,
+  linkLabel,
+  resumeExtractionSchema,
+  type IntakeSectionKey,
+  type ResumeExtraction,
+  type ResumeImportResult,
+} from "./intake";
+
+export {
   addDemonstratedSkills,
   demonstrationHaystack,
   findDemonstratedSkills,

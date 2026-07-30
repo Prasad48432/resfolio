@@ -4,6 +4,11 @@ import { getOrCreateProfile } from "@resfolio/profile/server";
 import { streamObject } from "ai";
 import { NextResponse } from "next/server";
 
+import {
+  authorizeAiFeature,
+  settleAiSpend,
+  tokensFrom,
+} from "@/lib/ai/billing";
 import { coverLetterSchema } from "@/lib/ai/cover-letter";
 import { parseJobRequest } from "@/lib/ai/job-analysis";
 import { MAX_OBJECT_OUTPUT_TOKENS } from "@/lib/ai/limits";
@@ -91,6 +96,14 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  // Quota last, before the model and after everything cheaper (doc 14 §6). A
+  // refusal is still a status code here, which is why it happens before the
+  // stream: `useObject` renders `{ error }` and the copy names the reset date.
+  const gate = await authorizeAiFeature(userId, "coverLetter");
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: gate.status });
+  }
+
   const draft = await getOrCreateProfile(userId);
   const profile = buildProfileContext(draft.data);
 
@@ -139,9 +152,23 @@ export async function POST(request: Request): Promise<Response> {
         },
         "ai cover letter",
       );
+
+      // **The refund case that matters most in this feature.** `object` is
+      // undefined when the final document failed to validate — the failure the
+      // client renders as a half-written letter rather than as an error — and that
+      // is a call billed in full for something the user cannot use. `error` covers
+      // the same ground from the other side.
+      const failed = error !== undefined || object === undefined;
+      void settleAiSpend(gate.reservation, {
+        outcome: failed ? "error" : "ok",
+        ...tokensFrom(usage),
+      });
     },
     onError: ({ error }) => {
       log.error({ err: error, userId, model: aiModelId() }, "ai letter failed");
+      // Idempotent on the reservation id, so an error that also reaches
+      // `onFinish` writes one row.
+      void settleAiSpend(gate.reservation, { outcome: "error" });
     },
   });
 

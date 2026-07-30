@@ -7,12 +7,14 @@
  */
 export {
   claimHandle,
+  finishOnboarding,
   getOrCreateProfile,
   getProfile,
   getProfileByHandle,
   getProfileVersionById,
   getPublishedProfile,
   isHandleAvailable,
+  isOnboardingComplete,
   publishProfile,
   saveDraft,
   setPublicResume,

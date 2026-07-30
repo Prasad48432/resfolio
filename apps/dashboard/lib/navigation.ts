@@ -1,6 +1,7 @@
 import {
   Briefcase,
   FileText,
+  Gauge,
   Globe,
   Link2,
   PenLine,
@@ -68,11 +69,23 @@ export const NAV_ITEMS: NavItem[] = [
  * an entry that pointed at `/ai` under a second name would be one destination
  * wearing two labels in the same list.
  *
- * The list is deliberately kept (empty) rather than deleted: the palette's
- * `NAV_ITEMS + extras` composition is the shape, and the next tool-with-a-URL
- * belongs here rather than in a component.
+ * **AI usage is the first real entry** (doc 14 §13), and it is exactly the case
+ * this list was kept for: a destination people go looking for by name — "how much
+ * have I used" — that does not earn a permanent row beside the Profile. Settings
+ * already has a sidebar row, and its own sub-nav is how you find this by browsing;
+ * this is how you find it by typing.
  */
-export const PALETTE_EXTRA_ITEMS: NavItem[] = [];
+export const PALETTE_EXTRA_ITEMS: NavItem[] = [
+  {
+    // `key` must equal the first URL segment (`sectionLabelFor` and the sidebar's
+    // active state both match on `/${key}`), so this correctly lights the Settings
+    // row and titles the top bar "Settings" rather than inventing a ninth section.
+    key: "settings",
+    label: "AI usage",
+    href: "/settings/ai-usage",
+    icon: Gauge,
+  },
+];
 
 /** Everything `cmd+k` can navigate to, in sidebar order with the extras last. */
 export const PALETTE_ITEMS: NavItem[] = [...NAV_ITEMS, ...PALETTE_EXTRA_ITEMS];

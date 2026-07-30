@@ -705,6 +705,67 @@ export function jobEnhancementSystemPrompt(profile: ProfileContext): string {
   ].join("\n\n");
 }
 
+/**
+ * Resume intake (doc 16, onboarding). The one workflow with **no profile in its
+ * context**, because there isn't one yet — this is the call that creates it.
+ *
+ * It is also the one workflow where the model is asked to *add* content, and the
+ * prompt's whole job is to keep that from turning into authorship. The schema
+ * does the structural half (`@resfolio/profile`'s `intake.ts` has no field for a
+ * rewritten summary or an inferred skill); this asks for the behaviour that makes
+ * the structure sufficient.
+ *
+ * `TRUTHFULNESS` still applies verbatim and is deliberately not softened for
+ * this case. "Never invent facts about the user" reads exactly right here: the
+ * document is the only source, and a resume that says "Node" must not arrive in
+ * the profile as "Node.js, Express, REST APIs".
+ */
+const INTAKE_RULES = `
+You are reading a resume the user has just uploaded, and typing it into their
+Resfolio profile for them. This is transcription, not editing.
+
+Copy what the document says. Do not improve it.
+
+- Keep the user's own wording for every bullet, summary and description. If a
+  bullet is badly written, it is still their bullet — they will edit it
+  themselves on a screen designed for that.
+- Do not merge two bullets, split one bullet into two, or reorder them. The
+  order on the page is the order they chose.
+- Do not add a skill because a bullet implies it. If the Skills section lists
+  five things, extract five things. A project built with Docker does not put
+  Docker in their skills list.
+- Keep the resume's own skill groupings and their headings. If the skills are
+  one flat list, that is one group. Never invent categories.
+- Do not add a metric, a team size, a percentage or a date the page does not
+  print.
+- Do not write a summary if the resume has none. An empty summary is correct.
+  A summary you composed from their experience is a fabrication, however
+  flattering.
+
+Fields you cannot fill are empty strings and empty arrays. Every field must be
+present. An empty string means the document did not say — it never means "work
+it out".
+
+Dates: return YYYY-MM, or YYYY when only a year is printed. An ongoing role has
+an empty end date. Never guess a month the page does not give.
+
+Sections: put each entry under the section it belongs to, not the heading the
+resume used. "Professional Experience", "Employment", "Work History" are all
+experience. Publications, papers and talks are writing. Coursework and theses
+belong to the education entry they sit under, as its highlights.
+
+Contact details go in basics: the email, the phone number, the city, and each
+link (GitHub, LinkedIn, a portfolio) with the label the page gives it.
+
+If the document is not a resume — an invoice, a cover letter, a thesis, a blank
+scan — return every field empty rather than finding a resume in it. Empty is a
+result this product handles; an invented profile is not.
+`.trim();
+
+export function resumeIntakeSystemPrompt(): string {
+  return [VOICE, TRUTHFULNESS, INTAKE_RULES].join("\n\n");
+}
+
 export function tailoringSystemPrompt(
   profile: ProfileContext,
   resumeName: string,

@@ -23,6 +23,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "@resfolio/ai": "workspace:*",
     "@resfolio/auth": "workspace:*",
+    "@resfolio/billing": "workspace:*",
     "@resfolio/blog": "workspace:^",
     "@resfolio/design": "workspace:*",
     "@resfolio/document": "workspace:*",

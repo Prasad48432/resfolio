@@ -19,11 +19,32 @@ true })`) for every instant, so times are unambiguous across
 - One schema module per concern in `src/schema/`, re-exported from
   `schema/index.ts`. Product tables land with their feature, never
   speculatively.
+- **Content tables are profile-owned; `schema/billing.ts` is the exception and
+  hangs off `user`.** A subscription is a fact about an _account_ — it survives
+  a profile being rebuilt and is resolved on requests that may not have touched
+  a profile. `profiles.user_id` is unique so the two are 1:1 either way; this
+  picks the one that is semantically true (doc 14 §5).
+- **Vocabulary columns are `text`, not pg enums** (`plan_id`, `status`,
+  `feature`, `product`, `job_match_sessions.status`). Every one of those sets
+  grows, and adding a value to a pg enum is a migration that takes a lock where
+  adding one to a validated string is a deploy. The owning domain's Zod schema
+  is the constraint.
 
 ## Migrations
 
 - Generate with `pnpm --filter @resfolio/database db:generate` after a schema
   change; **commit** the SQL + `meta/` snapshot. Apply with `db:migrate`.
+- **Data backfills may be hand-appended to a generated migration** — they are
+  data, not schema, so the `meta/` snapshot is unaffected. Write them
+  re-runnably (`ON CONFLICT DO NOTHING`, or a predicate that is its own guard);
+  `0017` seeds a free `subscriptions` row per user this way, and `0018` marks
+  every pre-existing profile `onboarding_completed` — a new boolean's `false`
+  default would otherwise redirect every existing user into a first-run flow on
+  their next visit, all at once, on deploy (doc 16).
+- **Additive-only within a deploy.** Old code serves traffic against the new
+  schema for the length of a rollout, so add a nullable column, backfill, then
+  deploy the code that reads it — drops and renames wait for a later deploy
+  once nothing reads the old shape (doc 15 §2.7).
 - CI/e2e apply migrations via `db:migrate` (e2e global-setup runs it before
   the suite); production runs it as a pre-deploy step (doc 11). Migrations
   are never applied implicitly at runtime.

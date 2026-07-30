@@ -130,12 +130,22 @@ export type AiTools = {
  * - `already-analysed` — **this conversation has already matched a job, and one
  *   chat covers one job.** Carries the title of the job it is already about, so
  *   the reply can name it rather than refusing in the abstract.
+ * - `quota-exhausted` — the plan's job-analysis allowance is spent (doc 14).
+ *   Carries the gate's own sentence, so the number and the reset date come from
+ *   `@resfolio/billing` rather than being paraphrased here.
+ *
+ * **`quota-exhausted` is a refusal the model is told about, not an exception.**
+ * A thrown error inside a tool ends the turn with nothing useful on screen; a
+ * result lets the assistant say what ran out and when it comes back, in the same
+ * breath as the request that hit it.
  */
 export interface JobMatchUnavailable {
   unavailable: true;
-  reason: "no-posting" | "already-analysed";
+  reason: "no-posting" | "already-analysed" | "quota-exhausted";
   /** Present only for `already-analysed`. */
   existingTitle?: string;
+  /** Present only for `quota-exhausted` — the gate's copy, verbatim. */
+  detail?: string;
 }
 
 export function isJobMatchUnavailable(
@@ -201,6 +211,13 @@ function describeMatchForModel(
       // sentence is the only part of this the user reads — and "I can't" without
       // a next step is the shape of an answer people argue with.
       return `This conversation already covers ${output.existingTitle ?? "a job"}, and one chat covers one job. Tell the user that in one sentence and say they can start a new chat for the other posting — the button to do it is on screen. Do not analyse the second posting.`;
+    }
+    if (output.reason === "quota-exhausted") {
+      // The gate's own sentence is passed through rather than paraphrased: it
+      // carries the number and the reset date, and a model rewording those is a
+      // model getting them wrong on the one screen where being wrong about a
+      // limit costs a support message.
+      return `The user's job-analysis allowance is spent, so no analysis was run. Tell them exactly this, in one sentence, and nothing more: "${output.detail ?? "Your job analysis allowance for this period is used up."}" Do not analyse the posting and do not offer to try again.`;
     }
     return "There is no job posting in this conversation yet. Ask the user to paste the job description (and the posting's URL if they have it). Do not analyse anything.";
   }
@@ -274,6 +291,26 @@ export interface AiToolContext {
    * drawn.
    */
   analysedJob: { id: string; title: string; jobDescription: string } | null;
+  /**
+   * Reserve the caller's `jobMatch` quota, or refuse (doc 14 §6).
+   *
+   * **A callback rather than a database call, and that is the whole point.** This
+   * module's rule is that a tool validates and returns — no writes, no I/O — and
+   * a quota counter is a write. So the route supplies a closure that owns the
+   * database access and the tool learns only yes or no. The invariant "an AI tool
+   * has no write access" survives; the check still happens *before* the analysis
+   * exists, which a post-hoc increment could not guarantee.
+   *
+   * Asked **after** the two free refusals above it: there is no reason to spend a
+   * credit on a turn that has no posting to analyse.
+   *
+   * Optional so a test can build tools without a billing stub. Absent means
+   * unmetered, which is the correct behaviour for a unit test and never the
+   * production path — the route always passes one.
+   */
+  authorizeJobMatch?: () => Promise<
+    { allowed: true } | { allowed: false; message: string }
+  >;
 }
 
 export function createAiTools(
@@ -304,7 +341,9 @@ export function createAiTools(
       // refusal branches narrows `reason` to one literal each, and the union of
       // those is not the `JobMatchUnavailable` the tool declares — so the whole
       // tool stops matching `AiTools`.
-      execute: ({ ...input }): JobMatchReview | JobMatchUnavailable => {
+      execute: async ({
+        ...input
+      }): Promise<JobMatchReview | JobMatchUnavailable> => {
         if (context.jobDescription === null) {
           return { unavailable: true, reason: "no-posting" };
         }
@@ -322,6 +361,20 @@ export function createAiTools(
             unavailable: true,
             reason: "already-analysed",
             existingTitle: existing.title,
+          };
+        }
+
+        // Last, after the two free refusals: nothing above this point costs
+        // anything, and spending a credit to discover there is no posting would
+        // be charging for the model's mistake. **A re-check is charged**, because
+        // it is a second full analysis of a profile that has changed — that is
+        // the "74% → 86%" pass, and it costs exactly what the first one did.
+        const verdict = await context.authorizeJobMatch?.();
+        if (verdict && !verdict.allowed) {
+          return {
+            unavailable: true,
+            reason: "quota-exhausted",
+            detail: verdict.message,
           };
         }
 

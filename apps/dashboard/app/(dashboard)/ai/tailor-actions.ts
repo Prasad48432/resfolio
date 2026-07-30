@@ -1,5 +1,6 @@
 "use server";
 
+import type { AiFeature } from "@resfolio/billing";
 import { getDocument, updateDocument } from "@resfolio/document/server";
 import { createLogger } from "@resfolio/observability";
 import {
@@ -21,6 +22,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ActionError, createAction } from "@/lib/actions";
+import {
+  authorizeAiFeature,
+  settleAiSpend,
+  tokensFrom,
+  type AiReservation,
+} from "@/lib/ai/billing";
 import { parseJobRequest } from "@/lib/ai/job-analysis";
 import { MAX_TAILOR_OUTPUT_TOKENS } from "@/lib/ai/limits";
 import { buildProfileContext } from "@/lib/ai/profile-context";
@@ -84,7 +91,11 @@ const log = createLogger("dashboard:ai-tailor");
  * where they use a status code. Session resolution already happened above this
  * (`createAction` does it before the handler runs), which is the first rung.
  */
-async function requireAiBudget(userId: string, mode: AiMode): Promise<void> {
+async function requireAiBudget(
+  userId: string,
+  mode: AiMode,
+  feature: AiFeature,
+): Promise<AiReservation> {
   if (!isAiEnabled()) {
     throw new ActionError("Resfolio AI is currently switched off.");
   }
@@ -97,6 +108,16 @@ async function requireAiBudget(userId: string, mode: AiMode): Promise<void> {
       "You've tailored a lot of resumes recently. Try again in a few minutes.",
     );
   }
+  // Quota last — the only rung that costs a database round trip (doc 14 §6).
+  // `mode` and `feature` are separate parameters because they are separate
+  // budgets: the limiter answers "too fast", the quota answers "too much", and
+  // several modes deliberately share a rate window while keeping their own
+  // allowance.
+  const gate = await authorizeAiFeature(userId, feature);
+  if (!gate.ok) {
+    throw new ActionError(gate.message);
+  }
+  return gate.reservation;
 }
 
 export interface TailorResult {
@@ -126,7 +147,11 @@ export const tailorResumeAction = createAction({
     { documentId, jobDescription },
     ctx,
   ): Promise<TailorResult> => {
-    await requireAiBudget(ctx.userId, "tailor");
+    const reservation = await requireAiBudget(
+      ctx.userId,
+      "tailor",
+      "resumeTailor",
+    );
 
     const parsed = parseJobRequest({ jobDescription });
     if (!parsed.ok) {
@@ -140,6 +165,10 @@ export const tailorResumeAction = createAction({
     const context = buildProfileContext(draft.data);
 
     if (context.isStarter) {
+      // Refunded — nothing reached a model. Same reasoning as the enhancement
+      // action: reserving before the profile read is right, so the refund is what
+      // pays for the ordering.
+      await settleAiSpend(reservation, { outcome: "error" });
       throw new ActionError(
         "Your profile is still the starter template — there's nothing to tailor yet.",
       );
@@ -182,6 +211,11 @@ export const tailorResumeAction = createAction({
         },
         "ai resume tailoring",
       );
+
+      await settleAiSpend(reservation, {
+        outcome: "ok",
+        ...tokensFrom(result.usage),
+      });
     } catch (error) {
       // Everything from here is a provider failure: an unfunded key, a timeout,
       // or output that didn't satisfy the schema. None of them are the user's
@@ -192,6 +226,9 @@ export const tailorResumeAction = createAction({
         { err: error, userId: ctx.userId, model: aiModelId(), documentId },
         "ai tailoring failed",
       );
+      // `generateObject` has no partial output: a schema failure or a timeout is
+      // a call billed in full for nothing the user can use.
+      await settleAiSpend(reservation, { outcome: "error" });
       throw new ActionError(
         "That tailoring pass didn't go through. Try again — nothing was changed.",
       );

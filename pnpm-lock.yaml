@@ -50,6 +50,9 @@ importers:
       '@resfolio/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@resfolio/billing':
+        specifier: workspace:*
+        version: link:../../domains/billing
       '@resfolio/blog':
         specifier: workspace:^
         version: link:../../domains/blog
@@ -405,6 +408,15 @@ importers:
 
   domains/billing:
     dependencies:
+      '@resfolio/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@resfolio/env':
+        specifier: workspace:*
+        version: link:../../packages/env
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@prisma/client@5.22.0)(@types/pg@8.20.0)(@upstash/redis@1.38.0)(better-sqlite3@12.11.1)(kysely@0.29.3)(pg@8.22.0)
       zod:
         specifier: ^4.1.0
         version: 4.4.3

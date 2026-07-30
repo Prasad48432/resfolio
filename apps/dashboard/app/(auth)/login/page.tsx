@@ -3,6 +3,7 @@ import {
   getOptionalSession,
   getSignInProviders,
 } from "@resfolio/auth";
+import { isOnboardingComplete } from "@resfolio/profile/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -24,9 +25,19 @@ export default async function LoginPage({
   // Signed-in users skip the login screen. A *real* session check — the
   // proxy deliberately never redirects away from /login on cookie presence
   // alone (see proxy.ts: stale cookies must land here, not loop).
+  //
+  // **A new account goes to onboarding, not to the profile** (doc 16). Checked
+  // here as well as in the `(dashboard)` layout, though the layout would catch it
+  // a moment later: this is the OAuth callback's landing point, so resolving it
+  // now costs one query and saves a brand-new user a visible redirect through a
+  // dashboard shell they are about to be bounced out of.
   const session = await getOptionalSession();
   if (session) {
-    redirect("/profile");
+    redirect(
+      (await isOnboardingComplete(session.user.id))
+        ? "/profile"
+        : "/onboarding",
+    );
   }
 
   const { error } = await searchParams;

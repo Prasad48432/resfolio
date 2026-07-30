@@ -4,6 +4,7 @@ import { Redis } from "@upstash/redis";
 import { env } from "@/lib/env";
 
 import {
+  INTAKE_RATE_LIMIT_REQUESTS,
   JOB_RATE_LIMIT_REQUESTS,
   LETTER_RATE_LIMIT_REQUESTS,
   RATE_LIMIT_REQUESTS,
@@ -47,12 +48,18 @@ import {
  * screen, and a user who analysed a posting has not thereby spent their ability
  * to tailor a resume for it. `letter` is tighter than both, because it is the one
  * output people reroll rather than accept (`limits.ts`).
+ *
+ * **`intake` is the tightest, and the only one that runs before a user has done
+ * anything.** Résumé upload is onboarding's first screen, so it is reachable by a
+ * brand-new account with an empty profile — and it is the most expensive single
+ * call in the product (a whole document in, a whole profile out). Three.
  */
 const MODE_BUDGETS = {
   chat: RATE_LIMIT_REQUESTS,
   job: JOB_RATE_LIMIT_REQUESTS,
   tailor: TAILOR_RATE_LIMIT_REQUESTS,
   letter: LETTER_RATE_LIMIT_REQUESTS,
+  intake: INTAKE_RATE_LIMIT_REQUESTS,
 } as const;
 
 export type AiMode = keyof typeof MODE_BUDGETS;

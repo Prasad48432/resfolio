@@ -76,6 +76,46 @@ the first `domains/*` package and sets the pattern every future domain
   `applyProfileChanges` **re-runs the guard** rather than trusting its caller —
   `updateItem` alone would accept a grown `skills` array, because that is valid
   _data_; it is only invalid relative to what was there.
+- **`intake.ts` is résumé import, and it is the one place a model may _add_
+  profile content** (doc 16). It sits beside `proposal.ts` for the same reason —
+  nothing in it is model-facing; it declares a shape, sanitises values and builds
+  a `Profile` through this package's own schemas, so its 32 tests need no model.
+  - **Not `@resfolio/integrations`, and the reason is structural.** Doc 12's rule
+    is that a connector may never propose the user's identity — no candidate kind
+    carries `name`/`summary`/`location`, and `basics` is not a route target. A
+    résumé _is_ the identity: the name, summary and contact block are most of the
+    value. Modelling this as a connector would have required breaking a rule that
+    is enforced by absent fields precisely so it cannot be broken by accident.
+  - **The invariant that replaces `proposal.ts`' "no add" is "nothing the
+    document did not contain",** and it rests on five properties, none of them a
+    prompt: the schema has **no field for authorship** (no rewritten summary, no
+    inferred skill); every item **re-parses through the section's own schema**; a
+    bad item is **dropped, never repaired**, and fragile _fields_ normalise to
+    absent so one unreadable date cannot cost a five-role résumé four roles;
+    `counts` are **derived from the built Profile**, never from the extraction, so
+    a summary screen cannot promise a role the schema refused; and every item
+    carries **`source: "resume"`** — a real `ItemSource`, not `manual`, because
+    nobody typed it.
+  - **`calendarDate` never invents a component it was not given.** It recovers
+    "Jan 2020" and "03/2020"; a bare year stays a bare year, and anything
+    unreadable becomes absent rather than approximate. A wrong date on a résumé is
+    a worse failure than a missing one, because the user will not notice it.
+  - **A bulleted summary is converted to sentences, not dropped.** Résumé
+    summaries are very often three bullets and `inlineRichTextSchema` forbids
+    lists in `basics.summary`, so the alternative is silently losing the paragraph
+    every output surface leads with.
+  - **The model-facing schema has no `.optional()` and no union** — the two rules
+    `tailor.ts` and `proposal.ts` document, for the same two reasons (strict
+    structured output requires every property; Zod's `oneOf` is a 400 before
+    generation). `intake.test.ts` asserts both.
+- **`isOnboardingComplete` must never write** (`server/repository.ts`, doc 16). It
+  runs in the `(dashboard)` layout on every navigation; a gate that seeded a
+  profile as a side effect of asking a question would create a row for a user it
+  is about to redirect elsewhere. **An absent row reads as "not onboarded"** — the
+  truest available answer, since the row is created on first access.
+  `finishOnboarding` is one upsert behind both exits and bumps `draftRev` on the
+  import path, so an editor tab left open on the seed cannot autosave over an
+  import it never saw.
 - **`skills.ts` is the one place a set-valued field may grow, and the reason is
   _who is asking_.** `proposal.ts`' rule stays absolute for a `ProfileChange`,
   because a model proposes those. Here the user ticks a box beside their own

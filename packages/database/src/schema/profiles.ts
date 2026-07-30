@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -51,6 +52,27 @@ export const profile = pgTable("profiles", {
   // Nullable + no inline FK: the target row is created in the same publish
   // transaction, and a self-referential inline FK complicates that ordering.
   publishedVersionId: uuid("published_version_id"),
+  /**
+   * Whether the user has been through first-run onboarding
+   * (docs/architecture/16-onboarding.md). False until they either import a
+   * resume or skip; the `(dashboard)` layout redirects to `/onboarding` while it
+   * is false.
+   *
+   * **It lives here rather than on `user`, and the reason is the cookie cache.**
+   * A Better Auth `additionalFields` column would ride in the session's
+   * ~5-minute signed cookie cache, so "I finished onboarding" would be invisible
+   * to the gate for up to five minutes and the user would be bounced straight
+   * back into the flow they just completed. `schema/auth.ts` is also generated
+   * and may not be hand-edited. Onboarding is about profile *content* anyway —
+   * this is the row it pre-fills — and `profiles.user_id` is unique, so the two
+   * homes are 1:1 either way.
+   *
+   * Migration `0018` backfills existing rows to `true`: every profile that
+   * predates onboarding belongs to someone who has already set themselves up,
+   * and sending an established user through a first-run flow is a worse failure
+   * than skipping it for a new one.
+   */
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
