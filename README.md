@@ -4,6 +4,9 @@ Resfolio is a **Career OS**: users maintain one professional profile that
 powers resumes, portfolios, public websites, PDFs, and future career assets.
 One Profile → Many Outputs — everything stays synchronized.
 
+[<img width="1133" height="598" alt="image" src="https://github.com/user-attachments/assets/4720ffca-058f-4d7f-bdb9-b30af1bb3111" />](https://www.loom.com/share/ba7b6c1dbe8c41929a305ab6b67e6b20)
+
+
 <img width="1360" height="745" alt="resfolio-cover" src="https://github.com/user-attachments/assets/8fb04e98-a0c1-417e-abbf-9e4d7eb19645" />
 
 
